@@ -1,0 +1,12 @@
+
+# Local configuration
+config.json
+
+# Debug files
+debug*.ipynb
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
