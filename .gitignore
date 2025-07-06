@@ -4,6 +4,7 @@ config.json
 
 # Debug files
 debug*.ipynb
+debug*.py
 
 # Python artifacts
 __pycache__/
