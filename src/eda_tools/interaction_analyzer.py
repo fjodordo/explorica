@@ -22,33 +22,57 @@ class InteractionAnalyzer:
     def __init__(self):
         pass
 
-    def corr_matrix(self, dataset: pd.DataFrame, method: str = "pearson") -> pd.DataFrame:
+    def corr_matrix(self,
+                    dataset: pd.DataFrame,
+                    groups: pd.DataFrame = None,
+                    method: str = "pearson"
+                    ) -> pd.DataFrame:
         """
         Compute a correlation matrix using the specified method.
 
         Parameters
         ----------
         dataset : pd.DataFrame
-            DataFrame with numeric or categorical variables.
+            DataFrame with numeric or categorical features.
+            For 'pearson' and 'spearman', all columns must be numeric.
+            For 'cramer_v', columns should be categorical.
+            For 'eta', columns should be numeric.
+        
+        groups : pd.DataFrame, optional
+            DataFrame with categorical grouping variables used in the 'eta' method.
+            Must have the same number of rows as `dataset`.
+
         method : str, optional
-            Correlation method to use:
-            - 'pearson': standard correlation for continuous features
-            - 'spearman': rank-based correlation (non-parametric)
-            - 'cramer_v': for categorical features (based on chi-squared statistic)
+            Method used to compute correlation or association:
+            - 'pearson' : Pearson correlation (linear, continuous features).
+            - 'spearman' : Spearman rank correlation (monotonic, non-parametric).
+            - 'cramer_v' : Cramér's V for categorical associations.
+            - 'eta' : Eta coefficient (numeric vs. categorical, asymmetric).
 
         Returns
         -------
         pd.DataFrame
-            A symmetric matrix of pairwise correlation values.
+            - For 'pearson', 'spearman', and 'cramer_v': 
+              symmetric correlation matrix of shape (n_features, n_features).
+            - For 'eta': asymmetric matrix of shape (n_numeric_features, n_grouping_features),
+              showing strength of association between numeric and categorical variables.
 
         Raises
         ------
         ValueError
             If the specified method is not supported.
+            If `groups` is required (for 'eta') but not provided or mismatched in length.
         """
-        supported_methods = {"pearson", "spearman", "cramer_v"}
+        supported_methods = {"pearson", "spearman", "cramer_v", "eta"}
         if method not in supported_methods:
             raise ValueError(f"Unsupported method '{method}'. Choose from: {supported_methods}")
+
+        if groups is None and method == "eta":
+            raise ValueError("c'groups' must be provided when using 'eta' method.")
+
+        if groups is not None and groups.shape[0] != dataset.shape[0]:
+            raise ValueError(f"Length of 'groups' ({groups.shape[0]}) "
+                             f"must match length of 'dataset' ({dataset.shape[0]}).")
 
         if method in {"pearson", "spearman"}:
             return dataset.corr(method=method)
@@ -64,6 +88,22 @@ class InteractionAnalyzer:
                     v = self.cramer_v(dataset[col1], dataset[col2])
                     matrix.iloc[i, j] = v
                     matrix.iloc[j, i] = v  # ensure symmetry
+
+        if method == "eta":
+            category_names = groups.columns
+            numeric_names = dataset.columns
+
+            matrix = pd.DataFrame(
+                data=np.zeros((dataset.shape[1], groups.shape[1])),
+                index=numeric_names,
+                columns=category_names
+            )
+            for i in range(dataset.shape[1]):
+                for j in range(groups.shape[1]):
+                    eta = np.sqrt(self.eta_squared(dataset[numeric_names[i]],
+                                                   groups[category_names[j]]))
+                    matrix.iloc[i, j] = eta
+
         return matrix
 
     def high_corr_pairs(self, dataset: pd.DataFrame, method: str = 'pearson',
@@ -145,3 +185,43 @@ class InteractionAnalyzer:
             return np.sqrt((chi2 / n - correction) / min_dim)
         else:
             return np.sqrt(chi2 / (n * min(k - 1, r - 1)))
+
+    def eta_squared(self, values: pd.Series, category: pd.Series) -> float:
+        """
+        Calculate the eta-squared (η²) statistic for categorical and numeric variables.
+
+        η² (eta squared) is a measure of effect size used to quantify the proportion of variance 
+        in a numerical variable that can be attributed to differences between categories 
+        of a categorical variable.
+
+        Parameters
+        ----------
+        values : pd.Series
+            A numerical pandas Series representing the dependent (response) variable.
+        category : pd.Series
+            A categorical pandas Series representing the independent (grouping) variable.
+
+        Returns
+        -------
+        float
+            Eta-squared statistic in the range [0, 1], where:
+            - 0 means no association between variables,
+            - 1 means perfect association (all variance explained by groups).
+
+        Notes
+        -----
+        If the total variance of `values` is zero, the function returns 0. 
+        NaN values should be handled before calling this function.
+        """
+        df = pd.DataFrame({"category": category, "values": values})
+        mean_by_group = df.groupby("category")["values"].mean()
+        mean = df["values"].mean()
+        n_by_group = df.groupby("category")["values"].count()
+        n = df["values"].size
+
+        bg_disperison = np.sum(((mean_by_group - mean)**2) * n_by_group) / n
+        dispersion = ((df["values"] - mean)**2).sum()/n
+
+        # zero dispersion in this case indicates a zero coefficient of determination
+        eta_sq = bg_disperison/dispersion if dispersion != 0 else 0
+        return eta_sq
