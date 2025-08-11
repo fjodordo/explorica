@@ -1,50 +1,60 @@
-# 📊 EDA General Scheme (Exploratory Data Analysis)
+# 📊 explorica — A Flexible Framework for Exploratory Data Analysis
 
-**A flexible framework for exploratory data analysis**, designed to be adaptable to various data types and subject areas.  
-This project serves as a reusable EDA "skeleton" that will grow and evolve as my technical skills improve.
+ **Current version:** 0.0.1 (pre-release)  
 
----
-
-## 🎯 Purpose
-
-The main goal of this project is to build a general-purpose toolkit for:
-
-- Quick **data inspection, cleaning**, and **preprocessing**;
-- Automating **visualization** and **statistical analysis**;
-- Discovering patterns and generating hypotheses across different datasets.
-
-It is both a learning platform and a base for production-quality EDA workflows.
+**explorica** is a modular and extensible Python framework for **exploratory data analysis (EDA)**.  
+It provides ready-to-use components for **data preprocessing, feature engineering, statistical analysis, and visualization**, allowing analysts and data scientists to focus on insights instead of boilerplate code.
 
 ---
 
-## ⚙️ Project Structure
+## Roadmap
 
-EDA-general-scheme/
-
-├── notebooks/ # Interactive Jupyter notebooks (examples and demos)
-
-├── src/ # Source code: reusable functions and classes
-
-├── requirements.txt # Project dependencies
-
-├── .gitignore # Files and folders excluded from version control
-
-└── README.md
+- [ ] Integrate Continuous Integration (CI) for automated testing and linting
+- [ ] Implement comprehensive unit and integration tests
+- [ ] Create DataQualityHandler module combining preprocessing, outlier handling, and feature engineering
+- [ ] Prepare demonstration notebooks for release branch
 
 ---
 
-## 🛠️ Components
+## 📂 Project Structure
 
-- 🧱 Modular tools: planned to be implemented as Python classes (OOP), such as:
-  - `DataQualityChecker`
-  - `OutlierHandler`
-  - `CorrelationAnalyzer`
-  - `DataVisualizer`
-- 🧪 Notebook-based experiments and narrative analysis
+```
+explorica/
+├── src/
+│ └── explorica/
+│ │ ├── __init__.py
+│ │ ├── data_preprocessor.py
+│ │ ├── feature_engineer.py
+│ │ ├── interaction_analyzer.py
+│ │ ├── outlier_handler.py
+│ │ └── visualizer.py
+│ │
+├── .gitignore
+├── CHANGELOG.md
+├── LICENSE.md
+├── pyproject.toml
+├── README.md
+└── requirements.txt
+```
 
 ---
 
-## 🚧 Work in Progress
+## 🛠 Components
+
+### Core Classes
+- **`DataPreprocessor`** — handling missing values, type casting, basic transformations
+- **`FeatureEngineer`** — creating, encoding, and transforming features
+- **`InteractionAnalyzer`** — detecting and quantifying relationships between variables
+- **`OutlierHandler`** — identifying and processing outliers
+- **`DataVisualizer`** — generating ready-to-use plots for numeric and categorical data
+
+### Design Principles
+- **Modularity** — each component is independent and reusable
+- **Extensibility** — easy to add custom logic without changing the core
+- **Data-Agnostic** — works across domains, not tied to a specific dataset type
+
+
+## 🚧 Development Status
 
 This project is under active development and will grow iteratively.  
 It’s part of my journey toward building better data understanding, research tools, and ML-ready pipelines.
@@ -53,4 +63,11 @@ It’s part of my journey toward building better data understanding, research to
 
 ## 💬 Language
 
-While this README and codebase are in English, some notebooks or comments may contain notes in Russian — these will gradually be translated or annotated as the project matures.
+The main documentation and code are in English.  
+Some commit messages and development notes may include Russian — these will be translated as the project approaches a stable release.
+
+---
+
+## 📜 License
+
+MIT License — see [LICENSE.md](LICENSE.md) for details.

@@ -1,13 +1,24 @@
-
 # Local configuration
 config.json
 
 # Debug files
 debug*.ipynb
 debug*.py
+test*.py
+test_corr_multiple.py
+notebooks/
 
 # Python artifacts
-__pycache__/
+__pycache__
+pycache/
 *.pyc
 *.pyo
 *.pyd
+
+# IDE / Editor
+.vscode
+.pytest_cache
+
+# Sphinx build artifacts
+docs/build/
+docs/_build/
