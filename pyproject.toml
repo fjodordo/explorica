@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "explorica"
+version = "0.0.1"
+description = "A Python framework for streamlined Exploratory Data Analysis (EDA)."
+authors = [
+    { name="fjodordo", email="fjodor.doronin@gmail.com" }
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+dependencies = [
+    "pandas",
+    "numpy",
+    "matplotlib",
+    "seaborn",
+    "plotly",
+    "scipy"
+]
+keywords = ["eda", "data-analysis", "statistics", "visualization", "data-science"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version = "0.0.1"
+version_scheme = "semver"
+version_files = [
+    "pyproject.toml:version",
+    "pyproject.toml:project.version",
+    "pyproject.toml:tool.commitizen.version"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+explorica = ["*.csv", "*.json", "*.yml"]
+
+[project.urls]
+"Homepage" = "https://github.com/fjodordo/explorica"
+"Bug Tracker" = "https://github.com/fjodordo/explorica/issues"
+"Documentation" = "https://github.com/fjodordo/explorica/wiki"
+"Source Code" = "https://github.com/fjodordo/explorica"

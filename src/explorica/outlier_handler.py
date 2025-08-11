@@ -14,7 +14,7 @@ from numbers import Number
 import pandas as pd
 import numpy as np
 from scipy.stats import zscore
-from eda_tools.visualizer import DataVisualizer
+from explorica import DataVisualizer
 
 class OutlierHandler:
     """
