@@ -15,7 +15,7 @@ from .feature_engineer import FeatureEngineer
 from .outlier_handler import OutlierHandler
 from .interaction_analyzer import InteractionAnalyzer
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 __all__ = ["DataPreprocessor",
            "FeatureEngineer",

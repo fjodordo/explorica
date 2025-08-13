@@ -21,14 +21,22 @@ It provides ready-to-use components for **data preprocessing, feature engineerin
 ```
 explorica/
 ├── src/
-│ └── explorica/
+│ ├── explorica/
 │ │ ├── __init__.py
 │ │ ├── data_preprocessor.py
 │ │ ├── feature_engineer.py
 │ │ ├── interaction_analyzer.py
 │ │ ├── outlier_handler.py
 │ │ └── visualizer.py
-│ │
+| ├── tests/
+│ │ └── __init__.py
+| ├── docs/
+| | ├── source/
+| | | ├── conf.py
+| | | ├── index.rst
+| | | └── ...
+| | ├── make.bat
+| | └── Makefile
 ├── .gitignore
 ├── CHANGELOG.md
 ├── LICENSE.md

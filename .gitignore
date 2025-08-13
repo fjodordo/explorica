@@ -4,8 +4,6 @@ config.json
 # Debug files
 debug*.ipynb
 debug*.py
-test*.py
-test_corr_multiple.py
 notebooks/
 
 # Python artifacts
@@ -18,6 +16,7 @@ pycache/
 # IDE / Editor
 .vscode
 .pytest_cache
+.coverage
 
 # Sphinx build artifacts
 docs/build/
