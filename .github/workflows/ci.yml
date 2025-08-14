@@ -26,7 +26,18 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest
+        pip install pytest pylint flake8 black isort
+
+    - name: Run linters
+      run: |
+        echo "Running Pylint..."
+        pylint src/explorica
+        echo "Running Flake8..."
+        flake8 src/explorica --max-line-length=88
+        echo "Checking code format with Black..."
+        black --check src/explorica
+        echo "Checking imports with isort..."
+        isort --check-only src/explorica
 
     - name: Run tests
       run: pytest --maxfail=1 --disable-warnings -q
