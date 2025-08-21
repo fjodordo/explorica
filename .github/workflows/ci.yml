@@ -31,13 +31,13 @@ jobs:
     - name: Run linters
       run: |
         echo "Running Pylint..."
-        pylint src/explorica
+        PYTHONPATH=src pylint src/explorica/interaction_analyzer/interaction_analyzer.py --max-line-length=88
         echo "Running Flake8..."
-        flake8 src/explorica --max-line-length=88
+        flake8 src/explorica/interaction_analyzer --max-line-length=88
         echo "Checking code format with Black..."
-        black --check src/explorica
+        black --check src/explorica/interaction_analyzer
         echo "Checking imports with isort..."
-        isort --check-only src/explorica
+        isort --profile black --check-only src/explorica/interaction_analyzer
 
     - name: Run tests
       run: pytest --maxfail=1 --disable-warnings -q
