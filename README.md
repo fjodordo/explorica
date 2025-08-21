@@ -1,6 +1,6 @@
 # 📊 explorica — A Flexible Framework for Exploratory Data Analysis
 
- **Current version:** 0.0.1 (pre-release)  
+ **Current version:** 0.0.4 (pre-release)  
 
 **explorica** is a modular and extensible Python framework for **exploratory data analysis (EDA)**.  
 It provides ready-to-use components for **data preprocessing, feature engineering, statistical analysis, and visualization**, allowing analysts and data scientists to focus on insights instead of boilerplate code.
@@ -22,25 +22,37 @@ It provides ready-to-use components for **data preprocessing, feature engineerin
 explorica/
 ├── src/
 │ ├── explorica/
+│ │ ├── config/
+│ │ │ └── messages.json
 │ │ ├── __init__.py
+│ │ ├── _utils.py
 │ │ ├── data_preprocessor.py
 │ │ ├── feature_engineer.py
-│ │ ├── interaction_analyzer.py
+│ │ ├── interaction_analyzer/
+│ │ │ ├── __init__.py
+│ │ │ ├── aggregators.py
+│ │ │ ├── correlation_metrics.py
+│ │ │ └── interaction_analyzer.py
 │ │ ├── outlier_handler.py
 │ │ └── visualizer.py
-| ├── tests/
-│ │ └── __init__.py
-| ├── docs/
-| | ├── source/
-| | | ├── conf.py
-| | | ├── index.rst
-| | | └── ...
-| | ├── make.bat
-| | └── Makefile
+├── tests/
+│ ├── unit/
+│ │ └── test_interaction_analyzer.py
+│ └── __init__.py
+├── docs/
+| ├── source/
+| | ├── conf.py
+| | ├── index.rst
+| | └── ...
+| ├── make.bat
+| └── Makefile
+├── .github/workflows/
+| └── ci.yml
 ├── .gitignore
 ├── CHANGELOG.md
 ├── LICENSE.md
 ├── pyproject.toml
+├── pytest.ini
 ├── README.md
 └── requirements.txt
 ```

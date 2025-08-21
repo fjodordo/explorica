@@ -13,9 +13,9 @@ from .visualizer import DataVisualizer
 from .data_preprocessor import DataPreprocessor
 from .feature_engineer import FeatureEngineer
 from .outlier_handler import OutlierHandler
-from .interaction_analyzer import InteractionAnalyzer
+from .interaction_analyzer.interaction_analyzer import InteractionAnalyzer
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 
 __all__ = ["DataPreprocessor",
            "FeatureEngineer",
