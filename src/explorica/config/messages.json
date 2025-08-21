@@ -1,0 +1,25 @@
+{
+    "errors":
+    {
+        "usupported_method_f": "Unsupported method '{}'. Choose from: {}",
+        "usupported_method": "Unsupported method choosed.",
+        "InteractionAnalyzer":
+        {
+            "high_corr_pairs":
+            {
+                "features_do_not_exists": "At least one of the feature DataFrames ('numeric_features' or 'category_features') must be provided.",
+                "features_lens_mismatch_f":"Length of 'numeric_features' ({}) must match length of 'category_features'({})."
+            }
+        },
+        "arrays_lens_mismatch_f": "Length of '{}' must match length of '{}'",
+        "array_contains_nans_f": "The input '{}' contains null values. Please clean or impute missing data.",
+        "array_contains_nans": "The input sequence contains null values. Please clean or impute missing data.",
+        "duplicate_column_names_f": "Duplicate column names found in '{}' DataFrame"
+        
+    }
+    ,
+    "warns":
+    {
+        "multicollinearity": "Matrix of predictors is linearly dependent (multicollinearity detected). Interpret results with caution."
+    }
+}
