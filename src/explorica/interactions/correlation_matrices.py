@@ -23,10 +23,10 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
-from explorica.interaction_analyzer.correlation_metrics import CorrelationMetrics as cm
 from explorica._utils import ConvertUtils as cutils
 from explorica._utils import ValidationUtils as vutils
 from explorica._utils import read_messages
+from explorica.interactions.correlation_metrics import CorrelationMetrics as cm
 
 
 class CorrelationMatrices:
@@ -280,7 +280,7 @@ class CorrelationMatrices:
             df, CorrelationMatrices._errors["array_contains_nans"]
         )
         numeric_features = df.select_dtypes("number")
-        matrix = numeric_features.corr(method=method)
+        matrix = numeric_features.corr(method=method).fillna(0.0)
         return matrix
 
     @staticmethod
@@ -480,7 +480,6 @@ class CorrelationMatrices:
                     feature_combinations.append(combination)
                     if not warned_once:
                         for w in caught:
-                            print("yep")
                             if CorrelationMatrices._warns["multicollinearity"] == str(
                                 w.message
                             ):

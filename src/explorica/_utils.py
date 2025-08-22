@@ -41,6 +41,7 @@ import json
 import pathlib
 from functools import lru_cache
 from typing import Iterable, Mapping, Sequence
+from collections import deque
 
 import numpy as np
 import pandas as pd
@@ -439,7 +440,7 @@ class ConvertUtils:
         Parameters
         ----------
         dataset : Sequence[Sequence] or Mapping or pandas.DataFrame
-            The dataset to convert. Can be a pandas DataFrame, a mapping (such
+            The dataset to convertзн. Can be a pandas DataFrame, a mapping (such
             as a dictionary), a nested list, a NumPy array, or any sequence of
             sequences.
 
@@ -453,6 +454,8 @@ class ConvertUtils:
             result = dataset
         elif isinstance(dataset, Mapping):
             result = pd.DataFrame(dataset)
+        elif isinstance(dataset, deque):
+            result = pd.DataFrame(list(dataset))
         elif len(np.array(dataset).shape) == 1:
             result = pd.DataFrame(dataset)
         else:
