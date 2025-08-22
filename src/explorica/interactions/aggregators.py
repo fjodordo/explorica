@@ -21,16 +21,17 @@ and are not intended for direct use:
 - _high_corr_pairs_extract_by_multiple
 """
 
+import warnings
 from numbers import Number
 from typing import Sequence
 
 import numpy as np
 import pandas as pd
 
-from explorica.interaction_analyzer.correlation_matrices import CorrelationMatrices
 from explorica._utils import ConvertUtils as cutils
 from explorica._utils import ValidationUtils as vutils
 from explorica._utils import read_messages
+from explorica.interactions.correlation_matrices import CorrelationMatrices
 
 _errors = read_messages()["errors"]
 
@@ -104,15 +105,23 @@ def high_corr_pairs(
                 numeric_df,
                 err_msg=_errors["array_contains_nans_f"].format("numeric_features"),
             )
+            vutils.validate_unique_column_names(
+                numeric_df,
+                _errors["duplicate_column_names_f"].format("numeric_features"),
+            )
         if category_features is not None:
             vutils.validate_array_not_contains_nan(
                 category_df,
                 err_msg=_errors["array_contains_nans_f"].format("category_features"),
             )
+            vutils.validate_unique_column_names(
+                category_df,
+                _errors["duplicate_column_names_f"].format("category_features"),
+            )
 
         # checking at least 1 not None DataFrame
         vutils.validate_at_least_one_exist(
-            {numeric_df, category_df},
+            (numeric_df, category_df),
             _errors["InteractionAnalyzer"]["high_corr_pairs"]["features_do_not_exists"],
         )
 
@@ -126,22 +135,23 @@ def high_corr_pairs(
                 ].format(numeric_df.shape[0], category_df.shape[0]),
                 n_dim=2,
             )
-
-        for name, df in (
-            ("numeric_features", numeric_df),
-            ("category_features", category_df),
-        ):
-            vutils.validate_unique_column_names(
-                df, _errors["duplicate_column_names_f"].format(name)
+        if kwargs.get("multiple_included") and len(numeric_cols) > 15:
+            warnings.warn(
+                "Multifactor correlation with more than 15 features "
+                "may be extremely slow (O(n^3)). Consider reducing feature set.",
+                UserWarning,
             )
 
         # checking if 'y' feature is present in at least one input DataFrame
         supported_names = set(numeric_cols) | set(category_cols)
-        vutils.validate_string_flag(
-            y,
-            supported_names,
-            err_msg=_errors["usupported_method_f"].format(y, supported_names),
-        )
+        if y is not None:
+            vutils.validate_string_flag(
+                y,
+                supported_names,
+                err_msg=_errors["InteractionAnalyzer"]["high_corr_pairs"][
+                    "y_do_not_exists_f"
+                ].format(y),
+            )
 
     def get_columns(df):
         return list(df.columns) if df is not None else []

@@ -27,7 +27,7 @@ from typing import Callable, Optional, Sequence
 
 import numpy as np
 import pandas as pd
-from scipy.optimize import curve_fit
+from scipy.optimize import OptimizeWarning, curve_fit
 from scipy.stats import chi2_contingency
 
 from explorica._utils import ConvertUtils as cutils
@@ -71,6 +71,7 @@ class CorrelationMetrics:
     """
 
     _warns = read_messages()["warns"]
+    _errors = read_messages()["errors"]
 
     @staticmethod
     def cramer_v(
@@ -107,7 +108,39 @@ class CorrelationMetrics:
         ValueError
             If 'x' or 'y' contains NaN values.
             If input sequences lengths mismatch
+
+        Notes
+        -----
+        The statistic is based on the chi-square test of independence:
+
+        .. math::
+
+            \\phi^2 = \\frac{\\chi^2}{n}
+
+        where :math:`n` is the sample size.
+
+        Without bias correction:
+
+        .. math::
+
+            V = \\sqrt{ \\frac{\\phi^2}{\\min(r - 1, k - 1)} }
+
+        where :math:`r` is the number of rows and :math:`k` is the number of columns
+        in the contingency table.
+
+        With bias correction (Bergsma, 2013):
+
+        .. math::
+
+            \\phi^2_{\\text{corr}} =
+            \\max\\left( 0, \\phi^2 - \\frac{(r-1)(k-1)}{n-1} \\right)
+
+            V = \\sqrt{ \\frac{\\phi^2_{\\text{corr}}}{\\min(r - 1, k - 1)} }
+
+        If ``yates_correction=True``, Yates' continuity correction is applied when
+        computing :math:`\\chi^2` (only affects :math:`2 \\times 2` contingency tables).
         """
+
         vutils.validate_lenghts_match(
             x, y, err_msg="Length of 'x' must match length of 'y'", n_dim=1
         )
@@ -126,17 +159,18 @@ class CorrelationMetrics:
         chi2 = chi2_contingency(confusion_matrix, correction=yates_correction)[0]
         n = confusion_matrix.to_numpy().sum()
         r, k = confusion_matrix.shape
-        min_dim = min(r - 1, k - 1)
+        min_dim = np.min((r - 1, k - 1))
 
         result = 0.0
-        if min_dim == 0:
+        if min_dim == 0.0:
             return result
 
         if bias_correction:
-            correction = ((r - 1) * (k - 1)) / n
-            result = np.sqrt((chi2 / n - correction) / min_dim)
+            bias = ((r - 1) * (k - 1)) / (n - 1)
+            phi2_corr = np.max((0, chi2 / n - bias))
+            result = np.sqrt(phi2_corr / min_dim)
         else:
-            result = np.sqrt(chi2 / (n * min(k - 1, r - 1)))
+            result = np.sqrt(chi2 / (n * min_dim))
         return result
 
     @staticmethod
@@ -163,6 +197,12 @@ class CorrelationMetrics:
             - 0 means no association between variables,
             - 1 means perfect association (all variance explained by groups).
 
+        Raises
+        ------
+        ValueError
+            If the lengths of ``values`` and ``categories`` do not match,
+            or if either of them contains NaN values.
+
         Notes
         -----
         If the total variance of `values` is zero, the function returns 0.
@@ -171,23 +211,27 @@ class CorrelationMetrics:
         vutils.validate_lenghts_match(
             values,
             categories,
-            err_msg="Length of 'values' must match length of 'categories'",
+            err_msg=CorrelationMetrics._errors["arrays_lens_mismatch_f"].format(
+                "values", "categories"
+            ),
             n_dim=1,
         )
         vutils.validate_array_not_contains_nan(
             values,
-            err_msg="""The input 'values' contains null values.
-            Please clean or impute missing data.""",
+            err_msg=CorrelationMetrics._errors["array_contains_nans_f"].format(
+                "values"
+            ),
         )
         vutils.validate_array_not_contains_nan(
             categories,
-            err_msg="""The input 'categories' contains null values.
-            Please clean or impute missing data.""",
+            err_msg=CorrelationMetrics._errors["array_contains_nans_f"].format(
+                "categories"
+            ),
         )
         df = pd.DataFrame({"category": categories, "values": values})
-        mean_by_group = df.groupby("category")["values"].mean()
+        mean_by_group = df.groupby("category", observed=True)["values"].mean()
         mean = df["values"].mean()
-        n_by_group = df.groupby("category")["values"].count()
+        n_by_group = df.groupby("category", observed=True)["values"].count()
         n = df["values"].size
 
         bg_disperison = np.sum(((mean_by_group - mean) ** 2) * n_by_group) / n
@@ -203,7 +247,7 @@ class CorrelationMetrics:
         y: Sequence[Number],
         method: str = "linear",
         custom_function: Optional[Callable[[Number], Number]] = None,
-        **kwargs,
+        normalization_bounds: Sequence[Number] = None,
     ) -> float:
         """
         Calculates a nonlinear correlation index between two series `x` and `y`,
@@ -244,10 +288,19 @@ class CorrelationMetrics:
             The response variable.
         method : str, default='linear'
             Regression model to use. See supported methods above.
-        normalization_lower_bound : float, optional
-            Lower bound for normalization of `x`, by default 1e-13.
-        normalization_upper_bound : float, optional
-            Upper bound for normalization of `x`, by default 1.0.
+        normalization_bounds : Sequence[Number], optional
+            A pair of numeric values (``lower_bound``, ``upper_bound``) specifying
+            the range to which the input ``x`` values are rescaled before fitting.
+            If ``None`` (default), automatic normalization is applied **only** for
+            methods with domain restrictions:
+
+            - 'exp' → scaled to [0, 5]
+            - 'ln' → scaled to [1, 10]
+            - 'power' → scaled to [1, 10]
+            - 'hyperbolic' → scaled to [2, 20]
+
+            For all other methods, no normalization is applied unless explicitly
+            provided by the user.
         custom_function : Callable, optional
             A user-defined function that takes a Number values and returns Number
             predictions. Required when `method='custom'`
@@ -273,43 +326,57 @@ class CorrelationMetrics:
           defined as 0 to avoid division by zero or meaningless regression.
         - If the fitted model performs worse than the mean
           (SSE > SST), R_I is also defined as 0.
-        - Input `x` is internally normalized to the specified range to:
+        - User-provided ``normalization_bounds`` take precedence and will be applied
+            regardless of the chosen method.
+        - Automatic normalization is enabled selectively for models with restricted
+            domains to:
             1. Prevent numerical instability due to extremely large/small values.
             2. Ensure compatibility with the domain restrictions of certain functions
                (e.g., logarithmic, power, or hyperbolic forms).
         - Parameter estimation is performed using `scipy.optimize.curve_fit`
           with a least-squares objective.
         """
-        normalization_lower_bound = kwargs.get("normalization_lower_bound")
-        if normalization_lower_bound is None:
-            normalization_lower_bound = 1e-13
-        normalization_upper_bound = kwargs.get("normalization_upper_bound")
-        if normalization_upper_bound is None:
-            normalization_upper_bound = 1.0
+
+        def scale_minmax(seq, lower_bound, upper_bound):
+            seq = lower_bound + (upper_bound - lower_bound) * (seq - seq.min()) / (
+                seq.max() - seq.min()
+            )
+            return seq
+
         x_series = cutils.convert_dataframe(x).iloc[:, 0]
         y_series = cutils.convert_dataframe(y).iloc[:, 0]
-        models = {
-            "linear": lambda x, a, b: a * x + b,
-            "binomial": lambda x, a, b, c: a * x**2 + b * x + c,
-            "exp": lambda x, a, b: b * np.exp(a * x),
-            "ln": lambda x, a, b: a * np.log(x) + b,
-            "hyperbolic": lambda x, a, b: a / x + b,
-            "power": lambda x, a, b: a * x**b,
-            "custom": None,
+        regressions = {
+            "models": {
+                "linear": lambda x, a, b: a * x + b,
+                "binomial": lambda x, a, b, c: a * x**2 + b * x + c,
+                "exp": lambda x, a, b: b * np.exp(a * x),
+                "ln": lambda x, a, b: a * np.log(x) + b,
+                "hyperbolic": lambda x, a, b: a / x + b,
+                "power": lambda x, a, b: a * x**b,
+                "custom": None,
+            },
+            "norm_bounds_auto": {
+                "exp": (0, 5),
+                "ln": (1, 10),
+                "power": (1, 10),
+                "hyperbolic": (2, 20),
+            },
         }
-
         q = ((y_series - y_series.mean()) ** 2).sum()
-        if x_series.max() != x_series.min() and q != 0:
-            x_series = normalization_lower_bound + (
-                normalization_upper_bound - normalization_lower_bound
-            ) * (x_series - x_series.min()) / (x_series.max() - x_series.min())
+        # return r_i = 0 for constant y
+        if q == 0 or x_series.min() == x_series.max():
+            return 0.0
+        if normalization_bounds is None:
+            if method in regressions["norm_bounds_auto"]:
+                lower_bound, upper_bound = regressions["norm_bounds_auto"][method]
+                x_series = scale_minmax(x_series, lower_bound, upper_bound)
         else:
-            return 0  # return r_i = 0 for constant x or constant y
-        avaliable = "{'" + "', '".join(models.keys()) + "'}"
+            lower_bound, upper_bound = normalization_bounds
+            x_series = scale_minmax(x_series, lower_bound, upper_bound)
         vutils.validate_string_flag(
             method,
-            models,
-            f"Unsupported method '{method}'." f"Choose from: {avaliable}",
+            regressions["models"],
+            f"Unsupported method '{method}'." f"Choose from: ({regressions['models']})",
         )
         vutils.validate_lenghts_match(
             x_series,
@@ -336,11 +403,15 @@ class CorrelationMetrics:
                 raise ValueError(
                     "Custom function must be provided when method='custom'"
                 )
-            models["custom"] = custom_function
-            model_values = models[method](x_series)
+            regressions["models"]["custom"] = custom_function
+            model_values = regressions["models"][method](x_series)
         else:
-            coeffs = curve_fit(models[method], x_series, y_series, maxfev=10000)[0]
-            model_values = models[method](x_series, *coeffs)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", OptimizeWarning)
+                coeffs = curve_fit(
+                    regressions["models"][method], x_series, y_series, maxfev=10000
+                )[0]
+            model_values = regressions["models"][method](x_series, *coeffs)
         q_e = ((y_series - model_values) ** 2).sum()
         return np.sqrt(max(1 - q_e / q, 0))
 

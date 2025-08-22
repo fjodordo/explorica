@@ -1,11 +1,117 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from itertools import chain
 from collections import deque
 
 import pytest
 import pandas as pd
 import numpy as np
-from explorica import InteractionAnalyzer as ia
+import explorica.interactions as ia
+
+# tests for InteractionAnalyzer.high_corr_pairs()
+
+@pytest.mark.skip(reason="The test is too expensive (O(n^3))")
+def test_high_corr_pairs_multiple_and_so_many_features():
+    numeric_features_many = [np.random.rand(10).tolist() for _ in range(16)]
+    with pytest.warns(UserWarning):
+        ia.high_corr_pairs(numeric_features=numeric_features_many, multiple_included=True)
+
+@pytest.mark.parametrize("numeric, category",[
+([
+    [1.0, 2.0, np.nan, 4.0],
+    [np.nan, np.nan, 3.0, 4.0]
+], [
+    ['A', 'B', None, 'A'],
+    ['X', 'Y', None, 'X']
+]),
+([
+    [1.0, 2.0, None, 4.0],
+    [None, 3.0, 5.0, 7.0]
+],[
+    ['foo', 'bar', None, 'foo'],
+    pd.Series(['U', None, 'U', 'V'], dtype="category")
+]),
+([
+    [1.5, 2.5, pd.NA, 4.5],
+    [2.5, 3.5, 4.5, pd.NA]
+],[
+    [None, None, None, None],
+    pd.Series([pd.NA, pd.NA, 'C', 'D'], dtype="category")
+])
+])
+def test_high_corr_pairs_input_contains_nan(numeric, category):
+    with pytest.raises(ValueError):
+        ia.high_corr_pairs(numeric, category, nonlinear_included=True, multiple_included=True)
+
+@pytest.mark.parametrize("numeric, category",[
+([
+    np.array([1.0, 2.0, 3.0, 4.0], dtype=float),
+    [0.5, 0.6, 0.7, 0.8]
+],
+[
+    ['A', 'B', 'A', 'C'],
+    [1, 2, 1, 2]
+]),
+([
+    pd.Series([10.1, 10.2, 10.3, 10.4], dtype=float).values,
+    [2.0, 4.0, 6.0, 8.0]
+],
+pd.DataFrame({
+    1 : pd.Series(['X', 'Y', 'X', 'Y'], dtype='category'),
+    2 :[datetime(2025, 1, 1) + timedelta(days=i) for i in range(4)]
+})),
+([
+    pd.DataFrame({"col1": [1.1, 2.1, 3.1, 4.1]}).iloc[:,0].values,
+    [3.0, 3.0, 3.0, 3.0]
+],
+[
+    ['red', 'blue', 'green', 'red'],
+    pd.Series([100, 200, 100, 300], dtype="category")
+])
+])
+def test_high_corr_pairs_different_sequences_and_dtypes(numeric, category):
+    print(numeric, category)
+    result = ia.high_corr_pairs(numeric, category, threshold=0.0, nonlinear_included=True, multiple_included=True)
+    assert ((-1 <= result.loc[:, "coef"]) & (result.loc[:, "coef"] <= 1)).all()
+
+@pytest.mark.parametrize("numeric, category", [
+    (None, pd.DataFrame({"char1":["A" for i in range(10)],
+                         "char2":["B" for i in range(10)]})),
+    (None, pd.DataFrame({"char1":["A" for i in range(10)],
+                         "char2":["B" for i in range(5)] + ["C" for i in range(5)]})),
+    (pd.DataFrame({"num1":[5 for i in range(10)],
+                   "num2":[i for i in range(1, 11)]}), None),
+    (pd.DataFrame({"num1":[5 for i in range(10)],
+                   "num2":[8 for i in range(10)]}),
+     pd.DataFrame({"char1":["A" for i in range(10)],
+                   "char2":["B" for i in range(10)]})),
+    (pd.DataFrame({"num1":[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],
+                   "num2":[8 for i in range(10)]}),
+     pd.DataFrame({"char1":["A" for i in range(10)],
+                   "char2":["B" for i in range(5)] + ["C" for i in range(5)]}))
+    ])
+def test_high_corr_pairs_const(numeric, category):
+    result = ia.high_corr_pairs(numeric, category, threshold=0, nonlinear_included=True, multiple_included=True)
+    assert np.isclose(result.loc[:, "coef"], 0.0, atol=0.01).all()
+
+def test_high_corr_pairs_len1():
+    df = pd.DataFrame({"a": [1], "b": [2], "c": [3]})
+    result = ia.high_corr_pairs(numeric_features=df, threshold=0, nonlinear_included=True, multiple_included=True)
+    assert np.isclose(result.loc[:, "coef"], 0.0, atol=0.01).all()
+
+def test_high_corr_pairs_threshold():
+    df = pd.DataFrame({"a": (1, 2, 3, 4), "b": (4, 3, 2, 1), "c": (1, 1, 1, 1)})
+    len1 = ia.high_corr_pairs(numeric_features=df, threshold=0, nonlinear_included=True).shape[0]
+    len2 = ia.high_corr_pairs(numeric_features=df, threshold=1,  nonlinear_included=True).shape[0]
+    assert len1 > len2
+
+@pytest.mark.parametrize("numeric, category", [
+    (None, pd.DataFrame()),
+    (pd.DataFrame(), None),
+    (np.array([]), pd.DataFrame())
+])
+def test_high_corr_pairs_empty_input(numeric, category):
+    result = ia.high_corr_pairs(numeric, category, nonlinear_included=True, multiple_included=True, threshold=0.0)
+    assert result is None
 
 # tests for InteractionAnalyzer.corr_matrix()
 
@@ -75,6 +181,19 @@ def test_corr_matrix_input_contains_nan(method, dataset):
         ia.corr_matrix(dataset, method=method, groups=groups)
 
 # tests for InteractionAnalyzer.corr_matrix_corr_index()
+
+def test_corr_matrix_corr_index_determined():
+    x = [1, 2, 3, 4, 5, 6]
+    y = [np.log(i) for i in x]
+    z = [1 for i in x]
+    df = pd.DataFrame({"x": x, "y":y, "z":z})
+    result = ia.corr_matrix_corr_index(df, method="ln")
+    assert np.isclose(result.loc["z"].all(), 0.0, atol=0.01)
+    assert np.isclose(result.loc[:,"z"].all(), 0.0, atol=0.01)
+
+    assert result.loc["y", "x"] != result.loc["x", "y"]
+
+    assert (result.loc[["x", "y"], ["x", "y"]] > 0.85).all().all()
 
 def test_corr_matrix_corr_index_unsupported_method():
     df = pd.DataFrame({1: [1, 2, 3], 2: [1, 3, 4], 3: [3, 2, 1]})
@@ -254,7 +373,6 @@ def test_corr_matrix_eta_different_sequences_and_dtypes(dataset, categories):
     assert result is not None
 
 
-
 @pytest.mark.parametrize(
     "dataset, categories",
     [
@@ -280,6 +398,26 @@ def test_corr_matrix_eta_input_contains_nan(dataset, categories):
         ia.corr_matrix_eta(dataset, categories)
 
 # tests for InteractionAnalyzer.corr_matrix_cramer_v()
+
+def test_corr_matrix_cramer_v_determined():
+    df = pd.DataFrame({
+    "color": ["red", "red", "red", "blue", "blue", "green", "green", "green", "green"],
+    "shape": ["circle", "circle", "square", "square", "triangle", "triangle", "triangle", "circle", "circle"],
+    "size":  ["S", "M", "M", "L", "L", "M", "S", "S", "L"]})
+    cm_v = ia.corr_matrix_cramer_v(df, bias_correction=False)
+    cm_bergsma = ia.corr_matrix_cramer_v(df, bias_correction=True)
+    
+    indexes = ("color", "shape", "size") 
+    cm_bergsma_expect = pd.DataFrame({"color": [1.0, 0.0, 0.33], "shape": [0.0, 1.0, 0.0], "size": [0.33, 0.0, 1.0]}, index=indexes)
+    cm_v_expect = pd.DataFrame({"color": [1.0, 0.50, 0.60], "shape": [0.50, 1.0, 0.29], "size": [0.60, 0.28, 1.0]}, index=indexes)
+    assert cm_v.shape == (3, 3)
+    assert cm_bergsma.shape == (3, 3)
+
+    assert all(cm_v.iloc[i, i] == 1 for i in range(3))
+    assert all(cm_bergsma.iloc[i, i] == 1 for i in range(3))
+
+    pd.testing.assert_frame_equal(cm_v, cm_v_expect, atol=0.01)
+    pd.testing.assert_frame_equal(cm_bergsma, cm_bergsma_expect, atol=0.01)
 
 def test_corr_matrix_cramer_v_0x0():
     result = ia.corr_matrix_cramer_v(pd.DataFrame())
@@ -417,7 +555,6 @@ def test_corr_matrix_linear_different_sequences(dataset):
 
 # tests for InteractionAnalyzer.corr_index()
 
-@pytest.mark.skip(reason="Bug planned to fix: Handling different types of Sequences")
 @pytest.mark.parametrize(
     "x, y",
     [
@@ -445,15 +582,14 @@ def test_corr_index_different_sequences_and_dtypes(x, y):
     (pd.Series([2.9 * np.exp(i * 2) for i in range(1, 11)]), "exp"),
     (pd.Series([-2 * i + 31 for i in range(1, 11)]), "linear"),
     (pd.Series([3 * i**2 + 2 * i + 13 for i in range(1, 11)]), "binomial"),
-    #  x^-1 & log(x) very sensitive to normalization [1e-13, 1], so they don't work
-    # Bug planned to fix
-    # (pd.Series([5 * np.log(i) + 15 for i in range(1, 11)]), "ln"),
-    # (pd.Series([1/i + 14 for i in range(1, 11)]), "hyperbolic"), 
+    (pd.Series([5 * np.log(i) + 15 for i in range(1, 11)]), "ln"),
+    (pd.Series([1/i + 14 for i in range(1, 11)]), "hyperbolic"), 
     (pd.Series([2 * i * 3 for i in range(1, 11)]), "power")
 ])
 def test_corr_index_full_dependence(y, method):
     x = pd.Series([i for i in range(1, 11)])
     result = ia.corr_index(x, y, method)
+    print(result)
     assert np.isclose(result, 1.00, atol=0.01)
 
 # tests for InteractionAnalyzer.eta_squared()
@@ -474,11 +610,10 @@ def test_eta_squared_lengths_mismatch():
         ([None, None, None], [np.nan, np.nan, np.nan]),
     ]
 )
-def test_cramer_v_contains_nan(x, y):
+def test_eta_squared_contains_nan(x, y):
     with pytest.raises(ValueError):
         ia.eta_squared(x, y)
 
-@pytest.mark.skip(reason="Bug planned to fix: NaN handling")
 @pytest.mark.parametrize("x, y", [
     ([1, 2, np.nan, 4], ["A", "B", "C", "D"]),
     ([1, 2, 3, 4], ["A", np.nan, "C", "D"])
@@ -494,7 +629,6 @@ def test_eta_squared_sequence_lenghts_mismatch(x, y):
     with pytest.raises(ValueError):
         ia.eta_squared(x, y)
 
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "x_data, y_data",
     [
@@ -595,9 +729,6 @@ def test_cramer_v_contains_nan(x, y):
         ia.cramer_v(x, y)
     
 
-@pytest.mark.skip(reason="Borderline cases." \
-"`bias_correction` can return negative sqrt " \
-"argument on some samples. bug planned to fix")
 @pytest.mark.parametrize("x_data, y_data", [
     (("A", "B", "B"), ("X", "Y", "X")),  # tuple of str
     ([1, 2, 2], [10, 20, 10]),  # int list
@@ -641,8 +772,6 @@ def test_cramer_v_full_dependence():
     result = ia.cramer_v(x2, y2, bias_correction=True)
     assert np.isclose(result, 1.0, atol=0.05)
 
-@pytest.mark.skip(reason="bias_correction can produce negative sqrt argument " \
-                         "on small samples, bug planned to fix")
 def test_cramer_v_full_independence():
     x1, y1 = ["A", "B", "A", "B"], ["X", "X", "Y", "Y"]
     result = ia.cramer_v(x1, y1, bias_correction=True)
