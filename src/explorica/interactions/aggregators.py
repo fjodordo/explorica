@@ -1,0 +1,358 @@
+"""
+Module provides utilities for aggregating interactions between features
+in a dataset. It contains functions to identify and return significant
+feature pairs based on various correlation and association measures.
+
+The main function, `high_corr_pairs`, evaluates feature-to-feature
+relationships using linear (Pearson, Spearman), non-linear (e.g.
+exponential, binomial, power-law), categorical (Cramér's V), and hybrid
+(η²) measures. Users can optionally enable non-linear and multiple-
+correlation modes.
+
+Private helper functions
+------------------------
+These functions support the internal computations of `high_corr_pairs`
+and are not intended for direct use:
+
+- _high_corr_pairs_get_execution_queue
+- _high_corr_pairs_run_execution_queue
+- _high_corr_pairs_extract_corr_pairs
+- _high_corr_pairs_extract_by_numeric
+- _high_corr_pairs_extract_by_multiple
+"""
+
+import warnings
+from numbers import Number
+from typing import Sequence
+
+import numpy as np
+import pandas as pd
+
+from explorica._utils import ConvertUtils as cutils
+from explorica._utils import ValidationUtils as vutils
+from explorica._utils import read_messages
+from explorica.interactions.correlation_matrices import CorrelationMatrices
+
+_errors = read_messages()["errors"]
+
+
+def high_corr_pairs(
+    numeric_features: Sequence[Sequence[Number]] = None,
+    category_features: Sequence[Sequence] = None,
+    threshold: float = 0.7,
+    **kwargs,
+) -> pd.DataFrame | None:
+    """
+    Finds and returns all significant pairs of
+    correlated features from the input datasets.
+
+    This method evaluates feature-to-feature relationships using a set of
+    correlation measures, including linear (Pearson, Spearman), non-linear
+    (e.g. exponential, binomial, power-law), categorical (Cramér’s V), and
+    hybrid (η²). Users can optionally enable non-linear and multiple-correlation
+    modes.
+
+    Parameters
+    ----------
+    numeric_features : pd.DataFrame, optional
+        A DataFrame of numerical features.
+        Required for linear, η², non-linear, and multiple correlation.
+    category_features : pd.DataFrame, optional
+        A DataFrame of categorical features.
+        Required for Cramér’s V and η² computations.
+    y : str, optional
+        Target feature name to compute correlations with.
+        If None, all pairwise comparisons are evaluated.
+    nonlinear_included : bool, default=False
+        Whether to include non-linear correlation measures for numeric features.
+    multiple_included : bool, default=False
+        Whether to include multiple
+        correlation analysis (for numeric features only).
+    threshold : float, default=0.7
+        Minimum absolute value of correlation
+        to consider a pair as significantly dependent.
+
+    Returns
+    -------
+    pd.DataFrame or None
+        A DataFrame with columns ['X', 'Y', 'coef', 'method'], listing feature
+        pairs whose correlation (in absolute value) exceeds the threshold.
+        Returns None if no such pairs found.
+
+    Raises
+    ------
+    ValueError
+        If neither input DataFrame is provided.
+        If numeric_features or category_features are of unequal lengths.
+        If numeric_features or category_features contain NaN values.
+        If numeric_features or category_features contain duplicate column name.
+
+    Notes
+    -----
+    - Linear correlation methods: Pearson, Spearman
+    - Non-linear methods (enabled via nonlinear_included):
+      exp, binomial, ln, hyperbolic, power
+    - Categorical methods: Cramér’s V, η² (eta)
+    - The method skips self-comparisons.
+    - Targeted correlation (`y`) will produce only
+      pairs involving the specified target.
+    """
+
+    def validation():
+        # Nan's absence check
+        if numeric_features is not None:
+            vutils.validate_array_not_contains_nan(
+                numeric_df,
+                err_msg=_errors["array_contains_nans_f"].format("numeric_features"),
+            )
+            vutils.validate_unique_column_names(
+                numeric_df,
+                _errors["duplicate_column_names_f"].format("numeric_features"),
+            )
+        if category_features is not None:
+            vutils.validate_array_not_contains_nan(
+                category_df,
+                err_msg=_errors["array_contains_nans_f"].format("category_features"),
+            )
+            vutils.validate_unique_column_names(
+                category_df,
+                _errors["duplicate_column_names_f"].format("category_features"),
+            )
+
+        # checking at least 1 not None DataFrame
+        vutils.validate_at_least_one_exist(
+            (numeric_df, category_df),
+            _errors["InteractionAnalyzer"]["high_corr_pairs"]["features_do_not_exists"],
+        )
+
+        # checking for lengths match
+        if numeric_df is not None and category_df is not None:
+            vutils.validate_lenghts_match(
+                numeric_df,
+                category_df,
+                _errors["InteractionAnalyzer"]["high_corr_pairs"][
+                    "features_lens_mismatch_f"
+                ].format(numeric_df.shape[0], category_df.shape[0]),
+                n_dim=2,
+            )
+        if kwargs.get("multiple_included") and len(numeric_cols) > 15:
+            warnings.warn(
+                "Multifactor correlation with more than 15 features "
+                "may be extremely slow (O(n^3)). Consider reducing feature set.",
+                UserWarning,
+            )
+
+        # checking if 'y' feature is present in at least one input DataFrame
+        supported_names = set(numeric_cols) | set(category_cols)
+        if y is not None:
+            vutils.validate_string_flag(
+                y,
+                supported_names,
+                err_msg=_errors["InteractionAnalyzer"]["high_corr_pairs"][
+                    "y_do_not_exists_f"
+                ].format(y),
+            )
+
+    def get_columns(df):
+        return list(df.columns) if df is not None else []
+
+    y = kwargs.get("y")
+
+    numeric_df, category_df = None, None
+    if numeric_features is not None:
+        numeric_df = cutils.convert_dataframe(numeric_features)
+
+    if category_features is not None:
+        category_df = cutils.convert_dataframe(category_features)
+
+    # checking column names of input DataFrame for duplicates
+
+    numeric_cols = get_columns(numeric_df)
+    category_cols = get_columns(category_df)
+
+    validation()
+
+    # form a queue of execution
+    execution = _high_corr_pairs_get_execution_queue(
+        numeric_cols,
+        category_cols,
+        y=y,
+        multiple_included=kwargs.get("multiple_included"),
+        nonlinear_included=kwargs.get("nonlinear_included"),
+    )
+
+    corr_pairs = _high_corr_pairs_run_execution_queue(
+        numeric_df,
+        category_df,
+        execution,
+        threshold,
+        y=y,
+        category_cols=category_cols,
+        numeric_cols=numeric_cols,
+    )
+    if corr_pairs.shape[0] == 0:
+        return None
+
+    return corr_pairs.sort_values(by="coef", key=abs, ascending=False).reset_index(
+        drop=True
+    )
+
+
+def _high_corr_pairs_get_execution_queue(
+    numeric_cols: list,
+    category_cols: list,
+    y: str,
+    multiple_included: bool,
+    nonlinear_included: bool,
+) -> list[str]:
+    execution = []
+    if y is None or y in numeric_cols:
+        if len(numeric_cols) >= 2:
+            execution.extend(["pearson", "spearman"])
+            if nonlinear_included:
+                execution.extend(["exp", "binomial", "ln", "hyperbolic", "power"])
+            # multiple correlation works with at least 3 features
+            if multiple_included:
+                if len(numeric_cols) >= 3:
+                    execution.append("multiple")
+
+    # eta correlation works with at least 1 numeric and 1 category features
+    # or with at least 1 'both' feature
+    if y is None or y in category_cols:
+        if len(category_cols) >= 2:
+            execution.append("cramer_v")
+        if len(numeric_cols) < 0 and len(category_cols) < 0:
+            # special case validation: feature is compared only with itself
+            if not (
+                len(category_cols) == 1
+                and len(numeric_cols) == 1
+                and category_cols == numeric_cols
+            ):
+                execution.append("eta")
+    return execution
+
+
+def _high_corr_pairs_run_execution_queue(
+    numeric_df: pd.DataFrame,
+    category_df: pd.DataFrame,
+    execution: list[str],
+    threshold: float,
+    **kwargs,
+):
+
+    numeric_cols = kwargs.get("numeric_cols")
+    category_cols = kwargs.get("category_cols")
+    y = kwargs.get("y")
+    corr_pairs = pd.DataFrame()
+    # execution cycle
+    for method in execution:
+        if method in {
+            "pearson",
+            "spearman",
+            "exp",
+            "binomial",
+            "ln",
+            "hyperbolic",
+            "power",
+        }:
+            pairs_by_method = _high_corr_pairs_extract_by_numeric(
+                numeric_df, method, threshold, y
+            )
+            corr_pairs = pd.concat([corr_pairs, pairs_by_method], ignore_index=True)
+        elif method == "multiple":
+            pairs_by_method = _high_corr_pairs_extract_by_multiple(
+                numeric_df, threshold, y
+            )
+            corr_pairs = pd.concat([corr_pairs, pairs_by_method], ignore_index=True)
+        elif method == "cramer_v":
+            corr_matrix = CorrelationMatrices.corr_matrix(category_df, method=method)
+            pairs_by_method = _high_corr_pairs_extract_corr_pairs(
+                corr_matrix, y, method
+            )
+            pairs_by_method = pairs_by_method[abs(pairs_by_method["coef"]) >= threshold]
+            corr_pairs = pd.concat([corr_pairs, pairs_by_method], ignore_index=True)
+        elif method == "eta":
+            corr_matrix = CorrelationMatrices.corr_matrix(
+                numeric_df, method, category_df
+            )
+            both_cols = set(category_cols) & set(numeric_cols)
+            pairs_by_method = _high_corr_pairs_extract_corr_pairs(
+                corr_matrix, y, method, drop_diagonal=False
+            )
+            pairs_by_method = pairs_by_method[abs(pairs_by_method["coef"]) >= threshold]
+            # conditions under which feature's comparisons with self occurs
+            pairs_by_method = pairs_by_method[
+                ~(
+                    (pairs_by_method["Y"] == pairs_by_method["X"])
+                    & (pairs_by_method["X"].isin(both_cols))
+                )
+            ]
+            corr_pairs = pd.concat([corr_pairs, pairs_by_method], ignore_index=True)
+    return corr_pairs
+
+
+def _high_corr_pairs_extract_corr_pairs(
+    df: pd.DataFrame, y: str = None, method: str = None, drop_diagonal: bool = True
+) -> pd.DataFrame:
+    if y is not None:
+        columns = pd.Series([y])
+    else:
+        columns = pd.Series(df.columns)
+    pairs = pd.DataFrame()
+    for i, col in enumerate(columns):
+        col_coefs = df[col]
+        if drop_diagonal:
+            if y is not None:
+                self_comparison = df.columns.get_loc(y)
+            else:
+                self_comparison = i
+            col_coefs = col_coefs.drop(col_coefs.index[self_comparison])
+        # ignore feature's comparisons with self
+        col_indexes = col_coefs.index.to_numpy()
+        col_coefs = col_coefs.reset_index(drop=True)
+        col_column = np.repeat(col, col_coefs.size)
+        col_method = np.repeat(method, col_coefs.size)
+        col_pairs = pd.DataFrame(
+            {
+                "X": col_indexes,
+                "Y": col_column,
+                "coef": col_coefs,
+                "method": col_method,
+            }
+        )
+        pairs = pd.concat([pairs, col_pairs], ignore_index=True)
+    return pairs
+
+
+def _high_corr_pairs_extract_by_numeric(df, method, threshold, y):
+    corr_matrix = CorrelationMatrices.corr_matrix(df, method=method)
+    pairs_by_method = _high_corr_pairs_extract_corr_pairs(corr_matrix, y, method)
+    pairs_by_method = pairs_by_method[abs(pairs_by_method["coef"]) >= threshold]
+    return pairs_by_method
+
+
+def _high_corr_pairs_extract_by_multiple(df, threshold, y):
+    # using the "correlation vector"
+    # will be less expensive than using the corr matrix
+    if y is not None:
+        factors = df.copy()
+        target = factors[y]
+        del factors[y]
+        corr_matrix = CorrelationMatrices.corr_vector_multiple(factors, target)
+        columns = pd.Series([y])
+    else:
+        corr_matrix = CorrelationMatrices.corr_matrix(df, method="multiple")
+        columns = pd.Series(corr_matrix["target"]).drop_duplicates()
+        corr_matrix = corr_matrix[corr_matrix["target"].isin(columns)]
+    corr_matrix = corr_matrix[corr_matrix["corr_coef"] >= threshold]
+    col_coefs = corr_matrix["corr_coef"]
+    col_method = np.repeat("multiple", col_coefs.size)
+    col_pairs = pd.DataFrame(
+        {
+            "X": corr_matrix["feature_combination"],
+            "Y": corr_matrix["target"],
+            "coef": corr_matrix["corr_coef"],
+            "method": col_method,
+        }
+    )
+    return col_pairs
