@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "explorica"
-version = "0.0.2"
+version = "0.1.0"
 description = "A Python framework for streamlined Exploratory Data Analysis (EDA)."
 authors = [
     { name="fjodordo", email="fjodor.doronin@gmail.com" }
@@ -36,7 +36,7 @@ classifiers = [
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.0.2"
+version = "0.1.0"
 version_scheme = "semver"
 version_files = [
     "pyproject.toml:version",
