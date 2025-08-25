@@ -5,32 +5,35 @@ This module defines the OutlierHandler class for identifying, visualizing, and h
 in numerical datasets using standard statistical methods.
 
 Modules:
-    - OutlierHandler: Provides methods for detecting, removing, and replacing outliers using 
+    - OutlierHandler: Provides methods for detecting, removing, and replacing outliers using
       the IQR and Z-score approaches.
 """
-from typing import Optional, Sequence, Mapping, Union
-from numbers import Number
 
-import pandas as pd
+from numbers import Number
+from typing import Mapping, Optional, Sequence, Union
+
 import numpy as np
+import pandas as pd
 from scipy.stats import zscore
+
 from explorica import DataVisualizer
+
 
 class OutlierHandler:
     """
-    A utility class for detecting, removing, replacing, and describing outliers 
+    A utility class for detecting, removing, replacing, and describing outliers
     and distribution shapes in numerical datasets.
 
-    This class implements common statistical techniques for outlier detection 
-    (Interquartile Range and Z-score) and supports flexible handling strategies, 
-    including removal or replacement with summary statistics. It also provides 
+    This class implements common statistical techniques for outlier detection
+    (Interquartile Range and Z-score) and supports flexible handling strategies,
+    including removal or replacement with summary statistics. It also provides
     methods for computing distribution shape descriptors such as skewness and kurtosis.
 
     Methods
     -------
     replace_outliers(series: pd.Series, method: str = "iqr", ...)
-        Detects outliers using the specified method and replaces them with 
-        a chosen statistical measure (mean, median, mode, or custom value). 
+        Detects outliers using the specified method and replaces them with
+        a chosen statistical measure (mean, median, mode, or custom value).
         Returns a modified pandas Series.
 
     remove_outliers(series: pd.Series, method: str = "iqr")
@@ -40,12 +43,12 @@ class OutlierHandler:
     detect_iqr(cls, series: pd.Series, show_boxplot: bool = False)
         Detects outliers using the Interquartile Range (IQR) method.
         Optionally displays a boxplot if `show_boxplot=True`.
-        Returns a pandas Series containing only the detected outliers, 
+        Returns a pandas Series containing only the detected outliers,
         preserving the original index.
 
     detect_zscore(series: pd.Series, threshold: float = 3.0)
         Detects outliers using the Z-score method.
-        An observation is considered an outlier if its absolute Z-score 
+        An observation is considered an outlier if its absolute Z-score
         exceeds the specified threshold.
         Returns a pandas Series containing the detected outliers.
 
@@ -58,25 +61,26 @@ class OutlierHandler:
         Returns a float.
 
     describe_distributions(dataset, threshold_skewness: float = 0.25,
-                           threshold_kurtosis: float = 0.25, 
+                           threshold_kurtosis: float = 0.25,
                            return_type: str = "dataframe")
-        Analyzes multiple numeric distributions, computing skewness, 
-        kurtosis, normality flags, and qualitative shape descriptions 
+        Analyzes multiple numeric distributions, computing skewness,
+        kurtosis, normality flags, and qualitative shape descriptions
         (e.g., "left-skewed", "high-pitched").
-        Accepts a 2D sequence, pandas DataFrame, or mapping of feature names 
+        Accepts a 2D sequence, pandas DataFrame, or mapping of feature names
         to numeric sequences.
-        Returns either a pandas DataFrame or a dictionary, depending on 
+        Returns either a pandas DataFrame or a dictionary, depending on
         `return_type`.
     """
 
     dv = DataVisualizer()
 
     @staticmethod
-    def replace_outliers(series: pd.Series,
-                         method: Optional[str] = "iqr",
-                         strategy: Optional[str] = "median",
-                         custom_value: Optional[bool] = None
-                         ) -> pd.Series:
+    def replace_outliers(
+        series: pd.Series,
+        method: Optional[str] = "iqr",
+        strategy: Optional[str] = "median",
+        custom_value: Optional[bool] = None,
+    ) -> pd.Series:
         """
         Replaces outliers in a pandas Series using the specified method and strategy.
 
@@ -84,22 +88,22 @@ class OutlierHandler:
         -----------
         series : pd.Series
             The pandas Series in which outliers will be replaced.
-    
+
         method : str, default 'iqr'
             The method used for outlier detection. Supported methods are:
             - 'iqr' : Uses the IQR (Interquartile Range) method to detect outliers.
             - 'z-score' : Uses the Z-score method to detect outliers.
-    
+
         strategy : str, default 'median'
             The strategy used to replace outliers. Supported strategies are:
             - 'median' : Replace outliers with the median value of the Series.
             - 'mean' : Replace outliers with the mean value of the Series.
             - 'mode' : Replace outliers with the mode value of the Series.
-            - 'custom_value' : Replace outliers with a custom specified value. 
+            - 'custom_value' : Replace outliers with a custom specified value.
               The `custom_value` parameter should be provided in this case.
 
         custom_value : scalar, optional, default None
-            The custom value used to replace outliers when the strategy is 'custom_value'. 
+            The custom value used to replace outliers when the strategy is 'custom_value'.
             This value must be provided if 'custom_value' is chosen as the strategy.
 
         Returns:
@@ -122,11 +126,14 @@ class OutlierHandler:
         series_replaced = series.dropna()
 
         if method not in supported_methods:
-            raise ValueError(f"Unsupported method '{method}'. Choose from: {supported_methods}")
+            raise ValueError(
+                f"Unsupported method '{method}'. Choose from: {supported_methods}"
+            )
 
         if strategy not in supported_strategies:
             raise ValueError(
-                f"Unsupported strategy '{strategy}'. Choose from:{supported_strategies}")
+                f"Unsupported strategy '{strategy}'. Choose from:{supported_strategies}"
+            )
 
         # Identify outliers based on selected method
         if method == "iqr":
@@ -143,8 +150,10 @@ class OutlierHandler:
             value = series.mode()[0]
         if strategy == "custom_value":
             if custom_value is None:
-                raise ValueError("custom_value must be provided when using " \
-                "'custom_value' strategy.")
+                raise ValueError(
+                    "custom_value must be provided when using "
+                    "'custom_value' strategy."
+                )
             value = custom_value
 
         # Replace outliers with the selected value
@@ -153,9 +162,7 @@ class OutlierHandler:
         return series_replaced
 
     @staticmethod
-    def remove_outliers(series: pd.Series,
-                        method: Optional[str] = "iqr"
-                        ) -> pd.Series:
+    def remove_outliers(series: pd.Series, method: Optional[str] = "iqr") -> pd.Series:
         """
         Removes outliers from a given pandas Series using the specified method.
 
@@ -167,7 +174,7 @@ class OutlierHandler:
         -----------
         series : pd.Series
             The pandas Series from which outliers should be removed.
-    
+
         method : str, default 'iqr'
             The method used for outlier detection. Supported methods are:
             - 'iqr' : Uses the IQR method to detect and remove outliers.
@@ -186,7 +193,9 @@ class OutlierHandler:
         supported_methods = {"iqr", "z-score"}
 
         if method not in supported_methods:
-            raise ValueError(f"Unsupported method '{method}'. Choose from: {supported_methods}")
+            raise ValueError(
+                f"Unsupported method '{method}'. Choose from: {supported_methods}"
+            )
 
         if method == "iqr":
             # Remove outliers using IQR method
@@ -199,9 +208,7 @@ class OutlierHandler:
             return series_cleaned
 
     @classmethod
-    def detect_iqr(cls,
-                   series: pd.Series,
-                   show_boxplot: Optional[bool] = False):
+    def detect_iqr(cls, series: pd.Series, show_boxplot: Optional[bool] = False):
         """
         Detects outliers in a numerical series using the Interquartile Range (IQR) method.
 
@@ -235,9 +242,7 @@ class OutlierHandler:
         return outliers
 
     @staticmethod
-    def detect_zscore(series: pd.Series,
-                      threshold: Optional[float] = 3.0
-                      ) -> pd.Series:
+    def detect_zscore(series: pd.Series, threshold: Optional[float] = 3.0) -> pd.Series:
         """
         Detects outliers in a numerical series using the Z-score method.
 
@@ -287,8 +292,8 @@ class OutlierHandler:
         mean = array.mean()
         std = array.std()
         m_3 = np.mean((array - mean) ** 3)
-        q_3 = std ** 3
-        skewness = m_3/q_3
+        q_3 = std**3
+        skewness = m_3 / q_3
         return skewness
 
     @staticmethod
@@ -305,7 +310,7 @@ class OutlierHandler:
         Returns
         -------
         float
-            Excess kurtosis value of the input data.  
+            Excess kurtosis value of the input data.
             0.0 for normal distribution, positive values indicate
             heavier tails, negative values indicate lighter tails.
 
@@ -323,18 +328,19 @@ class OutlierHandler:
         mean = array.mean()
         std = array.std()
         m_4 = np.mean((array - mean) ** 4)
-        q_4 = std ** 4
-        kurtosis = m_4/q_4 - 3
+        q_4 = std**4
+        kurtosis = m_4 / q_4 - 3
         return kurtosis
 
     @staticmethod
-    def describe_distributions(dataset: Union[Sequence[Sequence[Number]],
-                                              pd.DataFrame,
-                                              Mapping[str, Sequence[Number]]],
-                               threshold_skewness: Optional[float] = 0.25,
-                               threshold_kurtosis: Optional[float] = 0.25,
-                               return_type: Optional[str] = "dataframe"
-                               ) -> Union[pd.DataFrame | dict]:
+    def describe_distributions(
+        dataset: Union[
+            Sequence[Sequence[Number]], pd.DataFrame, Mapping[str, Sequence[Number]]
+        ],
+        threshold_skewness: Optional[float] = 0.25,
+        threshold_kurtosis: Optional[float] = 0.25,
+        return_type: Optional[str] = "dataframe",
+    ) -> Union[pd.DataFrame | dict]:
         """
         Describe shape (skewness / kurtosis) of one or multiple numeric distributions.
 
@@ -432,8 +438,10 @@ class OutlierHandler:
         normal = "normal"
 
         if return_type not in supported_return_types:
-            raise ValueError(f"Unsupported return type '{return_type}',"
-                             f"please, choose from {supported_return_types}")
+            raise ValueError(
+                f"Unsupported return type '{return_type}',"
+                f"please, choose from {supported_return_types}"
+            )
 
         indexes = None
         # processing of input sequence
@@ -451,8 +459,12 @@ class OutlierHandler:
         for array in dists:
             skewness = OutlierHandler.get_skewness(array)
             kurtosis = OutlierHandler.get_kurtosis(array)
-            norm = (True if abs(skewness) <= threshold_skewness
-                                  and abs(kurtosis) <= threshold_kurtosis else False)
+            norm = (
+                True
+                if abs(skewness) <= threshold_skewness
+                and abs(kurtosis) <= threshold_kurtosis
+                else False
+            )
             is_normal.append(norm)
             if norm:
                 descs.append(normal)
@@ -471,18 +483,24 @@ class OutlierHandler:
                 descs.append(", ".join(form))
             kurts.append(kurtosis)
             skews.append(skewness)
-        describe = {"is_normal": is_normal,
-                    "desc": descs,
-                    "skewness": skews,
-                    "kurtosis": kurts}
+        describe = {
+            "is_normal": is_normal,
+            "desc": descs,
+            "skewness": skews,
+            "kurtosis": kurts,
+        }
         if return_type == "dict":
             return describe
         if return_type == "dataframe":
-            result_df = pd.DataFrame({"is_normal": is_normal,
-                                  "desc": descs,
-                                  "skewness": skews,
-                                  "kurtosis": kurts},
-                                  index=indexes)
+            result_df = pd.DataFrame(
+                {
+                    "is_normal": is_normal,
+                    "desc": descs,
+                    "skewness": skews,
+                    "kurtosis": kurts,
+                },
+                index=indexes,
+            )
             if indexes is not None:
                 result_df.index.name = "feature"
             return result_df

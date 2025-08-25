@@ -1,18 +1,20 @@
 """
 feature_engineer.py
 
-This module defines the FeatureEngineer class, which provides 
-utility methods for fast and flexible feature transformation. 
+This module defines the FeatureEngineer class, which provides
+utility methods for fast and flexible feature transformation.
 Includes implementations of frequency encoding, ordinal encoding,
 and numeric binning for preprocessing categorical and continuous variables.
 """
+
 from typing import Iterable
 
 import pandas as pd
 
+
 class FeatureEngineer:
     """
-    A utility class for performing common feature engineering tasks on 
+    A utility class for performing common feature engineering tasks on
     categorical and numerical variables.
 
     Provides methods for:
@@ -22,13 +24,14 @@ class FeatureEngineer:
 
     Designed to be modular, extensible, and easy to integrate into EDA workflows.
     """
+
     def __init__(self):
         pass
 
     def freq_encode(self, series: pd.Series, normalize: bool = True) -> pd.Series:
         """
         Performs frequency encoding on a categorical feature.
-        
+
         Parameters:
         -----------
             series : pd.Series
@@ -45,8 +48,13 @@ class FeatureEngineer:
         freq = series.value_counts(normalize=normalize)
         return series.map(freq)
 
-    def ordinal_encode(self, series: pd.Series, target: pd.Series = None, order: str = "freq",
-                       ascending: bool = False) -> pd.Series:
+    def ordinal_encode(
+        self,
+        series: pd.Series,
+        target: pd.Series = None,
+        order: str = "freq",
+        ascending: bool = False,
+    ) -> pd.Series:
         """
         Encodes categorical values with ordinal integers based on a specified ordering logic.
 
@@ -79,30 +87,38 @@ class FeatureEngineer:
         supported_order = {"freq", "alphabetical", "target_mean", "target_median"}
 
         if series.isnull().any():
-            raise ValueError("The input 'series' contains null values. " \
-            "Please clean or impute missing data before encoding.")
+            raise ValueError(
+                "The input 'series' contains null values. "
+                "Please clean or impute missing data before encoding."
+            )
         if order not in supported_order:
-            raise ValueError(f"Unsupported sorting '{order}'. Choose from: {supported_order}")
+            raise ValueError(
+                f"Unsupported sorting '{order}'. Choose from: {supported_order}"
+            )
 
         if order == "freq":
-            categories = series.value_counts().sort_values(ascending=ascending).index.unique()
+            categories = (
+                series.value_counts().sort_values(ascending=ascending).index.unique()
+            )
         elif order == "alphabetical":
             categories = sorted(series.unique(), reverse=not ascending)
         elif order in {"target_mean", "target_median"}:
             if target is None:
                 raise ValueError("Target must be provided for target-based encoding.")
             if target.isnull().any():
-                raise ValueError("The input 'target' contains null values. " \
-                "Please clean or impute missing data before encoding.")
+                raise ValueError(
+                    "The input 'target' contains null values. "
+                    "Please clean or impute missing data before encoding."
+                )
 
             df = pd.DataFrame({"cat": series, "target": target})
             print(df)
             agg_func = "mean" if order == "target_mean" else "median"
             categories = (
-            df.groupby("cat")["target"]
-            .agg(agg_func)
-            .sort_values(ascending=ascending)
-            .index
+                df.groupby("cat")["target"]
+                .agg(agg_func)
+                .sort_values(ascending=ascending)
+                .index
             )
 
         mapping = {cat: i + 1 for i, cat in enumerate(categories)}
@@ -113,7 +129,7 @@ class FeatureEngineer:
         series: pd.Series,
         bins: int = 5,
         labels: Iterable = None,
-        strategy: str = "uniform"
+        strategy: str = "uniform",
     ) -> pd.Series:
         """
         Bin a numeric series into discrete intervals using either uniform-width
@@ -150,11 +166,13 @@ class FeatureEngineer:
 
         if strategy not in supported_strategies:
             raise ValueError(
-                f"Unsupported strategy '{strategy}'. Choose from: {supported_strategies}")
+                f"Unsupported strategy '{strategy}'. Choose from: {supported_strategies}"
+            )
         if labels:
             if len(labels) != bins:
                 raise ValueError(
-        f"Length of 'labels' ({len(labels)}) must match the number of bins ({bins}).")
+                    f"Length of 'labels' ({len(labels)}) must match the number of bins ({bins})."
+                )
         if bins < 2:
             raise ValueError("Number of bins must be at least 2.")
 
