@@ -91,15 +91,18 @@ explorica/
 │ │ │ └── messages.json
 │ │ ├── __init__.py
 │ │ ├── _utils.py
-│ │ ├── data_preprocessor.py
-│ │ ├── feature_engineer.py
+│ │ ├── data_quality/
+│ │ | ├── __init__.py
+│ │ │ ├── data_preprocessor.py
+│ │ │ ├── data_quality_handler.py
+│ │ │ ├── feature_engineer.py
+│ │ │ └── outlier_handler.py
 │ │ ├── interactions/
 │ │ │ ├── __init__.py
 │ │ │ ├── aggregators.py
 │ │ │ ├── correlation_metrics.py
 │ │ │ ├── correlation_matrices.py
 │ │ │ └── interaction_analyzer.py
-│ │ ├── outlier_handler.py
 │ │ └── visualizer.py
 ├── tests/
 │ ├── unit/
@@ -132,9 +135,6 @@ explorica/
 # Components
 
 ### Core Classes
-- **`DataPreprocessor`** — handling missing values, type casting, basic transformations
-- **`FeatureEngineer`** — creating, encoding, and transforming features
-- **`OutlierHandler`** — identifying and processing outliers
 - **`DataVisualizer`** — generating ready-to-use plots for numeric and categorical data
 
 ### Functional Modules
@@ -142,6 +142,10 @@ explorica/
   - **Categorical / Hybrid:** `cramer_v`, `eta_squared`
   - **Numeric:** `corr_index`, `corr_multiple`
   - **Matrix / Vectorized:** `corr_matrix*`, `high_corr_pairs`
+- **`data_quality`** — unified facade for core data handling operations, includes:
+  - `DataPreprocessor` — handling missing values, managing categories, detecting constant features
+  - `FeatureEngineer` — creating, encoding, and transforming features
+  - `OutlierHandler` — detecting and processing outliers, describing distributions
 
 ### Design Principles
 - **Modularity** — each component is independent and reusable
