@@ -21,6 +21,10 @@
     ,
     "warns":
     {
-        "multicollinearity": "Matrix of predictors is linearly dependent (multicollinearity detected). Interpret results with caution."
+        "multicollinearity": "Matrix of predictors is linearly dependent (multicollinearity detected). Interpret results with caution.",
+        "DataVisualizer":
+        {
+            "categories_exceeds_palette_f": "Number of categories ({}) exceeds the palette size ({}). Colors may repeat."
+        }
     }
 }

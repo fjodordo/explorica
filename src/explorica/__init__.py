@@ -9,7 +9,6 @@ Features include:
 - Feature interaction analysis
 """
 
-from .visualizer import DataVisualizer
 from .data_preprocessor import DataPreprocessor
 from .feature_engineer import FeatureEngineer
 from .outlier_handler import OutlierHandler
