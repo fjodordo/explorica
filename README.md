@@ -99,11 +99,17 @@ explorica/
 │ │ │ ├── correlation_metrics.py
 │ │ │ ├── correlation_matrices.py
 │ │ │ └── interaction_analyzer.py
+| | ├── visualizations/
+| | | ├── __init__.py
+| | | ├── _utils_.py
+| | | ├── statistical_plots.py
+| | | └── visualizer.py
 │ │ ├── outlier_handler.py
 │ │ └── visualizer.py
 ├── tests/
 │ ├── unit/
-│ │ └── test_interaction_analyzer.py
+│ │ ├── test_interaction_analyzer.py
+| | └── test_visualizations.py
 │ └── __init__.py
 ├── docs/
 | ├── source/
@@ -135,13 +141,14 @@ explorica/
 - **`DataPreprocessor`** — handling missing values, type casting, basic transformations
 - **`FeatureEngineer`** — creating, encoding, and transforming features
 - **`OutlierHandler`** — identifying and processing outliers
-- **`DataVisualizer`** — generating ready-to-use plots for numeric and categorical data
 
 ### Functional Modules
 - **`interactions`** — top-level functions for analyzing statistical dependencies:
   - **Categorical / Hybrid:** `cramer_v`, `eta_squared`
   - **Numeric:** `corr_index`, `corr_multiple`
   - **Matrix / Vectorized:** `corr_matrix*`, `high_corr_pairs`
+- **`visualisations`** — contains **`DataVisualizer`** class
+  - generating ready-to-use plots for numeric and categorical data
 
 ### Design Principles
 - **Modularity** — each component is independent and reusable
