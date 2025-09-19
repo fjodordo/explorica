@@ -142,7 +142,7 @@ class CorrelationMetrics:
         """
 
         vutils.validate_lenghts_match(
-            x, y, err_msg="Length of 'x' must match length of 'y'", n_dim=1
+            x, y, err_msg="Length of 'x' must match length of 'y'"
         )
         vutils.validate_array_not_contains_nan(
             x,
@@ -214,7 +214,6 @@ class CorrelationMetrics:
             err_msg=CorrelationMetrics._errors["arrays_lens_mismatch_f"].format(
                 "values", "categories"
             ),
-            n_dim=1,
         )
         vutils.validate_array_not_contains_nan(
             values,
@@ -383,7 +382,6 @@ class CorrelationMetrics:
             y_series,
             f"Length of 'x' series ({x_series.size}) "
             f"must match length of 'y' series ({y_series.size}).",
-            n_dim=1,
         )
         vutils.validate_array_not_contains_nan(
             x_series,

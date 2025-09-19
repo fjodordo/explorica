@@ -213,7 +213,6 @@ class CorrelationMatrices:
                 groups_df,
                 f"Length of 'groups' ({groups_df.shape[0]}) "
                 f"must match length of 'dataset' ({dataset_df.shape[0]}).",
-                n_dim=2,
             )
 
         numeric_df = dataset_df.select_dtypes("number")
