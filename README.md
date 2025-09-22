@@ -1,6 +1,6 @@
 # Explorica — A Flexible Framework for Exploratory Data Analysis🌱
 
- **Current version:** 0.1.0 (pre-release)  
+ **Current version:** 0.1.1 (pre-release)  
 
 **explorica** is a modular and extensible Python framework for **exploratory data analysis (EDA)**.  
 It provides ready-to-use components for **data preprocessing, feature engineering, statistical analysis, and visualization**, allowing analysts and data scientists to focus on insights instead of boilerplate code.
