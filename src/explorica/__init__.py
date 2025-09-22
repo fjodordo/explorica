@@ -14,7 +14,7 @@ from .data_preprocessor import DataPreprocessor
 from .feature_engineer import FeatureEngineer
 from .outlier_handler import OutlierHandler
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = ["DataPreprocessor",
            "FeatureEngineer",
