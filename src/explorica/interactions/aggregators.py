@@ -133,7 +133,6 @@ def high_corr_pairs(
                 _errors["InteractionAnalyzer"]["high_corr_pairs"][
                     "features_lens_mismatch_f"
                 ].format(numeric_df.shape[0], category_df.shape[0]),
-                n_dim=2,
             )
         if kwargs.get("multiple_included") and len(numeric_cols) > 15:
             warnings.warn(

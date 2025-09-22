@@ -39,9 +39,9 @@ Notes
 
 import json
 import pathlib
-from functools import lru_cache
-from typing import Iterable, Mapping, Sequence
 from collections import deque
+from functools import lru_cache
+from typing import Iterable, Mapping, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -201,7 +201,7 @@ class ValidationUtils:
 
     @staticmethod
     def validate_lenghts_match(
-        array1: Sequence, array2: Sequence, err_msg: str, n_dim: int = 2
+        array1: Sequence, array2: Sequence, err_msg: str
     ) -> None:
         """
         Validate that two arrays (or sequences) have matching lengths
@@ -252,11 +252,9 @@ class ValidationUtils:
             ...
         ValueError: Lengths must match
         """
-        index = 1
-        if n_dim == 1:
-            index = 0
-        len1 = ConvertUtils.convert_numpy(array1).shape[index]
-        len2 = ConvertUtils.convert_numpy(array2).shape[index]
+        index = 0
+        len1 = ConvertUtils.convert_dataframe(array1).shape[index]
+        len2 = ConvertUtils.convert_dataframe(array2).shape[index]
         if len1 != len2:
             raise ValueError(err_msg)
 
@@ -392,8 +390,98 @@ class ConvertUtils:
       irregular nested sequences may raise errors.
     """
 
+    supported_inputs = {
+        "iterable": {list, tuple, np.ndarray, deque, pd.Series},
+        "iterable_by_key": {pd.DataFrame, dict},
+    }
+
     @staticmethod
-    def convert_numpy(dataset: Sequence[Sequence]) -> np.ndarray:
+    def convert_dict(dataset: Union[Sequence[Sequence] | Mapping]) -> dict:
+        """
+        Convert various sequence types to a dictionary representation.
+
+        The conversion logic handles different dimensionalities and data structures,
+        providing a consistent dictionary interface for heterogeneous input data.
+
+        Parameters
+        ----------
+        dataset: Union[numpy.ndarray, list, tuple, collections.deque, dict,
+                 pandas.Series, pandas.DataFrame]
+            Input data to convert. Supported types include:
+            - None: returns empty dictionary
+            - 1D sequences (list, tuple, np.ndarray, etc.): converted to {0: sequence}
+            - 2D sequences: converted to {index: subsequence} for each row
+            - Dict-like objects: returned as-is (with copy consideration)
+            - Iterables with keys: converted using available keys
+
+        Returns
+        -------
+        dict
+            Dictionary representation of the input data. Structure depends on input
+            type:
+            - None → {}
+            - 1D sequence → {0: original_sequence}
+            - 2D sequence → {index: row_data} for each row
+            - Dict-like → same structure as input
+
+        Examples
+        --------
+        >>> ConvertUtils.convert_dict(None)
+        {}
+
+        >>> ConvertUtils.convert_dict([1, 2, 3])
+        {0: [1, 2, 3]}
+
+        >>> ConvertUtils.convert_dict([[1, 2], [3, 4]])
+        {0: [1, 2], 1: [3, 4]}
+
+        >>> ConvertUtils.convert_dict({'a': [1, 2], 'b': [3, 4]})
+        {'a': [1, 2], 'b': [3, 4]}
+
+        Notes
+        -----
+        - For deque and other collections.abc.Sequence types, conversion follows
+        the same pattern as lists and tuples
+        - Empty sequences return empty dictionaries
+        - String inputs are treated as 1D sequences of characters
+        """
+        # Handle None and empty inputs
+        if dataset is None:
+            return {}
+        try:
+            seq_type = ConvertUtils._extract_array_type(dataset)
+        except IndexError as e:
+            if str(e) in {
+                "list index out of range",
+                "index 0 is out of bounds for axis 0 with size 0",
+            }:
+                return {}
+            raise e
+
+        # Handle already dictionary-like objects
+        if isinstance(dataset, (dict, Mapping)):
+            return dict(dataset)  # Return copy to avoid mutation issues
+
+        # Handle 1D sequences
+        if seq_type == "1dimensional":
+            return {0: list(dataset)}
+
+        # Handle 2D+ sequences and iterables
+
+        dictionary = {}
+
+        if seq_type == "iterable":
+            for key, arr in enumerate(dataset):
+                dictionary[key] = arr
+
+        elif seq_type == "iterable_by_key":
+            for key in dataset:
+                dictionary[key] = dataset[key]
+
+        return dictionary
+
+    @staticmethod
+    def convert_numpy(dataset: Union[Sequence[Sequence] | Mapping]) -> np.ndarray:
         """
         Convert an input dataset to a NumPy array with optional transposition.
 
@@ -407,10 +495,9 @@ class ConvertUtils:
 
         Parameters
         ----------
-        dataset : Sequence[Sequence] or Mapping or pandas.DataFrame
-            The dataset to convert. Can be a pandas DataFrame, a mapping (such
-            as a dictionary), a nested list, a NumPy array, or any sequence of
-            sequences.
+        dataset : Union[numpy.ndarray, list, tuple, collections.deque, dict,
+                  pandas.Series, pandas.DataFrame]
+        The dataset to convert. These input types are supported.
 
         Returns
         -------
@@ -418,46 +505,73 @@ class ConvertUtils:
             Converted dataset as a NumPy array. For DataFrames, the result is
             transposed. For mappings, the values are used as array rows.
         """
-        if isinstance(dataset, pd.DataFrame):
-            result = np.array(dataset).T
-        elif isinstance(dataset, Mapping):
-            result = np.array(list(dataset.values()))
-        else:
-            result = np.array(dataset)
+        dictionary = ConvertUtils.convert_dict(dataset)
+        result = np.array(list(dictionary.values()))
         return result
 
     @staticmethod
-    def convert_dataframe(dataset: Sequence[Sequence]) -> pd.DataFrame:
+    def convert_dataframe(dataset: Union[Sequence[Sequence] | Mapping]) -> pd.DataFrame:
         """
         Convert an input dataset to a pandas DataFrame with optional transposition.
 
-        If the input is a pandas DataFrame, it is returned as-is.
-        If the input is a mapping (e.g., dict of lists), it is converted
-        directly to a DataFrame. Otherwise, the input is converted to a DataFrame
-        and transposed so that each original row becomes a column (i.e., each
-        nested sequence is interpreted as a column).
+        Behavior depends on the input type:
+        - If the input is a pandas DataFrame, it is returned unchanged.
+        - If the input is a pandas Series, it is converted into a one-column DataFrame
+        without transposition.
+        - If the input is a mapping (e.g., dict of lists or arrays), it is converted
+        into a DataFrame without transposition (keys become column names).
+        - If the input is an array-like object (NumPy array, list, tuple, deque),
+        it is converted to a DataFrame and **transposed**, so that each nested
+        sequence is interpreted as a column.
+
 
         Parameters
         ----------
-        dataset : Sequence[Sequence] or Mapping or pandas.DataFrame
-            The dataset to convertзн. Can be a pandas DataFrame, a mapping (such
-            as a dictionary), a nested list, a NumPy array, or any sequence of
-            sequences.
+        dataset : Union[numpy.ndarray, list, tuple, collections.deque, dict,
+                  pandas.Series, pandas.DataFrame]
+        The dataset to convert. These input types are supported.
 
         Returns
         -------
         pandas.DataFrame
-            Converted dataset as a pandas DataFrame. For non-mapping, non-DataFrame
-            inputs, the result is transposed.
+            Converted dataset as a pandas DataFrame. For DataFrames, Series, and
+            mappings, the result is not transposed. For array-like inputs, the
+            result is transposed.
         """
-        if isinstance(dataset, pd.DataFrame):
-            result = dataset
-        elif isinstance(dataset, Mapping):
-            result = pd.DataFrame(dataset)
-        elif isinstance(dataset, deque):
-            result = pd.DataFrame(list(dataset))
-        elif len(np.array(dataset).shape) == 1:
-            result = pd.DataFrame(dataset)
-        else:
-            result = pd.DataFrame(dataset).T
+        dictionary = ConvertUtils.convert_dict(dataset)
+        result = pd.DataFrame(dictionary)
         return result
+
+    @staticmethod
+    def _extract_array_type(array):
+        def is_dim1(x):
+            for dtype in [
+                *ConvertUtils.supported_inputs["iterable"],
+                *ConvertUtils.supported_inputs["iterable_by_key"],
+            ]:
+                if isinstance(x, dtype):
+                    return False
+            return True
+
+        seq_type = None
+
+        for dtype in ConvertUtils.supported_inputs["iterable_by_key"]:
+            if isinstance(array, dtype):
+                first_obj = array[list(array)[0]]
+                if is_dim1(first_obj):
+                    seq_type = "1dimensional"
+                else:
+                    seq_type = "iterable_by_key"
+                break
+        if seq_type is None:
+            for dtype in ConvertUtils.supported_inputs["iterable"]:
+                if isinstance(array, dtype):
+                    first_obj = array[0]
+                    if is_dim1(first_obj):
+                        seq_type = "1dimensional"
+                    else:
+                        seq_type = "iterable"
+        if seq_type is None:
+            seq_type = "1dimensional"
+
+        return seq_type
