@@ -30,14 +30,22 @@ jobs:
 
     - name: Run linters
       run: |
-        echo "Running Pylint..."
+        echo "Running Pylint on explorica.interactions..."
         PYTHONPATH=src pylint src/explorica/interactions --max-line-length=88
-        echo "Running Flake8..."
+        echo "Running Flake8 on explorica.interactions..."
         flake8 src/explorica/interactions --max-line-length=88
-        echo "Checking code format with Black..."
+        echo "Checking explorica.interactions code format with Black..."
         black --check src/explorica/interactions
-        echo "Checking imports with isort..."
+        echo "Checking explorica.interactions imports with isort..."
         isort --profile black --check-only src/explorica/interactions
 
+        echo "Running Pylint on explorica._utils..."
+        PYTHONPATH=src pylint src/explorica/_utils.py --max-line-length=88
+        echo "Running Flake8 on explorica._utils..."
+        flake8 src/explorica/_utils.py --max-line-length=88
+        echo "Checking explorica._utils code format with Black..."
+        black --check src/explorica/_utils.py
+        echo "Checking explorica._utils imports with isort..."
+        isort --profile black --check-only src/explorica/_utils.py
     - name: Run tests
       run: pytest --maxfail=1 --disable-warnings -q
