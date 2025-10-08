@@ -389,7 +389,7 @@ class OutlierHandler:
         pandas.DataFrame or dict
             Either a DataFrame (if ``return_type='dataframe'``) or a dict (if
             ``return_type='dict'``) containing the following entries per feature:
-            - ``is_normal`` (bool) — True if both |skewness| and |kurtosis| are
+            - ``is_normal`` (int) — 1 if both |skewness| and |kurtosis| are
               within thresholds.
             - ``desc`` (str) — human-friendly description, one of:
               ``'normal'``, ``'left-skewed'``, ``'right-skewed'``,
@@ -423,8 +423,8 @@ class OutlierHandler:
         >>> DataPreprocessor.describe_distributions(df, threshold_skewness=0.3)
                         is_normal                         desc  skewness  kurtosis
         feature
-        x                True                         normal  0.012345  0.023456
-        y               False           right-skewed, high-pitched  1.234567  3.456789
+        x                   1                         normal  0.012345  0.023456
+        y                   0           right-skewed, high-pitched  1.234567  3.456789
 
         >>> d = DataPreprocessor.describe_distributions(df, return_type='dict')
         >>> list(d.keys())
@@ -460,10 +460,10 @@ class OutlierHandler:
             skewness = OutlierHandler.get_skewness(array)
             kurtosis = OutlierHandler.get_kurtosis(array)
             norm = (
-                True
+                1
                 if abs(skewness) <= threshold_skewness
                 and abs(kurtosis) <= threshold_kurtosis
-                else False
+                else 0
             )
             is_normal.append(norm)
             if norm:
@@ -493,12 +493,7 @@ class OutlierHandler:
             return describe
         if return_type == "dataframe":
             result_df = pd.DataFrame(
-                {
-                    "is_normal": is_normal,
-                    "desc": descs,
-                    "skewness": skews,
-                    "kurtosis": kurts,
-                },
+                describe,
                 index=indexes,
             )
             if indexes is not None:
