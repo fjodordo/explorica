@@ -12,6 +12,7 @@ Modules available at the top level include:
 """
 
 from .data_quality_handler import (
+    DataQualityHandler,
     bin_numeric,
     check_columns_uniqueness,
     data_preprocessing,
@@ -26,6 +27,7 @@ from .data_quality_handler import (
     get_kurtosis,
     get_missing,
     get_skewness,
+    get_summary,
     ordinal_encode,
     outliers,
     remove_outliers,
@@ -53,4 +55,6 @@ __all__ = [
     "get_skewness",
     "get_kurtosis",
     "describe_distributions",
+    "DataQualityHandler",
+    "get_summary",
 ]
