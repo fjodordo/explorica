@@ -87,7 +87,9 @@ from explorica.interactions import detect_multicollinearity
 
 from .data_preprocessor import DataPreprocessor as dp
 from .feature_engineer import FeatureEngineer as fe
-from .outlier_handler import OutlierHandler as oh
+from .outliers import DetectionMethods as _detectm
+from .outliers import DistributionMetrics as _distm
+from .outliers import HandlingMethods as _handm
 
 
 class DataQualityHandler:
@@ -412,7 +414,7 @@ class DataQualityHandler:
 
 get_summary = DataQualityHandler.get_summary
 
-data_preprocessing = dp
+DataPreprocessing = dp
 check_columns_uniqueness = dp.check_columns_uniqueness
 get_missing = dp.get_missing
 drop_missing = dp.drop_missing
@@ -420,16 +422,18 @@ get_constant_features = dp.get_constant_features
 get_categories = dp.get_categories
 set_categories = dp.set_categories
 
-feature_engineering = fe
+FeatureEngineering = fe
 freq_encode = fe.freq_encode
 ordinal_encode = fe.ordinal_encode
 bin_numeric = fe.bin_numeric
 
-outliers = oh
-replace_outliers = oh.replace_outliers
-remove_outliers = oh.remove_outliers
-detect_iqr = oh.detect_iqr
-detect_zscore = oh.detect_zscore
-get_skewness = oh.get_skewness
-get_kurtosis = oh.get_kurtosis
-describe_distributions = oh.describe_distributions
+HandlingMethods = _handm
+DetectionMethods = _detectm
+DistributionMetrics = _distm
+replace_outliers = HandlingMethods.replace_outliers
+remove_outliers = HandlingMethods.remove_outliers
+detect_iqr = DetectionMethods.detect_iqr
+detect_zscore = DetectionMethods.detect_zscore
+get_skewness = DistributionMetrics.get_skewness
+get_kurtosis = DistributionMetrics.get_kurtosis
+describe_distributions = DistributionMetrics.describe_distributions

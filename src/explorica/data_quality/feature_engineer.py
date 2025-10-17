@@ -56,7 +56,8 @@ class FeatureEngineer:
         ascending: bool = False,
     ) -> pd.Series:
         """
-        Encodes categorical values with ordinal integers based on a specified ordering logic.
+        Encodes categorical values with ordinal integers based on a specified ordering
+        logic.
 
         Parameters:
         -----------
@@ -81,7 +82,8 @@ class FeatureEngineer:
         Raises:
         -------
         ValueError:
-            If an unsupported order is passed or if a target variable is required but not provided.
+            If an unsupported order is passed or if a target variable is required but
+            not provided.
             If either 'series' or 'target' (when provided) contains null values.
         """
         supported_order = {"freq", "alphabetical", "target_mean", "target_median"}
@@ -151,7 +153,8 @@ class FeatureEngineer:
         Returns:
         --------
         pd.Series
-            A series of categorical values representing the bin assigned to each original value.
+            A series of categorical values representing the bin assigned to each
+            original value.
 
         Raises:
         -------
@@ -166,12 +169,14 @@ class FeatureEngineer:
 
         if strategy not in supported_strategies:
             raise ValueError(
-                f"Unsupported strategy '{strategy}'. Choose from: {supported_strategies}"
+                f"""Unsupported strategy '{strategy}'. Choose from: 
+                {supported_strategies}"""
             )
         if labels:
             if len(labels) != bins:
                 raise ValueError(
-                    f"Length of 'labels' ({len(labels)}) must match the number of bins ({bins})."
+                    f"""Length of 'labels' ({len(labels)}) must match the number 
+                    of bins ({bins})."""
                 )
         if bins < 2:
             raise ValueError("Number of bins must be at least 2.")
