@@ -12,13 +12,18 @@ The available tools include:
 
 Notes
 -----
-All methods are implemented as `@staticmethod`, so the class does not maintain any state.
+All methods are implemented as `@staticmethod`, so the class does not maintain any
+state.
 """
 
 from itertools import combinations
-from typing import Optional, Union
+from typing import Optional, Sequence, Union
 
 import pandas as pd
+
+from explorica._utils import ConvertUtils as cutils
+
+# from explorica._utils import ValidationUtils as vutils
 
 
 class DataPreprocessor:
@@ -30,9 +35,10 @@ class DataPreprocessor:
 
     Methods
     -------
-    check_columns_uniqueness(dataset: pd.DataFrame, max_combination_size: int, ...) -> pd.DataFrame
-        Check for duplicate rows across all combinations of features up to a specified size.
-        Useful for identifying unique feature sets or repeated patterns.
+    check_columns_uniqueness(dataset: pd.DataFrame,
+                             max_combination_size: int, ...) -> pd.DataFrame
+        Check for duplicate rows across all combinations of features up to a specified
+        size. Useful for identifying unique feature sets or repeated patterns.
 
     get_missing(dataset: pd.DataFrame) -> pd.DataFrame
         Return the number and proportion of missing (NaN) values per column.
@@ -49,8 +55,9 @@ class DataPreprocessor:
         Returns a DataFrame with columns: `is_constant` and `top_value_ratio`.
 
     get_categories(dataset: pd.DataFrame, threshold, ...) -> pd.DataFrame
-        Identify columns that can be considered categorical based on the number of unique values
-        and optional inclusion of numerical, boolean, and datetime columns.
+        Identify columns that can be considered categorical based on the number of
+        unique values and optional inclusion of numerical, boolean, and datetime
+        columns.
 
     set_categories(dataset: pd.DataFrame, threshold, ...) -> pd.DataFrame
         Convert identified categorical columns to `pandas.Categorical` dtype.
@@ -63,7 +70,7 @@ class DataPreprocessor:
 
     @staticmethod
     def check_columns_uniqueness(
-        dataset: pd.DataFrame,
+        dataset: Sequence[Sequence],
         max_combination_size: Optional[int] = 2,
         lower_threshold: Optional[float] = 0.0,
         upper_threshold: Optional[float] = 1.0,
@@ -80,9 +87,11 @@ class DataPreprocessor:
         max_combination_size : int, optional
             Maximum number of columns in each combination (default is 2).
         lower_threshold : float, optional
-            Lower bound for the percentage of duplicated rows (inclusive, default is 0.0).
+            Lower bound for the percentage of duplicated rows
+            (inclusive, default is 0.0).
         upper_threshold : float, optional
-            Upper bound for the percentage of duplicated rows (inclusive, default is 1.0).
+            Upper bound for the percentage of duplicated rows
+            (inclusive, default is 1.0).
         ascending : bool, optional
             Sort results by count of duplicates in ascending order (default is False).
 
@@ -97,12 +106,15 @@ class DataPreprocessor:
         Raises
         ------
         ValueError
-            If thresholds are not in the range [0, 1] or lower_threshold > upper_threshold.
+            If thresholds are not in the range [0, 1] or
+            lower_threshold > upper_threshold.
 
         Notes
         -----
-        If max_combination_size > number of columns, it will be capped to the number of columns.
+        If max_combination_size > number of columns, it will be capped to the number of
+        columns.
         """
+        df = cutils.convert_dataframe(dataset)
         if not (0 <= lower_threshold <= 1 and 0 <= upper_threshold <= 1):
             raise ValueError("Thresholds must be in the range [0, 1].")
 
@@ -114,13 +126,13 @@ class DataPreprocessor:
             "count_of_duplicated": [],
             "pct_of_duplicated": [],
         }
-        dataset_length = dataset.shape[0]
+        df_length = df.shape[0]
 
         # Loop through all combinations of columns up to the given size
         for comb_size in range(1, max_combination_size + 1):
-            for comb in combinations(dataset.columns, comb_size):
-                duplicated_count = dataset.duplicated(subset=comb).sum()
-                duplicated_pct = duplicated_count / dataset_length
+            for comb in combinations(df.columns, comb_size):
+                duplicated_count = df.duplicated(subset=comb).sum()
+                duplicated_pct = duplicated_count / df_length
 
                 results["combination"].append(comb)
                 results["count_of_duplicated"].append(duplicated_count)
@@ -139,7 +151,7 @@ class DataPreprocessor:
         return results
 
     @staticmethod
-    def get_missing(dataset: pd.DataFrame):
+    def get_missing(dataset: Sequence[Sequence]):
         """
         Calculate the number and percentage of missing (NaN) values for each column.
 
@@ -164,7 +176,8 @@ class DataPreprocessor:
         - Useful for quickly identifying columns with high proportions of missing data
         before applying data cleaning or imputation.
         """
-        nans = dataset.isna()
+        df = cutils.convert_dataframe(dataset)
+        nans = df.isna()
         nan_count = nans.sum()
         nan_ratio = nans.mean()
         missing_values = pd.DataFrame(
@@ -175,7 +188,7 @@ class DataPreprocessor:
 
     @staticmethod
     def drop_missing(
-        dataset: pd.DataFrame,
+        dataset: Sequence,
         threshold_pct: Optional[float] = 0.01,
         threshold_abs: Optional[int] = None,
         return_report: Optional[bool] = False,
@@ -204,15 +217,17 @@ class DataPreprocessor:
         Returns
         -------
         pd.DataFrame or Tuple[pd.DataFrame, dict]
-            Cleaned DataFrame. If return_report=True, returns a tuple (DataFrame, report_dict).
+            Cleaned DataFrame. If return_report=True, returns a tuple
+            (DataFrame, report_dict).
         """
+        df = cutils.convert_dataframe(dataset)
         # Compute threshold
         if threshold_abs is not None:
-            threshold = threshold_abs / dataset.shape[0]
+            threshold = threshold_abs / df.shape[0]
         else:
             threshold = threshold_pct
 
-        result_df = dataset.copy()
+        result_df = df.copy()
 
         # Identify columns where NaN proportion is under the threshold
         nans = DataPreprocessor.get_missing(result_df)
@@ -228,7 +243,7 @@ class DataPreprocessor:
 
         if return_report:
             report = {
-                "initial_lenght": dataset.shape[0],
+                "initial_lenght": df.shape[0],
                 "final_lenght": result_df.shape[0],
                 "columns_dropped_on": nan_ratio.index.to_series().reset_index(
                     drop=True
@@ -242,7 +257,7 @@ class DataPreprocessor:
 
     @staticmethod
     def get_constant_features(
-        dataset: pd.DataFrame,
+        dataset: Sequence[Sequence],
         quasi_constant_threshold: Optional[float] = 1.0,
         include_nan: Optional[bool] = False,
     ) -> pd.DataFrame:
@@ -271,10 +286,12 @@ class DataPreprocessor:
             s = series if include_nan else series.dropna()
             return s.value_counts().max() / s.size
 
+        df = cutils.convert_dataframe(dataset)
+
         result = {"is_const": [], "top_value_ratio": []}
         indexes = []
-        for col in dataset.columns:
-            const = top_ratio(dataset[col])
+        for col in df.columns:
+            const = top_ratio(df[col])
             result["is_const"].append(const >= quasi_constant_threshold)
             result["top_value_ratio"].append(const)
             indexes.append(col)
@@ -283,19 +300,15 @@ class DataPreprocessor:
 
     @staticmethod
     def get_categories(
-        dataset: pd.DataFrame,
+        dataset: Sequence[Sequence],
         threshold: Optional[int] = 30,
         threshold_only: Optional[bool] = False,
         include_number: Optional[bool] = False,
-        include_bool: Optional[bool] = False,
-        include_datetime: Optional[bool] = False,
-        sign_bin: Optional[bool] = False,
-        sign_const: Optional[bool] = False,
-        dropna: Optional[bool] = True,
+        **kwargs,
     ) -> pd.DataFrame:
         """
-        Identify categorical features in a DataFrame based on the number of unique values
-        and the data type.
+        Identify categorical features in a DataFrame based on the number of
+        unique values and the data type.
 
         Parameters
         ----------
@@ -304,7 +317,8 @@ class DataPreprocessor:
         threshold : int, optional, default=30
             Maximum number of unique values for a column to be considered categorical.
         threshold_only : bool, optional, default=False
-            If True, categoricity is determined only by `threshold`, ignoring data types.
+            If True, categoricity is determined only by `threshold`, ignoring
+            data types.
         include_number : bool, optional, default=False
             If True, numeric columns under the unique value threshold
             will be treated as categorical.
@@ -313,9 +327,11 @@ class DataPreprocessor:
         include_datetime : bool, optional, default=False
             If True, datetime columns will be treated as categorical.
         sign_bin : bool, optional, default=False
-            If True, add a flag `is_bin` for binary features (exactly two unique values).
+            If True, add a flag `is_bin` for binary features
+            (exactly two unique values).
         sign_const : bool, optional, default=False
-            If True, add a flag `is_const` for constant features (only one unique value).
+            If True, add a flag `is_const` for constant features
+            (only one unique value).
         dropna : bool, optional, default=True
             Whether to ignore NaN when counting unique values.
 
@@ -334,6 +350,15 @@ class DataPreprocessor:
           the unique value threshold or combine it with dtype checks.
         """
 
+        params = {
+            "include_bool": False,
+            "include_datetime": False,
+            "sign_bin": False,
+            "sign_const": False,
+            "dropna": True,
+            **kwargs,
+        }
+
         def _check_category(col, col_dtype):
             if col not in columns_to_set:
                 return False
@@ -342,29 +367,28 @@ class DataPreprocessor:
             ):
                 return True
             if pd.api.types.is_bool_dtype(col_dtype):
-                return include_bool
+                return params["include_bool"]
             if pd.api.types.is_numeric_dtype(col_dtype):
                 return include_number
             if pd.api.types.is_datetime64_any_dtype(col_dtype):
-                return include_datetime
+                return params["include_datetime"]
             return False
 
-        categories_count = dataset.nunique(dropna=dropna)
+        df = cutils.convert_dataframe(dataset)
+        categories_count = df.nunique(dropna=params["dropna"])
         result = pd.DataFrame({"categories_count": categories_count})
         columns_to_set = result[result["categories_count"] <= threshold].index
         if threshold_only:
-            is_category = list(dataset.columns.isin(columns_to_set))
+            is_category = list(df.columns.isin(columns_to_set))
         else:
-            is_category = [
-                _check_category(col, dataset[col].dtype) for col in dataset.columns
-            ]
+            is_category = [_check_category(col, df[col].dtype) for col in df.columns]
         result["is_category"] = is_category
         # mark nested bins & constants if required
-        if sign_bin:
+        if params["sign_bin"]:
             result["is_bin"] = (result["is_category"]) & (
                 result["categories_count"] == 2
             )
-        if sign_const:
+        if params["sign_const"]:
             result["is_const"] = (result["is_category"]) & (
                 result["categories_count"] == 1
             )
@@ -372,13 +396,10 @@ class DataPreprocessor:
 
     @staticmethod
     def set_categories(
-        dataset: pd.DataFrame,
+        dataset: Sequence[Sequence],
         threshold: Optional[int] = 30,
-        include_bin: Optional[bool] = True,
-        include_number: Optional[bool] = False,
-        include_bool: Optional[bool] = False,
-        include_datetime: Optional[bool] = False,
         ingnore_nans: Optional[bool] = False,
+        **kwargs,
     ) -> pd.DataFrame:
         """
         Convert eligible columns to Pandas `category` dtype for memory optimization
@@ -391,7 +412,8 @@ class DataPreprocessor:
         threshold : int, optional, default=30
             Maximum number of unique values for a column to be considered categorical.
         include_bin : bool, optional, default=True
-            Whether to include binary features (exactly two unique values) as categorical.
+            Whether to include binary features (exactly two unique values) as
+            categorical.
         include_number : bool, optional, default=False
             Whether to include numeric columns under the unique value threshold.
         include_bool : bool, optional, default=False
@@ -404,7 +426,8 @@ class DataPreprocessor:
         Returns
         -------
         pd.DataFrame
-            A copy of the original DataFrame with selected columns converted to `category` dtype.
+            A copy of the original DataFrame with selected columns converted to
+            `category` dtype.
 
         Notes
         -----
@@ -416,21 +439,29 @@ class DataPreprocessor:
         can still be faster.
         - The original DataFrame is not modified — a copy is returned.
         """
+
+        params = {
+            "include_bin": True,
+            "include_number": False,
+            "include_bool": False,
+            "include_datetime": False,
+            **kwargs,
+        }
+        df = cutils.convert_dataframe(dataset)
         categories = DataPreprocessor.get_categories(
-            dataset=dataset,
+            dataset=df,
             threshold=threshold,
-            include_number=include_number,
-            include_bool=include_bool,
-            include_datetime=include_datetime,
+            include_number=params["include_number"],
+            include_bool=params["include_bool"],
+            include_datetime=params["include_datetime"],
             sign_bin=True,
             dropna=ingnore_nans,
         )
-        result_df = dataset.copy()
-        if include_bin:
+        if params["include_bin"]:
             columns_to_set = categories[categories["is_category"]].index
         else:
             columns_to_set = categories[
                 categories["is_category"] & ~categories["is_bin"]
             ].index
-        result_df[columns_to_set] = result_df[columns_to_set].astype("category")
-        return result_df
+        df[columns_to_set] = df[columns_to_set].astype("category")
+        return df

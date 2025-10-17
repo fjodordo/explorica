@@ -1,5 +1,6 @@
 # Local configuration
 config.json
+test_template.py
 
 # Debug files
 debug*.ipynb
