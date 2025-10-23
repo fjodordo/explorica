@@ -1,5 +1,38 @@
+"""
+Module for detecting outliers in numeric data.
+
+This module contains the DetectionMethods class, which provides
+a collection of outlier detection methods that can be applied
+to pandas Series or numeric arrays.
+
+Classes
+-------
+DetectionMethods
+    Implements various outlier detection algorithms such as IQR
+    and z-score based detection. Additional methods like k-means
+    or DBSCAN detection will be added.
+
+Examples
+--------
+>>> import pandas as pd
+>>> from explorica.data_quality.outliers import DetectionMethods
+...
+>>> df = pd.DataFrame({"x": [1,2,3,4,100]}
+>>> # Detect IQR outliers
+>>> DetectionMethods.detect_iqr(df)
+          x
+4  100
+dtype: int64
+...
+>>> # Detect Z-score outliers
+>>> DetectionMethods.detect_zscore(df, threshold=2)
+          x
+4  100
+dtype: int64
+"""
+
 import warnings
-from typing import Optional, Sequence, Union
+from typing import Any, Mapping, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -11,6 +44,36 @@ from explorica._utils import read_messages
 
 
 class DetectionMethods:
+    """
+    Collection of methods for detecting outliers in numerical data.
+
+    Supports 1D sequences, 2D sequences (column-wise processing), and
+    mappings of feature names to sequences. Returns outliers along with
+    their original indices, allowing direct inspection or replacement.
+
+    Methods
+    -------
+    detect_iqr(data, iqr_factor=1.5, show_boxplot=False)
+        Detects outliers using the Interquartile Range (IQR) method.
+    detect_zscore(data, threshold=2.0)
+        Detects outliers using the Z-score method.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from explorica.data_quality.outliers import DetectionMethods
+    ...
+    >>> df = pd.DataFrame({"x": [1,2,3,4,100]})
+    >>> DetectionMethods.detect_iqr(df)
+              x
+    4  100
+    dtype: int64
+    >>> DetectionMethods.detect_zscore(df, threshold=2)
+              x
+    4  100
+    dtype: int64
+    """
+
     dv = DataVisualizer()
     _warns = read_messages()["warns"]
     _errors = read_messages()["errors"]
@@ -18,7 +81,10 @@ class DetectionMethods:
     @classmethod
     def detect_iqr(
         cls,
-        data: Union[Sequence[float] | Sequence[Sequence[float]]],
+        data: (
+            Union[Sequence[float] | Sequence[Sequence[float]]]
+            | Mapping[str, Sequence[Any]]
+        ),
         iqr_factor: float = 1.5,
         show_boxplot: Optional[bool] = False,
     ) -> pd.Series | pd.DataFrame:
@@ -64,6 +130,19 @@ class DetectionMethods:
         - An outlier is defined as a value below
           Q1 - iqr_factor * IQR or above Q3 + iqr_factor * IQR.
         - For 2D inputs, each column is processed independently.
+
+        Examples
+        --------
+        >>> import pandas as pd
+        >>> import explorica.data_quality as data_quality
+        ...
+        >>> s = pd.Series([1, 2, 2, 3, 13, 1, 100, 90])
+        >>> outliers = data_quality.detect_iqr(s, iqr_factor=1.5)
+        >>> print(outliers)
+        6    100
+        7     90
+        dtype: int64
+        >>> # Returns a Series with outlier values and their original indices
         """
         df = cutils.convert_dataframe(data)
 
@@ -91,7 +170,7 @@ class DetectionMethods:
 
     @staticmethod
     def detect_zscore(
-        data: Sequence[float] | Sequence[Sequence[float]],
+        data: Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[Any]],
         threshold: Optional[float] = 2.0,
     ) -> pd.Series | pd.DataFrame:
         """
@@ -133,6 +212,19 @@ class DetectionMethods:
         distance from the mean:
             Z = (x - μ) / σ
         where μ is the mean and σ is the standard deviation.
+
+        Examples
+        --------
+        >>> import pandas as pd
+        >>> import explorica.data_quality as data_quality
+        ...
+        >>> s = pd.Series([1, 2, 2, 3, 13, 1, 1000, 2, -1000])
+        >>> outliers = data_quality.detect_zscore(s, threshold=1)
+        >>> print(outliers)
+        6    1000
+        8   -1000
+        dtype: int64
+        >>> # Returns a Series with outlier values and their original indices
         """
         df = cutils.convert_dataframe(data)
 

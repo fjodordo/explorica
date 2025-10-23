@@ -1,3 +1,24 @@
+"""
+Internal utility module for Explorica's data_quality subpackage.
+
+This module contains helper class used internally by the
+framework to perform common data manipulation tasks on pandas Series,
+such as replacing values.
+
+Classes
+-------
+Replacers
+    Provides methods to replace values in a pandas Series, including:
+    - replacing specific indices with mean, median, mode,
+      random or scalar values.
+
+Notes
+-----
+- This module is part of the private API and should not be used directly
+  outside of the framework.
+- Functions and classes here may change without notice in future releases.
+"""
+
 from typing import Optional
 
 import numpy as np
@@ -8,7 +29,7 @@ class Replacers:
     """
     Utility class for replacing values in a pandas Series.
 
-    Provides methods to replace outliers or specific indices with:
+    Provides methods to replace specific indices with:
     - measures of central tendency (mean, median, mode)
     - random values sampled from the Series
     - explicit scalar values

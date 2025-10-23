@@ -1,3 +1,32 @@
+"""
+Module for statistical metrics and distribution analysis.
+
+This module defines tools for computing standardized statistical moments
+(skewness and excess kurtosis) and for describing the shape of numeric
+distributions.
+
+Classes
+-------
+DistributionMetrics
+    Provides methods to compute skewness, excess kurtosis, and describe
+    the shape of numeric sequences or collections of sequences.
+
+Examples
+--------
+>>> import pandas as pd
+>>> from explorica.data_quality.outliers import DistributionMetrics
+>>> df = pd.DataFrame({
+...     "x": [1, 2, 3, 4, 5],
+...     "y": [2, 2, 2, 2, 2]
+... })
+>>> print(DistributionMetrics.get_skewness(df, method="general"))
+UserWarning: Columns with near-zero variance: ['y']. Their skewness will be set to 0.0.
+
+x    0.0
+y    0.0
+dtype: float64
+"""
+
 import warnings
 from typing import Mapping, Optional, Sequence, Union
 
@@ -10,6 +39,45 @@ from explorica._utils import read_messages
 
 
 class DistributionMetrics:
+    """
+    Provides utilities to compute distribution shape metrics for numeric data.
+
+    This class implements methods for computing skewness, excess kurtosis,
+    and for describing the overall shape of one or multiple numeric distributions.
+    It supports 1D sequences, 2D sequences, and mappings of feature names to sequences.
+
+    Methods
+    -------
+    get_skewness(data, method='general')
+        Compute the skewness (third standardized moment) of numeric sequences.
+
+    get_kurtosis(data, method='general')
+        Compute the excess kurtosis (fourth standardized moment minus 3)
+        of numeric sequences.
+
+    describe_distributions(data, threshold_skewness=0.25, threshold_kurtosis=0.25,
+                           return_as='dataframe', **kwargs)
+        Compute skewness and excess kurtosis for one or more distributions,
+        classify each distribution shape, and optionally return a DataFrame or dict
+        summarizing the results.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from explorica.data_quality.outliers import DistributionMetrics
+    >>> df = pd.DataFrame({
+    ...     "x": [1, 2, 3, 4, 5],
+    ...     "y": [2, 2, 2, 2, 2]
+    ... })
+    >>> print(DistributionMetrics.get_skewness(df, method="general"))
+    UserWarning: Columns with near-zero variance: ['y'].
+    Their skewness will be set to 0.0.
+
+    x    0.0
+    y    0.0
+    dtype: float64
+    """
+
     _warns = read_messages()["warns"]
     _errors = read_messages()["errors"]
 
@@ -189,31 +257,32 @@ class DistributionMetrics:
 
     @staticmethod
     def describe_distributions(
-        dataset: Union[
+        data: Union[
             Sequence[Sequence[float]], pd.DataFrame, Mapping[str, Sequence[float]]
         ],
         threshold_skewness: Optional[float] = 0.25,
         threshold_kurtosis: Optional[float] = 0.25,
-        return_type: Optional[str] = "dataframe",
+        return_as: Optional[str] = "dataframe",
+        **kwargs,
     ) -> Union[pd.DataFrame | dict]:
         """
         Describe shape (skewness / kurtosis) of one or multiple numeric distributions.
 
         The function computes skewness and excess kurtosis for each 1-D sequence
-        in `dataset` and classifies the distribution shape according to the
+        in `data` and classifies the distribution shape according to the
         provided absolute thresholds. Distributions whose absolute skewness and
         absolute excess kurtosis are both less than or equal to the corresponding
         thresholds are considered "normal".
 
         Parameters
         ----------
-        dataset : {Sequence[Sequence[Number]],
+        data : {Sequence[Sequence[Number]],
                    pandas.DataFrame, Mapping[str, Sequence[Number]]}
             Input container with one or more numeric sequences (distributions).
             Supported forms:
             - 2D sequence (e.g. list of lists, list/array of 1D arrays): each inner
               sequence represents one distribution;
-            - ``pandas.DataFrame``: each **column** is treated as a separate
+            - ``pandas.DataFrame``: each column is treated as a separate
               distribution;
             - ``Mapping`` (e.g. dict, OrderedDict): mapping keys are used as feature
               names and mapping values should be 1D numeric sequences.
@@ -221,11 +290,9 @@ class DistributionMetrics:
             the order of mapping keys or DataFrame columns respectively.
             For plain sequences the order follows the sequence order and the resulting
             DataFrame will use a RangeIndex.
-
         threshold_skewness : float, optional, default=0.25
             Absolute skewness threshold. If ``abs(skewness) <= threshold_skewness``
             the distribution is considered not skewed (with respect to this threshold).
-
         threshold_kurtosis : float, optional, default=0.25
             Absolute excess kurtosis threshold.
             If ``abs(kurtosis) <= threshold_kurtosis``
@@ -233,8 +300,7 @@ class DistributionMetrics:
             threshold).
             Note: this function uses **excess kurtosis** (kurtosis - 3), so a normal
             distribution is approximately 0.
-
-        return_type : {'dataframe', 'dict'}, optional, default='dataframe'
+        return_as : {'dataframe', 'dict'}, optional, default='dataframe'
             Output format:
             - ``'dataframe'`` — return a ``pandas.DataFrame`` with columns:
               ``['is_normal', 'desc', 'skewness', 'kurtosis']``. If input was a
@@ -242,27 +308,33 @@ class DistributionMetrics:
             - ``'dict'`` — return a dict with keys ``'is_normal'``, ``'desc'``,
               ``'skewness'``, ``'kurtosis'`` and list-like values in the same order
               as the features.
+        method_skewness: {general, sample}, default "general"
+            Method to compute skewness. It is used in `data_quality.get_skewness`,
+            See `data_quality.get_skewness` for full details.
+        method_kurtosis: {general, sample}, default "general"
+            Method to compute kurtosis. It is used in `data_quality.get_kurtosis`,
+            See `data_quality.get_kurtosis` for full details.
 
         Returns
         -------
         pandas.DataFrame or dict
-            Either a DataFrame (if ``return_type='dataframe'``) or a dict (if
-            ``return_type='dict'``) containing the following entries per feature:
-            - ``is_normal`` (int) — 1 if both |skewness| and |kurtosis| are
+            Either a DataFrame (if return_as='dataframe`) or a dict (if
+            return_as='dict') containing the following entries per feature:
+            - ``is_normal`` (int) - 1 if both |skewness| and |kurtosis| are
               within thresholds.
-            - ``desc`` (str) — human-friendly description, one of:
+            - ``desc`` (str) - human-friendly description, one of:
               ``'normal'``, ``'left-skewed'``, ``'right-skewed'``,
               ``'low-pitched'`` (platykurtic) and/or ``'high-pitched'`` (leptokurtic).
               Multiple descriptors are joined by a comma (e.g. ``'right-skewed,
               high-pitched'``).
-            - ``skewness`` (float) — Fisher skewness (third standardized moment).
-            - ``kurtosis`` (float) — **excess** kurtosis (fourth standardized moment
+            - skewness (float) - skewness (third standardized moment).
+            - kurtosis (float) - excess kurtosis (fourth standardized moment
               minus 3).
 
         Raises
         ------
         ValueError
-            If ``return_type`` is not in ``{'dataframe', 'dict'}``.
+            If ``return_as`` is not in ``{'dataframe', 'dict'}``.
 
         Notes
         -----
@@ -272,7 +344,7 @@ class DistributionMetrics:
           behavior may be unexpected — prefer passing a DataFrame or a well-formed
           Mapping.
         - Threshold checks are **inclusive**: equality to threshold counts as within.
-        - For programmatic consumption prefer ``return_type='dataframe'``
+        - For programmatic consumption prefer ``return_as='dataframe'``
           (tabular form). The ``dict`` form returns lists of values aligned to the
           feature order (not a transposed mapping of feature -> single-structure per
           feature).
@@ -290,66 +362,97 @@ class DistributionMetrics:
         x                   1                         normal  0.012345  0.023456
         y                   0           right-skewed, high-pitched  1.234567  3.456789
 
-        >>> d = DataPreprocessor.describe_distributions(df, return_type='dict')
+        >>> d = DataPreprocessor.describe_distributions(df, return_as='dict')
         >>> list(d.keys())
         ['is_normal', 'desc', 'skewness', 'kurtosis']
         """
+        params = {
+            "method_skewness": "general",
+            "method_kurtosis": "general",
+            "desc_nan_kurtosis_policy": "extremely-high",
+            **kwargs,
+        }
+
+        metrics = {
+            "skewness": {
+                "func": DistributionMetrics.get_skewness,
+                "params": {"method": params["method_skewness"]},
+            },
+            "kurtosis": {
+                "func": DistributionMetrics.get_kurtosis,
+                "params": {"method": params["method_kurtosis"]},
+            },
+        }
         supported_return_types = {"dataframe", "dict"}
 
-        def check_is_normal(row):
-            return (
-                1
-                if abs(row["skewness"]) <= threshold_skewness
-                and abs(row["kurtosis"]) <= threshold_kurtosis
-                else 0
-            )
+        labels = {}
+        labels["left_skew"] = "left-skewed"
+        labels["right_skew"] = "right-skewed"
+        labels["high_pitch"] = "high-pitched"
+        labels["low_pitch"] = "low-pitched"
+        labels["nan_kurt"] = params["desc_nan_kurtosis_policy"]
 
-        def get_describe(row):
-            labels = {}
-            labels["left_skew"] = "left-skewed"
-            labels["right_skew"] = "right-skewed"
-            labels["high_pitch"] = "high-pitched"
-            labels["low_pitch"] = "low-pitched"
-            desc = ""
-            if check_is_normal(row):
-                desc = "normal"
-            else:
-                form = []
-                if abs(row["skewness"]) > threshold_skewness:
-                    if row["skewness"] < 0:
-                        form.append(labels["left_skew"])
-                    else:
-                        form.append(labels["right_skew"])
-                if abs(row["kurtosis"]) > threshold_kurtosis:
-                    if row["kurtosis"] < 0:
-                        form.append(labels["low_pitch"])
-                    else:
-                        form.append(labels["high_pitch"])
-                desc = ", ".join(form)
+        if return_as.lower() in {"df", "dataframe"}:
+            return_as = "dataframe"
+        elif return_as.lower() in {"dict", "dictionary", "mapping"}:
+            return_as = "dict"
+
+        def check_is_normal(df: pd.DataFrame):
+            condition = (np.abs(df["skewness"]) <= threshold_skewness) & (
+                np.abs(df["kurtosis"]) <= threshold_kurtosis
+            )
+            return pd.Series(np.where(condition, 1, 0), index=df.index)
+
+        def get_describe(df: pd.DataFrame, is_normal: pd.Series) -> pd.Series:
+            desc = pd.Series(index=df.index, dtype=str)
+            desc[is_normal == 1] = "normal"
+
+            # describe skewness
+            desc.loc[df["skewness"] < -threshold_skewness] = labels["left_skew"]
+            desc.loc[df["skewness"] > threshold_skewness] = labels["right_skew"]
+
+            # describe excess kurtosis
+            desc.loc[
+                desc.notna() & (df["kurtosis"] < -threshold_kurtosis)
+            ] += f", {labels['low_pitch']}"
+            desc.loc[desc.isna() & (df["kurtosis"] < -threshold_kurtosis)] = labels[
+                "low_pitch"
+            ]
+
+            desc.loc[
+                desc.notna() & (df["kurtosis"] > threshold_kurtosis)
+            ] += f", {labels['high_pitch']}"
+            desc.loc[desc.isna() & (df["kurtosis"] > threshold_kurtosis)] = labels[
+                "high_pitch"
+            ]
+            desc.loc[desc.notna() & df["kurtosis"].isna()] += f", {labels['nan_kurt']}"
+            desc.loc[desc.isna() & df["kurtosis"].isna()] = labels["nan_kurt"]
             return desc
 
-        if return_type not in supported_return_types:
+        if return_as not in supported_return_types:
             raise ValueError(
-                f"Unsupported return type '{return_type}',"
+                f"Unsupported return type '{return_as}',"
                 f"please, choose from {supported_return_types}"
             )
 
         # processing of input sequence
-        df = cutils.convert_dataframe(dataset)
+        df = cutils.convert_dataframe(data)
+
+        vutils.validate_array_not_contains_nan(
+            df, DistributionMetrics._errors["array_contains_nans_f"].format("data")
+        )
 
         # collection of descriptive information
         output = pd.DataFrame(index=df.columns)
-        output["skewness"] = DistributionMetrics.get_skewness(df)
-        output["kurtosis"] = DistributionMetrics.get_kurtosis(df)
-        output["is_normal"] = output.apply(check_is_normal, axis=1)
-        output["desc"] = output.apply(get_describe, axis=1)
-        describe = {
-            "is_normal": output["is_normal"],
-            "desc": output["desc"],
-            "skewness": output["skewness"],
-            "kurtosis": output["kurtosis"],
-        }
-        if return_type == "dict":
-            return describe
-        if return_type == "dataframe":
+        output["skewness"] = metrics["skewness"]["func"](
+            df, **metrics["skewness"]["params"]
+        )
+        output["kurtosis"] = metrics["kurtosis"]["func"](
+            df, **metrics["kurtosis"]["params"]
+        )
+        output["is_normal"] = check_is_normal(output)
+        output["desc"] = get_describe(output, output["is_normal"])
+        if return_as == "dict":
+            return output.to_dict()
+        if return_as == "dataframe":
             return output

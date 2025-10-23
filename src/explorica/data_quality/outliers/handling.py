@@ -1,16 +1,40 @@
 """
-outlier_handler.py
+Module for handling outliers in numerical datasets.
 
-This module defines the OutlierHandler class for identifying, visualizing, and handling
-outliers in numerical datasets using standard statistical methods.
+This module defines the `HandlingMethods` class, which provides utility
+methods to detect, remove, and replace outliers in number sequences using
+common statistical techniques such as the Interquartile Range (IQR) and
+Z-score methods.
 
-Modules:
-    - OutlierHandler: Provides methods for detecting, removing, and replacing outliers
-      using the IQR and Z-score approaches.
+Classes
+-------
+HandlingMethods
+    Provides methods for:
+    - Removing outliers from a sequences or mappings.
+    - Replacing outliers with summary statistics or custom values.
+
+Examples
+--------
+>>> import pandas as pd
+>>> from explorica.data_quality.outliers import HandlingMethods
+...
+>>> df = pd.DataFrame([2, 1, 5, 4, 4, 3, 500, 9, 2, 10])
+>>> outliers = HandlingMethods.remove_outliers(df, detection_method="iqr")
+>>> print(outliers)
+0     2
+1     1
+2     5
+3     4
+4     4
+5     3
+7     9
+8     2
+9    10
+dtype: int64
 """
 
 import warnings
-from typing import Any, Callable, Mapping, Optional, Sequence
+from typing import Any, Callable, Hashable, Mapping, Optional, Sequence
 
 import pandas as pd
 
@@ -24,55 +48,51 @@ from .detection import DetectionMethods
 
 class HandlingMethods:
     """
-    A utility class for detecting, removing, replacing, and describing outliers
-    and distribution shapes in numerical datasets.
+    A utility class for detecting and handling outliers in numerical datasets.
 
-    This class implements common statistical techniques for outlier detection
-    (Interquartile Range and Z-score) and supports flexible handling strategies,
-    including removal or replacement with summary statistics. It also provides
-    methods for computing distribution shape descriptors such as skewness and kurtosis.
+    This class provides methods for identifying outliers using standard
+    statistical techniques — specifically the Interquartile Range (IQR)
+    and Z-score approaches — and for either removing or replacing them.
+    Both methods support recursive detection for iterative cleaning of
+    distributions.
 
     Methods
     -------
-    replace_outliers(series: pd.Series, method: str = "iqr", ...)
-        Detects outliers using the specified method and replaces them with
-        a chosen statistical measure (mean, median, mode, or custom value).
-        Returns a modified pandas Series.
+    replace_outliers(data: Sequence | Mapping[str, Sequence],
+                     detection_method: str = "iqr", strategy: str = "median",
+                     recursive: bool = False, **kwargs)
+        Detects outliers in the input data using the specified method
+        and replaces them according to the chosen replacement strategy
+        (e.g., median, mean, mode, or a custom value).
+        Returns a modified pandas Series or DataFrame.
 
-    remove_outliers(series: pd.Series, method: str = "iqr")
-        Detects outliers using the specified method and removes them from the Series.
-        Returns a cleaned pandas Series.
+    remove_outliers(data: Sequence | Sequence[Sequence],
+                    subset: Sequence[str] = None,
+                    detection_method: str = "iqr",
+                    recursive: bool = False, **kwargs)
+        Detects and removes outliers in the provided data using the chosen
+        detection technique (IQR or Z-score). Supports optional recursive
+        removal until no outliers remain.
+        Returns a cleaned pandas Series or DataFrame.
 
-    detect_iqr(cls, series: pd.Series, show_boxplot: bool = False)
-        Detects outliers using the Interquartile Range (IQR) method.
-        Optionally displays a boxplot if `show_boxplot=True`.
-        Returns a pandas Series containing only the detected outliers,
-        preserving the original index.
-
-    detect_zscore(series: pd.Series, threshold: float = 3.0)
-        Detects outliers using the Z-score method.
-        An observation is considered an outlier if its absolute Z-score
-        exceeds the specified threshold.
-        Returns a pandas Series containing the detected outliers.
-
-    get_skewness(series: Sequence[Number])
-        Computes skewness as m₃ / q³ for the given numeric sequence.
-        Returns a float.
-
-    get_kurtosis(series: Sequence[Number])
-        Computes excess kurtosis as m₄ / q⁴ − 3 for the given numeric sequence.
-        Returns a float.
-
-    describe_distributions(dataset, threshold_skewness: float = 0.25,
-                           threshold_kurtosis: float = 0.25,
-                           return_type: str = "dataframe")
-        Analyzes multiple numeric distributions, computing skewness,
-        kurtosis, normality flags, and qualitative shape descriptions
-        (e.g., "left-skewed", "high-pitched").
-        Accepts a 2D sequence, pandas DataFrame, or mapping of feature names
-        to numeric sequences.
-        Returns either a pandas DataFrame or a dictionary, depending on
-        `return_type`.
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from explorica.data_quality.outliers import HandlingMethods
+    ...
+    >>> df = pd.DataFrame([2, 1, 5, 4, 4, 3, 500, 9, 2, 10])
+    >>> outliers = HandlingMethods.remove_outliers(df, detection_method="iqr")
+    >>> print(outliers)
+    0     2
+    1     1
+    2     5
+    3     4
+    4     4
+    5     3
+    7     9
+    8     2
+    9    10
+    dtype: int64
     """
 
     _warns = read_messages()["warns"]
@@ -146,12 +166,12 @@ class HandlingMethods:
             If set, it overrides the `"iqr_factor"` key in `iqr_kws`.
 
         zscore_kws : dict, optional
-            Additional keyword arguments passed to `Outliers.detect_zscore`.
+            Additional keyword arguments passed to `data_quality.detect_zscore`.
             See `Outliers.detect_zscore` for full details.
 
         iqr_kws : dict, optional
-            Additional keyword arguments passed to `Outliers.detect_iqr`.
-            See `Outliers.detect_iqr` for full details.
+            Additional keyword arguments passed to `data_quality.detect_iqr`.
+            See `data_quality.detect_iqr` for full details.
 
         Returns
         -------
@@ -163,7 +183,7 @@ class HandlingMethods:
             automatically if replacement value is float.
 
         Raises
-        -------
+        ------
         ValueError
             If input data contains NaN values
             If the provided `detection_method` or `strategy` is not supported
@@ -204,29 +224,42 @@ class HandlingMethods:
             "iqr_kws": {"iqr_factor": 1.5},
             **kwargs,
         }
-        if params["zscore_threshold"] != 2.0:
-            params["zscore_kws"]["threshold"] = params["zscore_threshold"]
-        if params["iqr_factor"] != 1.5:
-            params["iqr_kws"]["iqr_factor"] = params["iqr_factor"]
-
-        detection_methods = {
-            "iqr": {"func": DetectionMethods.detect_iqr, "params": params["iqr_kws"]},
-            "zscore": {
-                "func": DetectionMethods.detect_zscore,
-                "params": params["zscore_kws"],
+        params = HandlingMethods._preproccess_params(
+            params,
+            mapper={
+                "zscore_threshold": {
+                    "default_value": 2.0,
+                    "path": ("zscore_kws", "threshold"),
+                },
+                "iqr_factor": {"default_value": 1.5, "path": ("iqr_kws", "iqr_factor")},
             },
-        }
-        fill_methods = {
-            "mean": {"func": Replacers.replace_mct, "params": {"measure": "mean"}},
-            "median": {"func": Replacers.replace_mct, "params": {"measure": "median"}},
-            "mode": {"func": Replacers.replace_mct, "params": {"measure": "mode"}},
-            "random": {
-                "func": Replacers.replace_random,
-                "params": {"seed": params["random_state"]},
+        )
+        methods = {
+            "detection": {
+                "iqr": {
+                    "func": DetectionMethods.detect_iqr,
+                    "params": params["iqr_kws"],
+                },
+                "zscore": {
+                    "func": DetectionMethods.detect_zscore,
+                    "params": params["zscore_kws"],
+                },
             },
-            "custom": {
-                "func": Replacers.replace,
-                "params": {"value": params["custom_value"]},
+            "fill": {
+                "mean": {"func": Replacers.replace_mct, "params": {"measure": "mean"}},
+                "median": {
+                    "func": Replacers.replace_mct,
+                    "params": {"measure": "median"},
+                },
+                "mode": {"func": Replacers.replace_mct, "params": {"measure": "mode"}},
+                "random": {
+                    "func": Replacers.replace_random,
+                    "params": {"seed": params["random_state"]},
+                },
+                "custom": {
+                    "func": Replacers.replace,
+                    "params": {"value": params["custom_value"]},
+                },
             },
         }
 
@@ -256,16 +289,16 @@ class HandlingMethods:
         # Validate method and strategy
         vutils.validate_string_flag(
             detection_method,
-            detection_methods,
+            methods["detection"],
             HandlingMethods._errors["usupported_method_f"].format(
-                detection_method, detection_methods
+                detection_method, methods["detection"]
             ),
         )
         vutils.validate_string_flag(
             strategy,
-            fill_methods,
+            methods["fill"],
             HandlingMethods._errors["usupported_method_f"].format(
-                strategy, fill_methods
+                strategy, methods["fill"]
             ),
         )
         vutils.validate_array_not_contains_nan(
@@ -287,9 +320,9 @@ class HandlingMethods:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always", category=UserWarning)
                 for i in range(params["iters"]):
-                    outliers = detection_methods[detection_method]["func"](
+                    outliers = methods["detection"][detection_method]["func"](
                         replaced[columns_to_replace],
-                        **detection_methods[detection_method]["params"],
+                        **methods["detection"][detection_method]["params"],
                     )
                     # outliers may be pd.Series
                     outliers = cutils.convert_dataframe(outliers)
@@ -299,18 +332,19 @@ class HandlingMethods:
                         break
                     # Apply replacement
                     replaced = replace(
-                        replaced, outliers, columns_to_replace, fill_methods[strategy]
+                        replaced,
+                        outliers,
+                        columns_to_replace,
+                        methods["fill"][strategy],
                     )
             HandlingMethods._show_variance_warning_once(w)
         elif recursive:
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always", category=UserWarning)
-                iters = 1
                 while True:
-                    iters += 1
-                    outliers = detection_methods[detection_method]["func"](
+                    outliers = methods["detection"][detection_method]["func"](
                         replaced[columns_to_replace],
-                        **detection_methods[detection_method]["params"],
+                        **methods["detection"][detection_method]["params"],
                     )
                     # outliers may be pd.Series
                     outliers = cutils.convert_dataframe(outliers)
@@ -319,18 +353,21 @@ class HandlingMethods:
                         break
                     # Apply replacement
                     replaced = replace(
-                        replaced, outliers, columns_to_replace, fill_methods[strategy]
+                        replaced,
+                        outliers,
+                        columns_to_replace,
+                        methods["fill"][strategy],
                     )
                 HandlingMethods._show_variance_warning_once(w)
         else:
-            outliers = detection_methods[detection_method]["func"](
+            outliers = methods["detection"][detection_method]["func"](
                 replaced[columns_to_replace],
-                **detection_methods[detection_method]["params"],
+                **methods["detection"][detection_method]["params"],
             )
             # outliers may be pd.Series
             outliers = cutils.convert_dataframe(outliers)
             replaced = replace(
-                replaced, outliers, columns_to_replace, fill_methods[strategy]
+                replaced, outliers, columns_to_replace, methods["fill"][strategy]
             )
         if replaced.shape[1] == 1:
             replaced = replaced.iloc[:, 0]
@@ -423,8 +460,15 @@ class HandlingMethods:
             "iqr_kws": {},
             **kwargs,
         }
-        if params["zscore_threshold"] != 2.0:
-            params["zscore_kws"]["threshold"] = params["zscore_threshold"]
+        params = HandlingMethods._preproccess_params(
+            params,
+            {
+                "zscore_threshold": {
+                    "path": ("zscore_kws", "threshold"),
+                    "default_value": 2.0,
+                }
+            },
+        )
 
         def rm(
             df: pd.DataFrame,
@@ -519,3 +563,41 @@ class HandlingMethods:
                 continue
             # other is shown unchanged
             warnings.warn(warn.message, warn.category)
+
+    @staticmethod
+    def _preproccess_params(
+        params: dict,
+        mapper: dict["key" : dict["default_value":object, "path":Hashable]],
+    ):
+        """
+        Update nested parameters based on user-friendly aliases.
+
+        Parameters
+        ----------
+        params : dict
+            Full parameter dictionary containing both internal
+            and user-facing keys.
+        mapper : dict
+            Mapping of alias -> {
+                "default_value": Any,
+                "path": tuple[Hashable, ...]
+            }
+
+        Returns
+        -------
+        dict
+            Updated parameter dictionary.
+        """
+
+        def set_by_path(d: dict, path: tuple[Hashable, ...], value: Any) -> None:
+            """Set a value deep in a nested dict by tuple path."""
+            target = d
+            for key in path[:-1]:
+                target = target.setdefault(key, {})
+            target[path[-1]] = value
+
+        preprocessed_params = params.copy()
+        for alias in mapper:
+            if mapper[alias]["default_value"] != params[alias]:
+                set_by_path(preprocessed_params, mapper[alias]["path"], params[alias])
+        return preprocessed_params
