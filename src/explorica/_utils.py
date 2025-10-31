@@ -71,6 +71,11 @@ def read_messages() -> dict:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
 
+def read_config(name) -> dict:
+    path = pathlib.Path(__file__).resolve().parent / f"config/{name}.json"
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
 
 class ValidationUtils:
     """
@@ -200,7 +205,7 @@ class ValidationUtils:
             raise ValueError(err_msg)
 
     @staticmethod
-    def validate_lenghts_match(
+    def validate_lengths_match(
         array1: Sequence, array2: Sequence, err_msg: str, n_dim: int = 2
     ) -> None:
         """
@@ -391,6 +396,7 @@ class ConvertUtils:
     - These conversions assume that the input data is rectangular;
       irregular nested sequences may raise errors.
     """
+    _aliases = read_config("aliases")
 
     @staticmethod
     def convert_numpy(dataset: Sequence[Sequence]) -> np.ndarray:
@@ -461,3 +467,16 @@ class ConvertUtils:
         else:
             result = pd.DataFrame(dataset).T
         return result
+    
+    @staticmethod    
+    def convert_from_alias(arg: str,
+                           default_values: Iterable = None):
+        if default_values is None:
+            for default_value, aliases in ConvertUtils._aliases.items():
+                if arg.lower() in aliases:
+                    return default_value
+        else:
+            for default_value in default_values:
+                if arg.lower() in ConvertUtils._aliases[default_value]:
+                    return default_value
+        return arg

@@ -1,0 +1,12 @@
+{
+    "frequency": ["freq", "frequency"],
+    "alphabetical": ["alphabetical", "abc"],
+    "mean": ["average", "avg", "mean"],
+    "median": ["median", "q2"],
+    "mode": ["mode"],
+    "quantile": ["quantile"],
+    "uniform": ["uniform", "eqwidth", "equal_width"],
+    "pandas": ["pandas", "pd"],
+    "string": ["string", "str", "text"],
+    "custom": ["custom"]
+}

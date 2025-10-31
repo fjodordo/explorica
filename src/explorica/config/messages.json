@@ -15,7 +15,8 @@
         "arrays_lens_mismatch_f": "Length of '{}' must match length of '{}'",
         "array_contains_nans_f": "The input '{}' contains null values. Please clean or impute missing data.",
         "array_contains_nans": "The input sequence contains null values. Please clean or impute missing data.",
-        "duplicate_column_names_f": "Duplicate column names found in '{}' DataFrame"
+        "duplicate_column_names_f": "Duplicate column names found in '{}' DataFrame",
+        "is_not_positive_integer_f": "{} must be a positive integer."
         
     }
     ,
