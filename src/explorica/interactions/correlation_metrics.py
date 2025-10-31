@@ -141,7 +141,7 @@ class CorrelationMetrics:
         computing :math:`\\chi^2` (only affects :math:`2 \\times 2` contingency tables).
         """
 
-        vutils.validate_lenghts_match(
+        vutils.validate_lengths_match(
             x, y, err_msg="Length of 'x' must match length of 'y'", n_dim=1
         )
         vutils.validate_array_not_contains_nan(
@@ -208,7 +208,7 @@ class CorrelationMetrics:
         If the total variance of `values` is zero, the function returns 0.
         NaN values should be handled before calling this function.
         """
-        vutils.validate_lenghts_match(
+        vutils.validate_lengths_match(
             values,
             categories,
             err_msg=CorrelationMetrics._errors["arrays_lens_mismatch_f"].format(
@@ -378,7 +378,7 @@ class CorrelationMetrics:
             regressions["models"],
             f"Unsupported method '{method}'." f"Choose from: ({regressions['models']})",
         )
-        vutils.validate_lenghts_match(
+        vutils.validate_lengths_match(
             x_series,
             y_series,
             f"Length of 'x' series ({x_series.size}) "

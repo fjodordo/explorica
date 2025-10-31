@@ -86,7 +86,7 @@ from explorica._utils import read_messages
 from explorica.interactions import detect_multicollinearity
 
 from .data_preprocessor import DataPreprocessor as dp
-from .feature_engineer import FeatureEngineer as fe
+from .feature_engineering import EncodeMethods as fe
 from .outliers import DetectionMethods as _detectm
 from .outliers import DistributionMetrics as _distm
 from .outliers import HandlingMethods as _handm
@@ -422,10 +422,10 @@ get_constant_features = dp.get_constant_features
 get_categories = dp.get_categories
 set_categories = dp.set_categories
 
-FeatureEngineering = fe
+EncodeMethods = fe
 freq_encode = fe.freq_encode
 ordinal_encode = fe.ordinal_encode
-bin_numeric = fe.bin_numeric
+discretize_continuous = fe.discretize_continuous
 
 HandlingMethods = _handm
 DetectionMethods = _detectm

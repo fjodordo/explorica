@@ -208,7 +208,7 @@ class CorrelationMatrices:
                     "groups"
                 ),
             )
-            vutils.validate_lenghts_match(
+            vutils.validate_lengths_match(
                 dataset_df,
                 groups_df,
                 f"Length of 'groups' ({groups_df.shape[0]}) "
@@ -388,7 +388,7 @@ class CorrelationMatrices:
         vutils.validate_array_not_contains_nan(categories, err_msg.format("categories"))
 
         err_msg = CorrelationMatrices._errors["arrays_lens_mismatch_f"]
-        vutils.validate_lenghts_match(
+        vutils.validate_lengths_match(
             dataset, categories, err_msg.format("dataset", "categories")
         )
 

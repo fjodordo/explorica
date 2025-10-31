@@ -140,7 +140,7 @@ def detect_multicollinearity(
     df_numeric = cutils.convert_dataframe(numeric_features)
     df_category = cutils.convert_dataframe(category_features)
     if numeric_features is not None and category_features is not None:
-        vutils.validate_lenghts_match(
+        vutils.validate_lengths_match(
             df_numeric,
             df_category,
             err_msg=_errors["arrays_lens_mismatch_f"].format(
@@ -285,7 +285,7 @@ def high_corr_pairs(
 
         # checking for lengths match
         if numeric_df is not None and category_df is not None:
-            vutils.validate_lenghts_match(
+            vutils.validate_lengths_match(
                 numeric_df,
                 category_df,
                 _errors["InteractionAnalyzer"]["high_corr_pairs"][
