@@ -38,9 +38,11 @@ import numpy as np
 import pandas as pd
 
 from explorica import DataVisualizer
-from explorica._utils import ConvertUtils as cutils
-from explorica._utils import ValidationUtils as vutils
-from explorica._utils import read_messages
+from explorica._utils import (
+    convert_dataframe,
+    read_config,
+    validate_array_not_contains_nan,
+)
 
 
 class DetectionMethods:
@@ -75,8 +77,8 @@ class DetectionMethods:
     """
 
     dv = DataVisualizer()
-    _warns = read_messages()["warns"]
-    _errors = read_messages()["errors"]
+    _warns = read_config("messages")["warns"]
+    _errors = read_config("messages")["errors"]
 
     @classmethod
     def detect_iqr(
@@ -144,9 +146,9 @@ class DetectionMethods:
         dtype: int64
         >>> # Returns a Series with outlier values and their original indices
         """
-        df = cutils.convert_dataframe(data)
+        df = convert_dataframe(data)
 
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             df, err_msg=DetectionMethods._errors["array_contains_nans_f"].format("data")
         )
         DetectionMethods._validate_zero_variance(df)
@@ -226,9 +228,9 @@ class DetectionMethods:
         dtype: int64
         >>> # Returns a Series with outlier values and their original indices
         """
-        df = cutils.convert_dataframe(data)
+        df = convert_dataframe(data)
 
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             df, err_msg=DetectionMethods._errors["array_contains_nans_f"].format("data")
         )
         if threshold <= 0:

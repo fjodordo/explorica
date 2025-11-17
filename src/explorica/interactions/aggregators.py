@@ -30,12 +30,18 @@ import pandas as pd
 from statsmodels.api import add_constant
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
-from explorica._utils import ConvertUtils as cutils
-from explorica._utils import ValidationUtils as vutils
-from explorica._utils import read_messages
+from explorica._utils import (
+    convert_dataframe,
+    read_config,
+    validate_array_not_contains_nan,
+    validate_at_least_one_exist,
+    validate_lengths_match,
+    validate_string_flag,
+    validate_unique_column_names,
+)
 from explorica.interactions.correlation_matrices import CorrelationMatrices
 
-_errors = read_messages()["errors"]
+_errors = read_config("messages")["errors"]
 
 
 def detect_multicollinearity(
@@ -115,7 +121,7 @@ def detect_multicollinearity(
         **kwargs,
     }
 
-    vutils.validate_string_flag(
+    validate_string_flag(
         method.lower(),
         {
             "variance_inflation",
@@ -124,23 +130,25 @@ def detect_multicollinearity(
             "corr",
             "correlation",
         },
-        err_msg=_errors["usupported_method_f"].format(method, {"VIF", "corr"}),
+        err_msg=_errors["unsupported_method_f"].format(method, {"VIF", "corr"}),
     )
-    vutils.validate_string_flag(
+    validate_string_flag(
         return_as.lower(),
         {"dataframe", "df", "dict", "dictionary", "mapping"},
-        err_msg=_errors["usupported_method_f"].format(return_as, {"dataframe", "dict"}),
+        err_msg=_errors["unsupported_method_f"].format(
+            return_as, {"dataframe", "dict"}
+        ),
     )
-    vutils.validate_at_least_one_exist(
+    validate_at_least_one_exist(
         (numeric_features, category_features),
         err_msg=_errors["InteractionAnalyzer"]["high_corr_pairs"][
             "features_do_not_exists"
         ],
     )
-    df_numeric = cutils.convert_dataframe(numeric_features)
-    df_category = cutils.convert_dataframe(category_features)
+    df_numeric = convert_dataframe(numeric_features)
+    df_category = convert_dataframe(category_features)
     if numeric_features is not None and category_features is not None:
-        vutils.validate_lengths_match(
+        validate_lengths_match(
             df_numeric,
             df_category,
             err_msg=_errors["arrays_lens_mismatch_f"].format(
@@ -148,12 +156,12 @@ def detect_multicollinearity(
             ),
         )
     if numeric_features is not None:
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             df_numeric,
             err_msg=_errors["array_contains_nans_f"].format("numeric_features"),
         )
     if category_features is not None:
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             df_category,
             err_msg=_errors["array_contains_nans_f"].format("category_features"),
         )
@@ -259,39 +267,38 @@ def high_corr_pairs(
     def validation():
         # Nan's absence check
         if numeric_features is not None:
-            vutils.validate_array_not_contains_nan(
+            validate_array_not_contains_nan(
                 numeric_df,
                 err_msg=_errors["array_contains_nans_f"].format("numeric_features"),
             )
-            vutils.validate_unique_column_names(
+            validate_unique_column_names(
                 numeric_df,
                 _errors["duplicate_column_names_f"].format("numeric_features"),
             )
         if category_features is not None:
-            vutils.validate_array_not_contains_nan(
+            validate_array_not_contains_nan(
                 category_df,
                 err_msg=_errors["array_contains_nans_f"].format("category_features"),
             )
-            vutils.validate_unique_column_names(
+            validate_unique_column_names(
                 category_df,
                 _errors["duplicate_column_names_f"].format("category_features"),
             )
 
         # checking at least 1 not None DataFrame
-        vutils.validate_at_least_one_exist(
+        validate_at_least_one_exist(
             (numeric_df, category_df),
             _errors["InteractionAnalyzer"]["high_corr_pairs"]["features_do_not_exists"],
         )
 
         # checking for lengths match
         if numeric_df is not None and category_df is not None:
-            vutils.validate_lengths_match(
+            validate_lengths_match(
                 numeric_df,
                 category_df,
                 _errors["InteractionAnalyzer"]["high_corr_pairs"][
                     "features_lens_mismatch_f"
                 ].format(numeric_df.shape[0], category_df.shape[0]),
-                n_dim=2,
             )
         if kwargs.get("multiple_included") and len(numeric_cols) > 15:
             warnings.warn(
@@ -303,7 +310,7 @@ def high_corr_pairs(
         # checking if 'y' feature is present in at least one input DataFrame
         supported_names = set(numeric_cols) | set(category_cols)
         if y is not None:
-            vutils.validate_string_flag(
+            validate_string_flag(
                 y,
                 supported_names,
                 err_msg=_errors["InteractionAnalyzer"]["high_corr_pairs"][
@@ -318,10 +325,10 @@ def high_corr_pairs(
 
     numeric_df, category_df = None, None
     if numeric_features is not None:
-        numeric_df = cutils.convert_dataframe(numeric_features)
+        numeric_df = convert_dataframe(numeric_features)
 
     if category_features is not None:
-        category_df = cutils.convert_dataframe(category_features)
+        category_df = convert_dataframe(category_features)
 
     # checking column names of input DataFrame for duplicates
 

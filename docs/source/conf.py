@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.abspath('../../src'))
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
-    'sphinx.ext.napoleon',  # Для Google и NumPy стиля
+    'sphinx.ext.napoleon',
     'numpydoc',
     'sphinx_autodoc_typehints',
 ]

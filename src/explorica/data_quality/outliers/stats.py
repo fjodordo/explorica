@@ -33,9 +33,12 @@ from typing import Mapping, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
-from explorica._utils import ConvertUtils as cutils
-from explorica._utils import ValidationUtils as vutils
-from explorica._utils import read_messages
+from explorica._utils import (
+    convert_dataframe,
+    read_config,
+    validate_array_not_contains_nan,
+    validate_string_flag,
+)
 
 
 class DistributionMetrics:
@@ -78,8 +81,8 @@ class DistributionMetrics:
     dtype: float64
     """
 
-    _warns = read_messages()["warns"]
-    _errors = read_messages()["errors"]
+    _warns = read_config("messages")["warns"]
+    _errors = read_config("messages")["errors"]
 
     @staticmethod
     def get_skewness(
@@ -132,21 +135,21 @@ class DistributionMetrics:
         b    0.0
         dtype: float64
         """
-        df = cutils.convert_dataframe(data).astype(np.float64)
+        df = convert_dataframe(data).astype(np.float64)
         if method in {"sigma", "population"}:
             method = "general"
         if method == "s":
             method = "sample"
 
         supported_methods = {"general", "sample"}
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             df,
             err_msg=DistributionMetrics._errors["array_contains_nans_f"].format("data"),
         )
-        vutils.validate_string_flag(
+        validate_string_flag(
             method,
             supported_methods,
-            DistributionMetrics._errors["usupported_method_f"].format(
+            DistributionMetrics._errors["unsupported_method_f"].format(
                 method, supported_methods
             ),
         )
@@ -221,16 +224,16 @@ class DistributionMetrics:
         if method.lower() in {"s", "sample"}:
             method = "sample"
         supported_methods = {"general", "sample"}
-        df = cutils.convert_dataframe(data).astype(np.float64)
+        df = convert_dataframe(data).astype(np.float64)
 
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             df,
             err_msg=DistributionMetrics._errors["array_contains_nans_f"].format("data"),
         )
-        vutils.validate_string_flag(
+        validate_string_flag(
             method,
             supported_methods,
-            DistributionMetrics._errors["usupported_method_f"].format(
+            DistributionMetrics._errors["unsupported_method_f"].format(
                 method, supported_methods
             ),
         )
@@ -436,9 +439,9 @@ class DistributionMetrics:
             )
 
         # processing of input sequence
-        df = cutils.convert_dataframe(data)
+        df = convert_dataframe(data)
 
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             df, DistributionMetrics._errors["array_contains_nans_f"].format("data")
         )
 

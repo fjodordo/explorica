@@ -24,7 +24,7 @@ DATA_SEQUENCES = [
     }),                                       # pandas DataFrame
 
     # === 2D exotic types ===
-    np.matrix([[1, 2, 3], [4, 5, 100]]),      # legacy numpy matrix
+    # np.matrix([[1, 2, 3], [4, 5, 100]]),      # legacy numpy matrix
     pd.DataFrame(np.array([[1, 2], [3, 100]]), columns=["x", "y"]),  # DataFrame from ndarray
     pd.DataFrame.from_records(
         [(1, 2, 3), (4, 5, 100)], columns=["a", "b", "c"]

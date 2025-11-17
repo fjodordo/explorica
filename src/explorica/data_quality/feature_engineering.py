@@ -46,9 +46,14 @@ from typing import Any, Hashable, Mapping, Sequence
 import numpy as np
 import pandas as pd
 
-from explorica._utils import ConvertUtils as cutils
-from explorica._utils import ValidationUtils as vutils
-from explorica._utils import read_config, read_messages
+from explorica._utils import (
+    convert_dataframe,
+    convert_from_alias,
+    read_config,
+    validate_array_not_contains_nan,
+    validate_lengths_match,
+    validate_string_flag,
+)
 
 
 class EncodeMethods:
@@ -101,8 +106,8 @@ class EncodeMethods:
     5  0.5000  0.5000
     """
 
-    _warns = read_messages()["warns"]
-    _errors = read_messages()["errors"]
+    _warns = read_config("messages")["warns"]
+    _errors = read_config("messages")["errors"]
     _aliases = read_config("aliases")
 
     @staticmethod
@@ -149,9 +154,9 @@ class EncodeMethods:
             If `axis` is not 0 or 1.
             If `round_digits` is negative or not an integer.
         """
-        df = cutils.convert_dataframe(data)
+        df = convert_dataframe(data)
 
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             df, EncodeMethods._errors["array_contains_nans_f"].format("data")
         )
         if axis not in (0, 1):
@@ -278,8 +283,8 @@ class EncodeMethods:
         """
         params = {"offset": 0, "order_by": None, **kwargs}
 
-        df = cutils.convert_dataframe(data)
-        df_order_by = cutils.convert_dataframe(params["order_by"])
+        df = convert_dataframe(data)
+        df_order_by = convert_dataframe(params["order_by"])
 
         def encode(
             data: pd.DataFrame,
@@ -323,19 +328,19 @@ class EncodeMethods:
             )
             return output
 
-        order_method = cutils.convert_from_alias(
+        order_method = convert_from_alias(
             order_method, {"frequency", "alphabetical", "mean", "median", "mode"}
         )
 
         supported_order = {"frequency", "alphabetical", "mean", "median", "mode"}
 
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             df, EncodeMethods._errors["array_contains_nans_f"].format("data")
         )
-        vutils.validate_string_flag(
+        validate_string_flag(
             order_method,
             supported_order,
-            EncodeMethods._errors["usupported_method_f"].format(
+            EncodeMethods._errors["unsupported_method_f"].format(
                 order_method, supported_order
             ),
         )
@@ -344,13 +349,13 @@ class EncodeMethods:
                 raise ValueError(
                     "'order_by' must be provided for central measures ordering"
                 )
-            vutils.validate_array_not_contains_nan(
+            validate_array_not_contains_nan(
                 df_order_by,
                 err_msg=EncodeMethods._errors["array_contains_nans_f"].format(
                     "order_by"
                 ),
             )
-            vutils.validate_lengths_match(
+            validate_lengths_match(
                 df,
                 df_order_by,
                 err_msg=EncodeMethods._errors["arrays_lens_mismatch_f"].format(
@@ -587,7 +592,7 @@ class EncodeMethods:
             encoded = encoded.squeeze(axis=1)
             return encoded
 
-        df = cutils.convert_dataframe(data)
+        df = convert_dataframe(data)
 
         supported = {
             "binning_methods": {"uniform", "quantile"},
@@ -640,23 +645,23 @@ class EncodeMethods:
         """
         interval_format = kwargs.get("interval_format")
         binning_method = kwargs.get("binning_method")
-        vutils.validate_string_flag(
+        validate_string_flag(
             interval_format,
             supported["interval_formats"],
-            EncodeMethods._errors["usupported_method_f"].format(
+            EncodeMethods._errors["unsupported_method_f"].format(
                 interval_format, supported["interval_formats"]
             ),
         )
 
-        vutils.validate_string_flag(
+        validate_string_flag(
             binning_method,
             supported["binning_methods"],
-            EncodeMethods._errors["usupported_method_f"].format(
+            EncodeMethods._errors["unsupported_method_f"].format(
                 binning_method, supported["binning_methods"]
             ),
         )
 
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             data, EncodeMethods._errors["array_contains_nans_f"].format("data")
         )
         if labels is not None:
@@ -784,10 +789,10 @@ class EncodeMethods:
         labels = intervals if not isinstance(intervals, str) else None
         labels2d = transform_labels(data, labels)
         bins = transform_bins(data, bins, labels2d)
-        interval_format = cutils.convert_from_alias(
+        interval_format = convert_from_alias(
             interval_format, supported["interval_formats"]
         )
-        binning_method = cutils.convert_from_alias(
+        binning_method = convert_from_alias(
             binning_method, supported["binning_methods"]
         )
         output = {

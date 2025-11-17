@@ -38,9 +38,12 @@ from typing import Any, Callable, Hashable, Mapping, Optional, Sequence
 
 import pandas as pd
 
-from explorica._utils import ConvertUtils as cutils
-from explorica._utils import ValidationUtils as vutils
-from explorica._utils import read_messages
+from explorica._utils import (
+    convert_dataframe,
+    read_config,
+    validate_array_not_contains_nan,
+    validate_string_flag,
+)
 from explorica.data_quality._utils import Replacers
 
 from .detection import DetectionMethods
@@ -95,8 +98,8 @@ class HandlingMethods:
     dtype: int64
     """
 
-    _warns = read_messages()["warns"]
-    _errors = read_messages()["errors"]
+    _warns = read_config("messages")["warns"]
+    _errors = read_config("messages")["errors"]
 
     @staticmethod
     def replace_outliers(
@@ -209,7 +212,7 @@ class HandlingMethods:
         5    3.133333         11
         6    0.600000         10
         """
-        df = cutils.convert_dataframe(data)
+        df = convert_dataframe(data)
 
         params = {
             "iters": None,
@@ -287,21 +290,21 @@ class HandlingMethods:
             return replaced
 
         # Validate method and strategy
-        vutils.validate_string_flag(
+        validate_string_flag(
             detection_method,
             methods["detection"],
-            HandlingMethods._errors["usupported_method_f"].format(
+            HandlingMethods._errors["unsupported_method_f"].format(
                 detection_method, methods["detection"]
             ),
         )
-        vutils.validate_string_flag(
+        validate_string_flag(
             strategy,
             methods["fill"],
-            HandlingMethods._errors["usupported_method_f"].format(
+            HandlingMethods._errors["unsupported_method_f"].format(
                 strategy, methods["fill"]
             ),
         )
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             df, err_msg=HandlingMethods._errors["array_contains_nans_f"].format("data")
         )
 
@@ -325,7 +328,7 @@ class HandlingMethods:
                         **methods["detection"][detection_method]["params"],
                     )
                     # outliers may be pd.Series
-                    outliers = cutils.convert_dataframe(outliers)
+                    outliers = pd.DataFrame(outliers)
 
                     # Stop if no outliers remain
                     if outliers.shape[0] == 0:
@@ -347,7 +350,7 @@ class HandlingMethods:
                         **methods["detection"][detection_method]["params"],
                     )
                     # outliers may be pd.Series
-                    outliers = cutils.convert_dataframe(outliers)
+                    outliers = pd.DataFrame(outliers)
                     # Stop if no outliers remain
                     if outliers.shape[0] == 0:
                         break
@@ -365,7 +368,7 @@ class HandlingMethods:
                 **methods["detection"][detection_method]["params"],
             )
             # outliers may be pd.Series
-            outliers = cutils.convert_dataframe(outliers)
+            outliers = pd.DataFrame(outliers)
             replaced = replace(
                 replaced, outliers, columns_to_replace, methods["fill"][strategy]
             )
@@ -449,7 +452,7 @@ class HandlingMethods:
             If the provided `detection_method` or `remove_mode` is not supported
             If `iters` is not a positive integer.
         """
-        df = cutils.convert_dataframe(data)
+        df = convert_dataframe(data)
 
         params = {
             "iters": None,
@@ -496,20 +499,20 @@ class HandlingMethods:
         }
 
         # input args validation
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             df, err_msg=HandlingMethods._errors["array_contains_nans_f"].format("data")
         )
-        vutils.validate_string_flag(
+        validate_string_flag(
             detection_method,
             list(supported_methods),
-            err_msg=HandlingMethods._errors["usupported_method_f"].format(
+            err_msg=HandlingMethods._errors["unsupported_method_f"].format(
                 detection_method, list(supported_methods)
             ),
         )
-        vutils.validate_string_flag(
+        validate_string_flag(
             params["remove_mode"],
             {"any", "all"},
-            err_msg=HandlingMethods._errors["usupported_method_f"].format(
+            err_msg=HandlingMethods._errors["unsupported_method_f"].format(
                 params["remove_mode"], {"any", "all"}
             ),
         )
@@ -567,7 +570,7 @@ class HandlingMethods:
     @staticmethod
     def _preproccess_params(
         params: dict,
-        mapper: dict["key" : dict["default_value":object, "path":Hashable]],
+        mapper: dict,
     ):
         """
         Update nested parameters based on user-friendly aliases.
