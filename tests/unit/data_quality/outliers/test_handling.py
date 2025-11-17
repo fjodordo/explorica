@@ -67,7 +67,7 @@ def test_replace_outliers_input_contains_nans():
         data_quality.replace_outliers(DF_WITH_NAN)
 
 @pytest.mark.parametrize("data", DATA_SEQUENCES)
-def test_different_sequences_and_dtypes(data):
+def test_replace_outliers_different_sequences_and_dtypes(data):
     replaced = data_quality.replace_outliers(data)
     assert replaced is not None
 

@@ -30,9 +30,13 @@ import pandas as pd
 from scipy.optimize import OptimizeWarning, curve_fit
 from scipy.stats import chi2_contingency
 
-from explorica._utils import ConvertUtils as cutils
-from explorica._utils import ValidationUtils as vutils
-from explorica._utils import read_messages
+from explorica._utils import (
+    convert_dataframe,
+    read_config,
+    validate_array_not_contains_nan,
+    validate_lengths_match,
+    validate_string_flag,
+)
 
 
 class CorrelationMetrics:
@@ -70,8 +74,8 @@ class CorrelationMetrics:
     np.float64(1.0)
     """
 
-    _warns = read_messages()["warns"]
-    _errors = read_messages()["errors"]
+    _warns = read_config("messages")["warns"]
+    _errors = read_config("messages")["errors"]
 
     @staticmethod
     def cramer_v(
@@ -141,16 +145,18 @@ class CorrelationMetrics:
         computing :math:`\\chi^2` (only affects :math:`2 \\times 2` contingency tables).
         """
 
-        vutils.validate_lengths_match(
-            x, y, err_msg="Length of 'x' must match length of 'y'", n_dim=1
+        validate_lengths_match(
+            x,
+            y,
+            err_msg="Length of 'x' must match length of 'y'",
         )
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             x,
             err_msg="""
             The input 'x' contains null values.
             Please clean or impute missing data.""",
         )
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             y,
             err_msg="""The input 'y' contains null values.
             Please clean or impute missing data.""",
@@ -208,21 +214,20 @@ class CorrelationMetrics:
         If the total variance of `values` is zero, the function returns 0.
         NaN values should be handled before calling this function.
         """
-        vutils.validate_lengths_match(
+        validate_lengths_match(
             values,
             categories,
             err_msg=CorrelationMetrics._errors["arrays_lens_mismatch_f"].format(
                 "values", "categories"
             ),
-            n_dim=1,
         )
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             values,
             err_msg=CorrelationMetrics._errors["array_contains_nans_f"].format(
                 "values"
             ),
         )
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             categories,
             err_msg=CorrelationMetrics._errors["array_contains_nans_f"].format(
                 "categories"
@@ -343,8 +348,8 @@ class CorrelationMetrics:
             )
             return seq
 
-        x_series = cutils.convert_dataframe(x).iloc[:, 0]
-        y_series = cutils.convert_dataframe(y).iloc[:, 0]
+        x_series = convert_dataframe(x).iloc[:, 0]
+        y_series = convert_dataframe(y).iloc[:, 0]
         regressions = {
             "models": {
                 "linear": lambda x, a, b: a * x + b,
@@ -373,23 +378,22 @@ class CorrelationMetrics:
         else:
             lower_bound, upper_bound = normalization_bounds
             x_series = scale_minmax(x_series, lower_bound, upper_bound)
-        vutils.validate_string_flag(
+        validate_string_flag(
             method,
             regressions["models"],
             f"Unsupported method '{method}'." f"Choose from: ({regressions['models']})",
         )
-        vutils.validate_lengths_match(
+        validate_lengths_match(
             x_series,
             y_series,
             f"Length of 'x' series ({x_series.size}) "
             f"must match length of 'y' series ({y_series.size}).",
-            n_dim=1,
         )
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             x_series,
             "The 'x' contains NaN values. Please clean or impute missing data.",
         )
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             y_series,
             "The 'y' contains NaN values. Please clean or impute missing data.",
         )
@@ -462,17 +466,17 @@ class CorrelationMetrics:
 
         If corr(X) is singular (det = 0), the function returns R = 0.
         """
-        factors = cutils.convert_dataframe(x)
-        y_series = cutils.convert_dataframe(y).iloc[:, 0]
+        factors = convert_dataframe(x)
+        y_series = convert_dataframe(y).iloc[:, 0]
         if x.shape[0] != y.size:
             raise ValueError(
                 f"Length of 'x' DataFrame ({factors.shape[0]}) "
                 f"must match length of 'y' series ({y_series.size})."
             )
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             factors, "The 'x' contains NaN values. Please clean or impute missing data."
         )
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             y_series,
             "The 'y' contains NaN values. Please clean or impute missing data.",
         )

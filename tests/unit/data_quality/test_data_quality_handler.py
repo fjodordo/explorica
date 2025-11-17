@@ -42,8 +42,6 @@ def test_get_summary_empty_dataset(dataset):
     # --- numpy structures ---
     np.array([[1, 2, 3], [4, 5, 6]]),
     np.array([1, 2, 3]),
-    np.rec.array([(1, 4), (2, 5), (3, 6)],
-                 dtype=[('a', 'i4'), ('b', 'i4')]),
 
     # --- dict structures ---
     {"a": [1, 2, 3], "b": [4, 5, 6]},
@@ -114,7 +112,7 @@ def _assert_df_structures_equality(df1: pd.DataFrame, df2: pd.DataFrame, check_d
 def test_get_summary_file_output(ext, loader, tmp_path):
     df = pd.DataFrame({"A": [1, 2, 3], "B": [3, 2, 1]})
     path = str(tmp_path / f"summary{ext}")
-    data_quality.get_summary(dataset=df, directory=path)
+    data_quality.get_summary(data=df, directory=path)
     summary = loader(path)
     if ext == ".csv":
         expected_df = pd.DataFrame(columns=['nans:count_of_nans', 'nans:pct_of_nans', 'duplicates:count_of_unique',

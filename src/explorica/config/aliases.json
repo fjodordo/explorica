@@ -1,12 +1,31 @@
 {
-    "frequency": ["freq", "frequency"],
-    "alphabetical": ["alphabetical", "abc"],
-    "mean": ["average", "avg", "mean"],
-    "median": ["median", "q2"],
-    "mode": ["mode"],
-    "quantile": ["quantile"],
-    "uniform": ["uniform", "eqwidth", "equal_width"],
-    "pandas": ["pandas", "pd"],
-    "string": ["string", "str", "text"],
-    "custom": ["custom"]
+    "global": {
+        "frequency": ["freq", "frequency"],
+        "alphabetical": ["alphabetical", "abc"],
+        "mean": ["average", "avg", "mean"],
+        "median": ["median", "q2"],
+        "mode": ["mode"],
+        "quantile": ["quantile"],
+        "uniform": ["uniform", "eqwidth", "equal_width"],
+        "pandas": ["pandas", "pd"],
+        "string": ["string", "str", "text"],
+        "custom": ["custom"],
+        "top_value_ratio": ["top_value_ratio", "top_value"],
+        "non_uniqueness": ["non_uniqueness", "non-uniqueness", "non uniqueness"],
+        "entropy": ["entropy"],
+        "shannon": ["shannon", "claude shannon"],
+        "drop": ["drop", "drop_axis0"],
+        "drop_columns": ["drop_columns", "drop_axis1"],
+        "raise": ["raise"],
+        "include": ["include", "handle"]
+    },
+    "get_categorical_features": {
+        "object": ["str", "string", "object"],
+        "number": ["number", "numeric", "num", "numerical"],
+        "int": ["int", "int64", "integer"],
+        "datetime64": ["datetime64", "datetime", "date", "time", "timestamp"],
+        "bin": ["bin", "binary", "1/0"],
+        "bool": ["bool", "boolean"], 
+        "const": ["const", "constant"]
+    }
 }

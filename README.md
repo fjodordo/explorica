@@ -1,4 +1,8 @@
-# Explorica — A Flexible Framework for Exploratory Data Analysis🌱
+# Explorica - A Flexible Framework for Exploratory Data Analysis🌱
+![Python 3.10+](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)
+![Tests](https://github.com/LaplaceDevil/explorica/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 
  **Current version:** 0.1.0 (pre-release)  
 
@@ -7,18 +11,23 @@ It provides ready-to-use components for **data preprocessing, feature engineerin
 
 > Designed for data analysts and data scientists who want to streamline their EDA workflow.
 ---
+#  Why Explorica?
+### Designed for Analyst Productivity
+- **One-liner visualizations 📊** - generate ready-to-use plots for numeric and categorical features with a single line of code 
+
+-  **Beyond Pearson 🔍** - advanced dependency detection using Cramér’s V, η², exponential, and other correlation metrics
+
+-  **Smart data quality handling 🧹** - automatically remove or handle NaN values at the column level based on a configurable threshold
+---
 
 # Quick Start
-### Clone the repository and install dependencies:
 ```bash
-git clone https://github.com/LaplaceDevil/explorica.git
-cd explorica
-pip install -r requirements.txt
+pip install git+https://github.com/LaplaceDevil/explorica.git
 ```
 ### Usage: Categorical Correlation Matrix
 ```python
 >>> import pandas as pd
->>> from explorica.interactions import corr_matrix_cramer_v
+>>> import explorica.interactions as interactions
 
 # Create a small categorical dataset
 >>> df = pd.DataFrame({"feat1": ["A", "B", "A", "B"],
@@ -26,7 +35,7 @@ pip install -r requirements.txt
 ...                    "feat3": ["A", "A", "B", "B"]})
 
 # Compute Cramér's V correlation matrix
->>> matrix = corr_matrix_cramer_v(df, bias_correction=False)
+>>> matrix = interactions.corr_matrix_cramer_v(df, bias_correction=False)
 
 >>> print(matrix)
 |       | feat1 | feat2 | feat3 |
@@ -39,7 +48,7 @@ pip install -r requirements.txt
 ### Usage: Search For Highly Correlated Feature Pairs
 ```python
 >>> from seaborn import load_dataset
->>> from explorica.interactions import high_corr_pairs
+>>> import explorica.interactions as interactions
 
 # Load Titanic dataset
 >>> df = load_dataset("titanic")
@@ -54,7 +63,7 @@ pip install -r requirements.txt
 >>> cat_features = df.select_dtypes(("object", "category", "bool"))
 
 # Compute highly correlated feature pairs (linear + nonlinear methods)
->>> corr_pairs = high_corr_pairs(
+>>> corr_pairs = interactions.high_corr_pairs(
 ...     numeric_features=num_features,
 ...     category_features=cat_features,
 ...     threshold=0.72,
@@ -81,71 +90,58 @@ pip install -r requirements.txt
 ``` 
 ---
 
-# Project Structure 📂
+# Project Structure
 
 ```
 explorica/
-├── src/
-│ ├── explorica/
-│ │ ├── config/
-│ │ │ └── messages.json
-│ │ ├── __init__.py
-│ │ ├── _utils.py
-│ │ ├── data_quality/
-│ │ | ├── __init__.py
-│ │ │ ├── data_preprocessor.py
-│ │ │ ├── data_quality_handler.py
-│ │ │ ├── feature_engineer.py
-│ │ │ └── outlier_handler.py
-│ │ ├── interactions/
-│ │ │ ├── __init__.py
-│ │ │ ├── aggregators.py
-│ │ │ ├── correlation_metrics.py
-│ │ │ ├── correlation_matrices.py
-│ │ │ └── interaction_analyzer.py
-│ │ └── visualizer.py
+├── src/explorica/
+| |
+│ ├── data_quality/
+│ │ ├── data_preprocessing.py
+│ │ ├── data_quality_handler.py
+│ │ ├── feature_engineering.py
+| | ├── information_metrics.py
+│ │ └── outliers/
+| |
+│ ├── interactions/
+│ │ ├── aggregators.py
+│ │ ├── correlation_metrics.py
+│ │ ├── correlation_matrices.py
+│ │ └── interaction_analyzer.py
+| |
+│ └── visualizer.py
+|
 ├── tests/
 │ ├── unit/
-│ │ └── test_interaction_analyzer.py
-│ └── __init__.py
+│ └── integration/
+|
 ├── docs/
-| ├── source/
-| | ├── conf.py
-| | ├── index.rst
-| | └── ...
-| ├── make.bat
-| └── Makefile
-├── .github/workflows/
-| └── ci.yml
-├── .gitignore
 ├── CHANGELOG.md
 ├── LICENSE.md
 ├── pyproject.toml
-├── pytest.ini
 ├── README.md
 └── requirements.txt
 ```
-- `src/explorica/` — core package, all framework modules are here  
-- `config/` — static configuration (e.g. `messages.json`)  
+- `src/explorica/` — core package, all framework modules are here   
 - `docs/` — Sphinx documentation sources  
-- `.github/workflows/` — CI/CD pipeline configs  
 
 ---
 
 # Components
 
 ### Core Classes
-- **`DataVisualizer`** — generating ready-to-use plots for numeric and categorical data
+- **`DataVisualizer`** - generating ready-to-use plots for numeric and categorical data
 
 ### Functional Modules
-- **`interactions`** — top-level functions for analyzing statistical dependencies:
+- **`interactions`** - top-level functions for analyzing statistical dependencies:
   - **Categorical / Hybrid:** `cramer_v`, `eta_squared`
   - **Numeric:** `corr_index`, `corr_multiple`
   - **Matrix / Vectorized:** `corr_matrix*`, `high_corr_pairs`
-- **`data_quality`** — unified facade for core data handling operations, includes:
-  - `DataPreprocessor` — handling missing values, managing categories, detecting constant features
-  - `FeatureEngineer` — creating, encoding, and transforming features
-  - `OutlierHandler` — detecting and processing outliers, describing distributions
+- **`data_quality`** - top-level functions for core data handling operations, includes:
+  - **outliers** - `describe_distributions`, `remove_outliers`
+  - **feature_engineering** - `discretize_continuous`, `freq_encode`
+  - **data_preprocessing**  - `get_constant_features`, `get_categorical_features`
+  - **information_metrics** - `get_entropy`
 
 ### Design Principles
 - **Modularity** — each component is independent and reusable
@@ -154,28 +150,59 @@ explorica/
 - **Data-Agnostic** — works across domains, not tied to a specific dataset type
 
 ---
+## Documentation
 
-# Highlights 🌠
+Documentation is built with Sphinx. To generate locally:
+```bash
+pip install sphinx sphinx_autodoc_typehints numpydoc
+cd docs
+make html
+open build/html/explorica.html
+```
 
-- **One-liner visualizations 📊** — generate ready-to-use plots for numeric and categorical features with a single line of code 
+Full documentation will be published on GitHub Pages before the stable release.
 
--  **Beyond Pearson 🔍** — advanced dependency detection using Cramér’s V, η², exponential, and other correlation metrics
+---
+## Development Setup
+```bash
+# Install with development dependencies
+pip install -e ".[dev]"
 
--  **Smart data quality handling 🧹** — automatically remove or handle NaN values at the column level based on a configurable threshold
+# Run tests
+pytest --cov=explorica
+
+# Code formatting
+black src/explorica/
+
+# Code quality checks
+black --check src/explorica/
+isort --profile black --check-only  src/explorica/
+pylint src/explorica/ --max-line-length=88
+flake8 src/explorica/ --max-line-length=88
+```
+---
+## Contributing
+We welcome:
+- Bug reports via [GitHub Issues](https://github.com/LaplaceDevil/explorica/issues)
+- Documentation improvements  
+- Small fixes
+
 ---
 ## Roadmap
 > The roadmap gives a quick overview of completed tasks and future development plans.
 
-- [x] Integrate Continuous Integration (CI) for automated testing and linting
-- [x] Implement a basic set of unit tests for explorica.interactions
-- [ ] Cover 80%+ of Explorica with unit tests
-- [ ] Create DataQualityHandler module combining preprocessing, outlier handling, and feature engineering
+- [x] Refactor + n > 80% test coverage for `explorica.data_quality`
+- [ ] Refactor + n > 80% test coverage for `explorica.visualizations` 
+- [ ] Add new features for `explorica.data_quality`
+- [ ] Add `explorica.reports` feature to automate reports
+- [ ] Add `explorica.io` feature to load data out of the box
+- [ ] PyPI release
 - [ ] Prepare demonstration notebooks for release branch
 
 ---
 
 ## Testing & Continuous Integration
-- Unit tests powered by `pytest`
+- Unit tests powered by `pytest`, `pytest-cov`
 - Code quality enforced via `pylint`, `flake8`, `black`, and `isort`
 - Continuous integration via GitHub Actions
 
