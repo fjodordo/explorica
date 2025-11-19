@@ -5,6 +5,7 @@ test_template.py
 # Debug files
 debug*.ipynb
 debug*.py
+debug_files/
 notebooks/
 templates/
 
