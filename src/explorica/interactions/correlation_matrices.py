@@ -23,9 +23,14 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
-from explorica._utils import ConvertUtils as cutils
-from explorica._utils import ValidationUtils as vutils
-from explorica._utils import read_messages
+from explorica._utils import (
+    convert_dataframe,
+    read_config,
+    validate_array_not_contains_nan,
+    validate_lengths_match,
+    validate_string_flag,
+    validate_unique_column_names,
+)
 from explorica.interactions.correlation_metrics import CorrelationMetrics as cm
 
 
@@ -78,8 +83,8 @@ class CorrelationMatrices:
     - NaN values or duplicate column names will raise a ValueError.
     """
 
-    _errors = read_messages()["errors"]
-    _warns = read_messages()["warns"]
+    _errors = read_config("messages")["errors"]
+    _warns = read_config("messages")["warns"]
 
     @staticmethod
     def corr_matrix(
@@ -174,26 +179,26 @@ class CorrelationMatrices:
             "hyperbolic",
             "power",
         }
-        dataset_df = cutils.convert_dataframe(dataset)
-        groups_df = cutils.convert_dataframe(groups)
-        vutils.validate_unique_column_names(
+        dataset_df = convert_dataframe(dataset)
+        groups_df = convert_dataframe(groups)
+        validate_unique_column_names(
             dataset_df, "Duplicate column names found in 'dataset' DataFrame"
         )
-        vutils.validate_unique_column_names(
+        validate_unique_column_names(
             groups_df, "Duplicate column names found in 'groups' DataFrame"
         )
 
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             dataset_df,
             err_msg=CorrelationMatrices._errors["array_contains_nans_f"].format(
                 "dataset"
             ),
         )
 
-        vutils.validate_string_flag(
+        validate_string_flag(
             method,
             supported_methods,
-            err_msg=CorrelationMatrices._errors["usupported_method_f"].format(
+            err_msg=CorrelationMatrices._errors["unsupported_method_f"].format(
                 method, supported_methods
             ),
         )
@@ -202,18 +207,17 @@ class CorrelationMatrices:
             raise ValueError("'groups' must be provided when using 'eta' method.")
 
         if groups is not None:
-            vutils.validate_array_not_contains_nan(
+            validate_array_not_contains_nan(
                 groups_df,
                 err_msg=CorrelationMatrices._errors["array_contains_nans_f"].format(
                     "groups"
                 ),
             )
-            vutils.validate_lenghts_match(
+            validate_lengths_match(
                 dataset_df,
                 groups_df,
                 f"Length of 'groups' ({groups_df.shape[0]}) "
                 f"must match length of 'dataset' ({dataset_df.shape[0]}).",
-                n_dim=2,
             )
 
         numeric_df = dataset_df.select_dtypes("number")
@@ -268,15 +272,15 @@ class CorrelationMatrices:
         - Only numeric columns are considered; non-numeric columns are ignored.
         - The dataset is automatically converted to a pandas DataFrame if it isn't one.
         """
-        vutils.validate_string_flag(
+        validate_string_flag(
             method,
             {"pearson", "spearman"},
-            err_msg=CorrelationMatrices._errors["usupported_method_f"].format(
+            err_msg=CorrelationMatrices._errors["unsupported_method_f"].format(
                 method, {"pearson", "spearman"}
             ),
         )
-        df = cutils.convert_dataframe(dataset)
-        vutils.validate_array_not_contains_nan(
+        df = convert_dataframe(dataset)
+        validate_array_not_contains_nan(
             df, CorrelationMatrices._errors["array_contains_nans"]
         )
         numeric_features = df.select_dtypes("number")
@@ -320,11 +324,11 @@ class CorrelationMatrices:
         - The underlying `cramer_v` function may currently produce biased
         results in some cases due to known issues with bias correction.
         """
-        df = cutils.convert_dataframe(dataset)
-        vutils.validate_array_not_contains_nan(
+        df = convert_dataframe(dataset)
+        validate_array_not_contains_nan(
             df, CorrelationMatrices._errors["array_contains_nans"]
         )
-        vutils.validate_unique_column_names(
+        validate_unique_column_names(
             df,
             err_msg=CorrelationMatrices._errors["duplicate_column_names_f"].format(
                 "dataset"
@@ -384,16 +388,16 @@ class CorrelationMatrices:
         stronger association.
         """
         err_msg = CorrelationMatrices._errors["array_contains_nans_f"]
-        vutils.validate_array_not_contains_nan(dataset, err_msg.format("dataset"))
-        vutils.validate_array_not_contains_nan(categories, err_msg.format("categories"))
+        validate_array_not_contains_nan(dataset, err_msg.format("dataset"))
+        validate_array_not_contains_nan(categories, err_msg.format("categories"))
 
         err_msg = CorrelationMatrices._errors["arrays_lens_mismatch_f"]
-        vutils.validate_lenghts_match(
+        validate_lengths_match(
             dataset, categories, err_msg.format("dataset", "categories")
         )
 
-        numeric_features = cutils.convert_dataframe(dataset)
-        groups = cutils.convert_dataframe(categories)
+        numeric_features = convert_dataframe(dataset)
+        groups = convert_dataframe(categories)
 
         category_cols = groups.columns
         numeric_cols = numeric_features.columns
@@ -547,14 +551,14 @@ class CorrelationMatrices:
         """
         warned_once = False
         matrix = pd.DataFrame()
-        features = cutils.convert_dataframe(dataset)
+        features = convert_dataframe(dataset)
         features = features.select_dtypes("number")
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             dataset,
             "The input dataset contains null values."
             "Please clean or impute missing data.",
         )
-        vutils.validate_unique_column_names(
+        validate_unique_column_names(
             features, "Duplicate column names found in input dataset"
         )
         for target in features.columns:
@@ -623,20 +627,20 @@ class CorrelationMatrices:
           will have NaN as a result.
         """
         supported_methods = {"linear", "exp", "binomial", "ln", "hyperbolic", "power"}
-        df = cutils.convert_dataframe(dataset)
-        vutils.validate_string_flag(
+        df = convert_dataframe(dataset)
+        validate_string_flag(
             method,
             supported_methods,
-            err_msg=CorrelationMatrices._errors["usupported_method_f"].format(
+            err_msg=CorrelationMatrices._errors["unsupported_method_f"].format(
                 method, supported_methods
             ),
         )
-        vutils.validate_array_not_contains_nan(
+        validate_array_not_contains_nan(
             dataset,
             "The input dataset contains null values."
             "Please clean or impute missing data.",
         )
-        vutils.validate_unique_column_names(
+        validate_unique_column_names(
             df, "Duplicate column names found in input dataset"
         )
         features = df.columns

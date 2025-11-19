@@ -27,13 +27,179 @@ from typing import Sequence
 
 import numpy as np
 import pandas as pd
+from statsmodels.api import add_constant
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 
-from explorica._utils import ConvertUtils as cutils
-from explorica._utils import ValidationUtils as vutils
-from explorica._utils import read_messages
+from explorica._utils import (
+    convert_dataframe,
+    read_config,
+    validate_array_not_contains_nan,
+    validate_at_least_one_exist,
+    validate_lengths_match,
+    validate_string_flag,
+    validate_unique_column_names,
+)
 from explorica.interactions.correlation_matrices import CorrelationMatrices
 
-_errors = read_messages()["errors"]
+_errors = read_config("messages")["errors"]
+
+
+def detect_multicollinearity(
+    numeric_features: Sequence[Sequence[Number]] = None,
+    category_features: Sequence[Sequence] = None,
+    method: str = "VIF",
+    return_as: str = "dataframe",
+    **kwargs,
+) -> dict | pd.DataFrame:
+    """
+    Detect multicollinearity among features using either Variance Inflation Factor (VIF)
+    or correlation-based methods.
+
+    Parameters
+    ----------
+    numeric_features : Sequence of sequences of numbers, optional
+        Numerical feature matrix or compatible structure (array-like or DataFrame).
+        Required for ``method='VIF'``. Used together with `category_features` when
+        correlation-based method is selected.
+    category_features : Sequence of sequences, optional
+        Categorical feature matrix or compatible structure (array-like or DataFrame).
+        Only used with ``method='corr'``. Not evaluated under VIF.
+    method : {"VIF", "corr"}, default="VIF"
+        Method to detect multicollinearity:
+        - "VIF" : Compute Variance Inflation Factor for numerical features.
+        - "corr" : Detect multicollinearity based on the highest pairwise correlation
+          between features (numeric–numeric, numeric–categorical,
+          categorical–categorical).
+          Supported correlation metrics include: ``sqrt_eta_squared``, ``cramer_v``,
+          ``pearson``, ``spearman``.
+    return_as : {"dataframe", "dict"}, default="dataframe"
+        Output format of the result:
+        - "dataframe" : Pandas DataFrame with features as index and metrics as columns.
+        - "dict" : Nested dictionary of the form
+          ``{metric: {feature: value, ...}, ...}``.
+    variance_inflation_threshold : float, default=10
+        Threshold above which a feature is considered collinear in VIF method.
+    correlation_threshold : float, default=0.95
+        Threshold for the highest absolute correlation of a feature with any other
+        feature. If this value is exceeded, the feature is considered collinear.
+
+    Returns
+    -------
+    dict or pd.DataFrame
+        Multicollinearity assessment, depending on ``return_as``:
+        - If "dataframe": DataFrame with columns for metrics (e.g., "VIF",
+          "multicollinearity") and rows corresponding to features.
+        - If "dict": Mapping of metrics to per-feature values.
+
+    Raises
+    ------
+    ValueError
+        If all inputs are empty.
+        If lengths of `numeric_features` and `category_features` do not match.
+        If any input array contains NaN values.
+        If `method` or `return_as` is not one of the supported values.
+
+    Notes
+    -----
+    - VIF can be infinite if the dataset contains functionally dependent features.
+    - Categorical features are not evaluated under VIF.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from explorica.interactions import detect_multicollinearity
+    >>> X_num = pd.DataFrame({"x1": [1, 2, 3], "x2": [2, 4, 6], "x3": [1, 0, 1]})
+    >>> detect_multicollinearity(X_num, method="VIF", return_as="dataframe")
+            VIF  multicollinearity
+    x1     inf                  1
+    x2     inf                  1
+    x3     1.5                  0
+    """
+    params = {
+        "variance_inflation_threshold": 10,
+        "correlation_threshold": 0.95,
+        **kwargs,
+    }
+
+    validate_string_flag(
+        method.lower(),
+        {
+            "variance_inflation",
+            "variance_inflation_factor",
+            "vif",
+            "corr",
+            "correlation",
+        },
+        err_msg=_errors["unsupported_method_f"].format(method, {"VIF", "corr"}),
+    )
+    validate_string_flag(
+        return_as.lower(),
+        {"dataframe", "df", "dict", "dictionary", "mapping"},
+        err_msg=_errors["unsupported_method_f"].format(
+            return_as, {"dataframe", "dict"}
+        ),
+    )
+    validate_at_least_one_exist(
+        (numeric_features, category_features),
+        err_msg=_errors["InteractionAnalyzer"]["high_corr_pairs"][
+            "features_do_not_exists"
+        ],
+    )
+    df_numeric = convert_dataframe(numeric_features)
+    df_category = convert_dataframe(category_features)
+    if numeric_features is not None and category_features is not None:
+        validate_lengths_match(
+            df_numeric,
+            df_category,
+            err_msg=_errors["arrays_lens_mismatch_f"].format(
+                "numeric_features", "category_features"
+            ),
+        )
+    if numeric_features is not None:
+        validate_array_not_contains_nan(
+            df_numeric,
+            err_msg=_errors["array_contains_nans_f"].format("numeric_features"),
+        )
+    if category_features is not None:
+        validate_array_not_contains_nan(
+            df_category,
+            err_msg=_errors["array_contains_nans_f"].format("category_features"),
+        )
+
+    if method.lower() in {"variance_inflation", "variance_inflation_factor", "vif"}:
+        result = {"VIF": {}, "multicollinearity": {}}
+        df_wc = add_constant(df_numeric)
+        cols = df_wc.columns
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", category=RuntimeWarning, message="divide by zero"
+            )
+            for i, col in enumerate(cols):
+                if i == 0:
+                    # do not calculate VIF for a const
+                    continue
+                result["VIF"][col] = variance_inflation_factor(df_wc, i)
+                result["multicollinearity"][col] = (
+                    1.0
+                    if result["VIF"][col] >= params["variance_inflation_threshold"]
+                    else 0.0
+                )
+
+    elif method.lower() in {"corr", "correlation"}:
+        result = {"highest_correlation": {}, "multicollinearity": {}}
+        pairs = high_corr_pairs(numeric_features, category_features, threshold=0)
+        cols = set(df_numeric.columns) | set(df_category.columns)
+        for i, col in enumerate(cols):
+            result["highest_correlation"][col] = pairs[pairs["Y"] == col]["coef"].max()
+            if result["highest_correlation"][col] >= np.abs(
+                params["correlation_threshold"]
+            ):
+                result["multicollinearity"][col] = 1
+            else:
+                result["multicollinearity"][col] = 0
+    if return_as in {"dataframe", "df"}:
+        result = pd.DataFrame(result)
+    return result
 
 
 def high_corr_pairs(
@@ -101,39 +267,38 @@ def high_corr_pairs(
     def validation():
         # Nan's absence check
         if numeric_features is not None:
-            vutils.validate_array_not_contains_nan(
+            validate_array_not_contains_nan(
                 numeric_df,
                 err_msg=_errors["array_contains_nans_f"].format("numeric_features"),
             )
-            vutils.validate_unique_column_names(
+            validate_unique_column_names(
                 numeric_df,
                 _errors["duplicate_column_names_f"].format("numeric_features"),
             )
         if category_features is not None:
-            vutils.validate_array_not_contains_nan(
+            validate_array_not_contains_nan(
                 category_df,
                 err_msg=_errors["array_contains_nans_f"].format("category_features"),
             )
-            vutils.validate_unique_column_names(
+            validate_unique_column_names(
                 category_df,
                 _errors["duplicate_column_names_f"].format("category_features"),
             )
 
         # checking at least 1 not None DataFrame
-        vutils.validate_at_least_one_exist(
+        validate_at_least_one_exist(
             (numeric_df, category_df),
             _errors["InteractionAnalyzer"]["high_corr_pairs"]["features_do_not_exists"],
         )
 
         # checking for lengths match
         if numeric_df is not None and category_df is not None:
-            vutils.validate_lenghts_match(
+            validate_lengths_match(
                 numeric_df,
                 category_df,
                 _errors["InteractionAnalyzer"]["high_corr_pairs"][
                     "features_lens_mismatch_f"
                 ].format(numeric_df.shape[0], category_df.shape[0]),
-                n_dim=2,
             )
         if kwargs.get("multiple_included") and len(numeric_cols) > 15:
             warnings.warn(
@@ -145,7 +310,7 @@ def high_corr_pairs(
         # checking if 'y' feature is present in at least one input DataFrame
         supported_names = set(numeric_cols) | set(category_cols)
         if y is not None:
-            vutils.validate_string_flag(
+            validate_string_flag(
                 y,
                 supported_names,
                 err_msg=_errors["InteractionAnalyzer"]["high_corr_pairs"][
@@ -160,10 +325,10 @@ def high_corr_pairs(
 
     numeric_df, category_df = None, None
     if numeric_features is not None:
-        numeric_df = cutils.convert_dataframe(numeric_features)
+        numeric_df = convert_dataframe(numeric_features)
 
     if category_features is not None:
-        category_df = cutils.convert_dataframe(category_features)
+        category_df = convert_dataframe(category_features)
 
     # checking column names of input DataFrame for duplicates
 
@@ -221,7 +386,7 @@ def _high_corr_pairs_get_execution_queue(
     if y is None or y in category_cols:
         if len(category_cols) >= 2:
             execution.append("cramer_v")
-        if len(numeric_cols) < 0 and len(category_cols) < 0:
+        if len(numeric_cols) > 0 and len(category_cols) > 0:
             # special case validation: feature is compared only with itself
             if not (
                 len(category_cols) == 1

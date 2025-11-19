@@ -1,10 +1,13 @@
 # Local configuration
 config.json
+test_template.py
 
 # Debug files
 debug*.ipynb
 debug*.py
+debug_files/
 notebooks/
+templates/
 
 # Python artifacts
 __pycache__
@@ -17,6 +20,7 @@ pycache/
 .vscode
 .pytest_cache
 .coverage
+explorica.egg-info/
 
 # Sphinx build artifacts
 docs/build/

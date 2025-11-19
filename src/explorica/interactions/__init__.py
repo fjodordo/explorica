@@ -23,6 +23,7 @@ from .interaction_analyzer import (
     corr_multiple,
     corr_vector_multiple,
     cramer_v,
+    detect_multicollinearity,
     eta_squared,
     high_corr_pairs,
 )
@@ -40,4 +41,5 @@ __all__ = [
     "corr_vector_multiple",
     "corr_matrix_multiple",
     "high_corr_pairs",
+    "detect_multicollinearity",
 ]
