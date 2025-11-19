@@ -8,15 +8,17 @@ Features include:
 - Data visualization
 - Feature interaction analysis
 """
+import logging
 
 from .visualizer import DataVisualizer
-from .data_preprocessor import DataPreprocessor
-from .feature_engineer import FeatureEngineer
-from .outlier_handler import OutlierHandler
 
 __version__ = "0.1.1"
 
-__all__ = ["DataPreprocessor",
-           "FeatureEngineer",
-           "OutlierHandler",
-           "DataVisualizer"]
+__all__ = ["DataVisualizer"]
+
+logger = logging.getLogger("explorica")
+if not logger.hasHandlers():
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s: %(message)s"))
+    logger.addHandler(handler)
+logger.setLevel(logging.WARNING)
