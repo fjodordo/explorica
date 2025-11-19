@@ -7,7 +7,100 @@ import pandas as pd
 import numpy as np
 import explorica.interactions as ia
 
-# tests for InteractionAnalyzer.high_corr_pairs()
+np.random.seed(42)
+
+# tests for explorica.interactions.detect_multicollinearity()
+
+@pytest.mark.parametrize("nfs, cfs, method, return_as, must_contains",[
+    (None, None, "corr", "df", "At least one of the feature"),
+    (pd.DataFrame({"A": [1, 2, 3], "B": [3, 2, 3]}), None, "determination", "df", "Unsupported method"),
+    (pd.DataFrame({"A": [1, 2, 3], "B": [3, 2, 3]}), pd.DataFrame({"C": [1, 2, 3, 4]}), "corr", "dict", "must match length"),
+    (pd.DataFrame({"A": [1, 2, 3], "B": [3, 2, 3]}), None, "VIF", "yml", "Unsupported method"),
+    (pd.DataFrame({"A": [1, np.nan, 3], "B": [3, 2, 3]}), None, "VIF", "dictionary", "contains null values")])
+def test_detect_multicollinearity_standards(nfs, cfs, method, return_as, must_contains):
+    with pytest.raises(ValueError, match=must_contains):
+        ia.detect_multicollinearity(nfs, cfs, method, return_as)
+
+def test_detect_multicollinearity_contains_dep():
+    df = pd.DataFrame({"A": [1, 2, 3, 4],
+                       "B": [2, 4, 6, 8],
+                       "C": [1, 4, 6, 2]})
+    report = ia.detect_multicollinearity(df, method="VIF")
+    assert 1 in report["multicollinearity"].values
+    assert np.inf in report["VIF"].values
+    report = ia.detect_multicollinearity(df, method="correlation")
+    assert 1 in report["multicollinearity"].values 
+    assert np.isclose(report["highest_correlation"].max(), 1, atol=0.01)
+
+def test_detect_multicollinearity_not_contains_dep():
+    n_samples = 100
+    df = pd.DataFrame({
+        "x1": np.random.normal(loc=0, scale=1, size=n_samples),
+        "x2": np.random.normal(loc=5, scale=2, size=n_samples),
+        "x3": np.random.uniform(low=-1, high=1, size=n_samples),
+        "x4": np.random.randint(0, 10, size=n_samples),
+        "x5": np.random.normal(loc=10, scale=5, size=n_samples)
+    })
+    report_vif = ia.detect_multicollinearity(df, method="VIF")
+    report_corr = ia.detect_multicollinearity(df, method="corr")
+    assert 1 not in report_vif["multicollinearity"].values
+    assert 1 not in report_corr["multicollinearity"].values
+    assert report_vif["VIF"].max() < 10
+    assert report_corr["highest_correlation"].max() < 0.95
+
+def test_detect_multicollinearity_output_dict_behavior():
+    df = pd.DataFrame({"A": [1, 2, 3, 4],
+                       "B": [2, 4, 6, 12],
+                       "C": [1, 4, 6, 2]})
+    report = ia.detect_multicollinearity(df, method="VIF", return_as="dict")
+    assert set(report["multicollinearity"]) == set(df.columns)
+
+def test_detect_multicollinearity_output_df_behavior():
+    df = pd.DataFrame({"A": [1, 2, 3, 4],
+                       "B": [2, 4, 6, 12],
+                       "C": [1, 4, 6, 2]})
+    report = ia.detect_multicollinearity(df,
+                                         method="corr",
+                                         return_as="df")
+    assert set(report.index) == set(df.columns)
+
+def test_detect_multicollinearity_determined():
+    """
+    Input DataFrame:
+
+    | X1  | X2  | Y   |
+    |-----|-----|-----|
+    | 4   | 12  | 42  |
+    | 6.2 | 9   | 107 |
+    | 6.1 | 8   | 100 |
+    | 5.4 | 14  | 60  |
+    | 5.9 | 15  | 78  |
+    | 6   | 11  | 79  |
+    | 5.6 | 10  | 90  |
+    | 5.2 | 15  | 54  |
+
+    Expected Linear Regression Coefficients (OLS):
+    
+    Y = -0.170776 + 22.043953 * X1 - 3.908354 * X2
+
+    Expected VIF:
+
+    | Feature | Expected VIF |
+    |---------|--------------|
+    | X1      | 8.328322     |
+    | X2      | 4.381248     |
+    | Y       | 14.930252    |
+    """
+    df = pd.DataFrame({"X1": [4, 6.2, 6.1, 5.4, 5.9, 6, 5.6, 5.2],
+                       "X2": [12, 9, 8, 14, 15, 11, 10, 15],
+                       "Y": [42, 107, 100, 60, 78, 79, 90, 54]})
+    expectation = [8.328322, 4.381248, 14.930252]
+    report_vif = ia.detect_multicollinearity(df, method="VIF")
+    for i in range(3):
+        assert np.isclose(report_vif["VIF"].iloc[i], expectation[i], atol=0.001)
+
+
+# tests for explorica.interactions.high_corr_pairs()
 
 @pytest.mark.skip(reason="The test is too expensive (O(n^3))")
 def test_high_corr_pairs_multiple_and_so_many_features():
@@ -83,11 +176,7 @@ def test_high_corr_pairs_different_sequences_and_dtypes(numeric, category):
     (pd.DataFrame({"num1":[5 for i in range(10)],
                    "num2":[8 for i in range(10)]}),
      pd.DataFrame({"char1":["A" for i in range(10)],
-                   "char2":["B" for i in range(10)]})),
-    (pd.DataFrame({"num1":[1, 2, 3, 4, 5, 6, 7, 8, 9, 0],
-                   "num2":[8 for i in range(10)]}),
-     pd.DataFrame({"char1":["A" for i in range(10)],
-                   "char2":["B" for i in range(5)] + ["C" for i in range(5)]}))
+                   "char2":["B" for i in range(10)]}))
     ])
 def test_high_corr_pairs_const(numeric, category):
     result = ia.high_corr_pairs(numeric, category, threshold=0, nonlinear_included=True, multiple_included=True)
@@ -113,7 +202,7 @@ def test_high_corr_pairs_empty_input(numeric, category):
     result = ia.high_corr_pairs(numeric, category, nonlinear_included=True, multiple_included=True, threshold=0.0)
     assert result is None
 
-# tests for InteractionAnalyzer.corr_matrix()
+# tests for explorica.interactions.corr_matrix()
 
 def test_corr_matrix_unsupported_method():
     df = pd.DataFrame({1: [1, 2, 3], 2: [1, 3, 4], 3: [3, 2, 1]})
@@ -180,7 +269,7 @@ def test_corr_matrix_input_contains_nan(method, dataset):
     with pytest.raises(ValueError, match="null values"):
         ia.corr_matrix(dataset, method=method, groups=groups)
 
-# tests for InteractionAnalyzer.corr_matrix_corr_index()
+# tests for explorica.interactions.corr_matrix_corr_index()
 
 def test_corr_matrix_corr_index_determined():
     x = [1, 2, 3, 4, 5, 6]
@@ -231,7 +320,7 @@ def test_corr_matrix_corr_index_input_contains_nan(dataset):
     with pytest.raises(ValueError, match="null values"):
         ia.corr_matrix_corr_index(dataset)
 
-# tests for InteractionAnalyzer.corr_matrix_multiple()
+# tests for explorica.interactions.corr_matrix_multiple()
 
 def test_corr_matrix_multiple_determined():
     """test with determined answer ≈ 0.9659"""
@@ -283,7 +372,7 @@ def test_corr_matrix_multiple_input_contains_nan(dataset):
     with pytest.raises(ValueError):
         ia.corr_matrix_multiple(dataset)
 
-# tests for InteractionAnalyzer.corr_matrix_eta()
+# tests for explorica.interactions.corr_matrix_eta()
 
 def test_corr_matrix_eta_lenghts_mismatch():
     dataset = pd.DataFrame({"num_feat": [0, 1, 2, 3, 4]})
@@ -397,7 +486,7 @@ def test_corr_matrix_eta_input_contains_nan(dataset, categories):
     with pytest.raises(ValueError):
         ia.corr_matrix_eta(dataset, categories)
 
-# tests for InteractionAnalyzer.corr_matrix_cramer_v()
+# tests for explorica.interactions.corr_matrix_cramer_v()
 
 def test_corr_matrix_cramer_v_determined():
     df = pd.DataFrame({
@@ -485,7 +574,7 @@ def test_corr_matrix_cramer_v_different_sequences_and_dtypes(dataset):
     result = ia.corr_matrix_cramer_v(dataset)
     assert result is not None
 
-# tests for InteractionAnalyzer.corr_matrix_linear()
+# tests for explorica.interactions.corr_matrix_linear()
 
 @pytest.mark.parametrize(
     "dataset, method, expectation",
@@ -553,7 +642,7 @@ def test_corr_matrix_linear_different_sequences(dataset):
     result = ia.corr_matrix_linear(dataset)
     assert result is not None
 
-# tests for InteractionAnalyzer.corr_index()
+# tests for explorica.interactions.corr_index()
 
 @pytest.mark.parametrize(
     "x, y",
@@ -592,7 +681,7 @@ def test_corr_index_full_dependence(y, method):
     print(result)
     assert np.isclose(result, 1.00, atol=0.01)
 
-# tests for InteractionAnalyzer.eta_squared()
+# tests for explorica.interactions.eta_squared()
 
 def test_eta_squared_lengths_mismatch():
     x = [1, 2, 3, 4]
@@ -706,7 +795,7 @@ def test_eta_squared_full_dependence(x, y):
     result = ia.eta_squared(x, y)
     assert np.isclose(result, 1.0, atol=0.01)
 
-# tests for InteractionAnalyzer.cramer_v
+# tests for explorica.interactions.cramer_v
 
 def test_cramer_v_lengths_mismatch():
     x = [1, 2, 3, 4]

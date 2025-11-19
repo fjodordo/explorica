@@ -86,6 +86,7 @@ x1  1.000000  1.000000
 x2  1.000000  1.000000
 """
 
+from explorica.interactions.aggregators import detect_multicollinearity as dm
 from explorica.interactions.aggregators import high_corr_pairs as hcp
 from explorica.interactions.correlation_matrices import CorrelationMatrices
 from explorica.interactions.correlation_metrics import CorrelationMetrics as cm
@@ -102,3 +103,4 @@ corr_matrix_corr_index = CorrelationMatrices.corr_matrix_corr_index
 corr_vector_multiple = CorrelationMatrices.corr_vector_multiple
 corr_matrix_multiple = CorrelationMatrices.corr_matrix_multiple
 high_corr_pairs = hcp
+detect_multicollinearity = dm
