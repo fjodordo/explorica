@@ -1,27 +1,33 @@
 {
     "errors":
     {
-        "usupported_method_f": "Unsupported method '{}'. Choose from: {}",
-        "usupported_method": "Unsupported method choosed.",
+        "unsupported_method_f": "Unsupported method '{}'. Choose from: {}.",
+        "unsupported_method": "Unsupported method choosed.",
         "InteractionAnalyzer":
         {
             "high_corr_pairs":
             {
-                "features_do_not_exists": "At least one of the feature DataFrames ('numeric_features' or 'category_features') must be provided.",
+                "features_do_not_exists": "At least one of the feature ('numeric_features' or 'category_features') must be provided.",
                 "features_lens_mismatch_f":"Length of 'numeric_features' ({}) must match length of 'category_features'({}).",
-                "y_do_not_exists_f": "y target '{}' not found in category_features and numeric_features"
+                "y_do_not_exists_f": "y target '{}' not found in category_features and numeric_features."
             }
         },
-        "arrays_lens_mismatch_f": "Length of '{}' must match length of '{}'",
+        "arrays_lens_mismatch_f": "Length of '{}' must match length of '{}'.",
         "array_contains_nans_f": "The input '{}' contains null values. Please clean or impute missing data.",
         "array_contains_nans": "The input sequence contains null values. Please clean or impute missing data.",
-        "duplicate_column_names_f": "Duplicate column names found in '{}' DataFrame"
-        
+        "duplicate_column_names_f": "Duplicate column names found in '{}' DataFrame.",
+        "duplicate_keys_f": "Duplicate keys detected in '{}'. Please ensure that '{}' contains unique keys.",
+        "is_not_positive_integer_f": "{} must be a positive integer.",
+        "invalid_dtype_in_input": "Invalid data type '{}' in input '{}'. Please provide '{}' data type."
     }
     ,
     "warns":
     {
         "multicollinearity": "Matrix of predictors is linearly dependent (multicollinearity detected). Interpret results with caution.",
+        "data_quality":
+        {
+            "outliers_on_zero_variance_f": "features ({}) have zero or very small variance: outliers cannot exist in constant series."
+        },
         "DataVisualizer":
         {
             "categories_exceeds_palette_f": "Number of categories ({}) exceeds the palette size ({}). Colors may repeat."
