@@ -30,7 +30,8 @@
         },
         "DataVisualizer":
         {
-            "categories_exceeds_palette_f": "Number of categories ({}) exceeds the palette size ({}). Colors may repeat."
+            "categories_exceeds_palette_f": "Number of categories ({}) exceeds the palette size ({}). Colors may repeat.",
+            "empty_data_f": "Data for '{}' is empty. Returning empty figure with message."
         }
     }
 }

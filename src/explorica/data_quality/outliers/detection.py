@@ -37,7 +37,7 @@ from typing import Any, Mapping, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
-from explorica import DataVisualizer
+from explorica.visualizations import boxplot
 from explorica._utils import (
     convert_dataframe,
     read_config,
@@ -76,13 +76,10 @@ class DetectionMethods:
     dtype: int64
     """
 
-    dv = DataVisualizer()
     _warns = read_config("messages")["warns"]
     _errors = read_config("messages")["errors"]
 
-    @classmethod
     def detect_iqr(
-        cls,
         data: (
             Union[Sequence[float] | Sequence[Sequence[float]]]
             | Mapping[str, Sequence[Any]]
@@ -163,7 +160,7 @@ class DetectionMethods:
         outliers = df[mask].dropna(how="all")
 
         if show_boxplot:
-            cls.dv.boxplot(df.iloc[:, 0])
+            boxplot(df.iloc[:, 0])
 
         # If input is 1D and only one column, optionally return Series
         if outliers.shape[1] == 1:

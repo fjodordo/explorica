@@ -7,7 +7,8 @@ from unittest.mock import patch
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
-from explorica.visualizations import DataVisualizer as dv
+from explorica.visualizations import (distplot, boxplot, scatterplot,
+                                      heatmap, hexbin, piechart, barchart, mapbox)
 
 plot_properties = {
     "distplot": {
@@ -38,12 +39,12 @@ plot_properties = {
 
 # API contracts tests
 
-@pytest.mark.parametrize("plot", [dv.distplot,
-                                  dv.boxplot,
-                                  dv.hexbin,
-                                  dv.piechart,
-                                  dv.barchart,
-                                  dv.scatterplot])
+@pytest.mark.parametrize("plot", [distplot,
+                                  boxplot,
+                                  hexbin,
+                                  piechart,
+                                  barchart,
+                                  scatterplot])
 def test_plot_exists(plot):
     x = [1, 2, 3, 4, 5, 6, 7, 8, 9]
     y = ["A", "A", "A", "A", "B", "B", "C", "C", "C"]
@@ -63,11 +64,11 @@ def test_plot_exists(plot):
     figure = plot(*input_features, show_plot=False, return_plot=True)
     assert isinstance(figure, plt.Figure)
 
-@pytest.mark.parametrize("plot", [dv.distplot,
-                                  dv.boxplot,
-                                  dv.hexbin,
-                                  dv.piechart,
-                                  dv.barchart])
+@pytest.mark.parametrize("plot", [distplot,
+                                  boxplot,
+                                  hexbin,
+                                  piechart,
+                                  barchart])
 def test_plot_different_sequences_and_dtypes(plot):
     test_sequences = [
     ([1, 2, 3, 4, 5], ["a", "b", "c", "d", "e"]),  # list[int], list[str]
@@ -104,12 +105,12 @@ def test_plot_different_sequences_and_dtypes(plot):
         assert isinstance(figure, plt.Figure)
         plt.close(figure)
 
-@pytest.mark.parametrize("plot", [dv.distplot,
-                                  dv.boxplot,
-                                  dv.hexbin,
-                                  dv.piechart,
-                                  dv.barchart,
-                                  dv.scatterplot])
+@pytest.mark.parametrize("plot", [distplot,
+                                  boxplot,
+                                  hexbin,
+                                  piechart,
+                                  barchart,
+                                  scatterplot])
 def test_plot_input_contains_nans(plot):
     array_num = [1, 2, 3, 4, 5, 6, 7, 8, pd.NA, 10]
     array_num2 = [1, 3, 5, 7, None, 1, 4, 19, 1, 0]
@@ -128,14 +129,14 @@ def test_plot_input_contains_nans(plot):
 def test_distplot_kde():
     x = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-    fig = dv.distplot(x, kde=True, show_plot=False, return_plot=True)
+    fig = distplot(x, kde=True, show_plot=False, return_plot=True)
     ax = fig.axes[0]
 
     n_lines = len(ax.lines)
 
     assert n_lines == 1
     plt.close(fig)
-    fig = dv.distplot(x, kde=False, show_plot=False, return_plot=True)
+    fig = distplot(x, kde=False, show_plot=False, return_plot=True)
     ax = fig.axes[0]
 
     n_lines = len(ax.lines)
@@ -147,7 +148,7 @@ def test_distplot_bins():
     bins = 10
 
     x = [i for i in range(10)]
-    fig = dv.distplot(x, bins=bins, show_plot=False, return_plot=True)
+    fig = distplot(x, bins=bins, show_plot=False, return_plot=True)
     ax = fig.axes[0]
 
     n_bins = len(ax.patches)
