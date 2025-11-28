@@ -10,11 +10,9 @@ Features include:
 """
 import logging
 
-from .visualizer import DataVisualizer
-
 __version__ = "0.1.1"
 
-__all__ = ["DataVisualizer"]
+__all__ = []
 
 logger = logging.getLogger("explorica")
 if not logger.hasHandlers():
