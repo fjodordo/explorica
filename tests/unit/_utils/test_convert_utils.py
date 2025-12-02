@@ -5,7 +5,9 @@ import pandas as pd
 import numpy as np
 
 from explorica._utils import (convert_params_for_keys, convert_dataframe,
-                              convert_numpy, convert_dict)
+                              convert_numpy, convert_dict, convert_series)
+
+ERR_MSG_MULTIDIMENSIONAL_DATA = "Input data must be 1-dimensional, but contains {} features. Please, provide a single column/sequence."
 
 # tests for ConvertUtils.convert_params_for_keys()
 
@@ -215,3 +217,105 @@ def test_convert_numpy_lens_mismatch():
 def test_convert_dict_various_inputs(input_data):
     arr = convert_dict(input_data)
     assert isinstance(arr, dict)
+
+# tests for _utils.convert_series()
+
+def mock_convert_dict(data) -> dict:
+    """
+    Simulated behavior of the convert_dict utility.
+    
+    The real utility is expected to standardize various inputs (list, pd.Series, etc.)
+    into a single-key dictionary for single-feature inputs, or a multi-key
+    dictionary for multi-feature inputs (which should fail validation).
+    """
+    if data == [10, 20, 30]:
+        # Typical case: list converted to a single-key dictionary
+        return {0: [10, 20, 30]}
+    elif data == {'category': ['A', 'B', 'C']}:
+        # Typical case: single-key dict passes through
+        return data
+    elif data == []:
+        # Empty list case
+        return {}
+    elif data == {'feature_a': [1, 2], 'feature_b': [3, 4]}:
+        # Failure case: Multi-dimensional input
+        return data
+    elif data == {}:
+        # Empty dict case
+        return {}
+    elif data == {'data_key': [100, 200], 'other_key': []}:
+        return {'data_key': [100, 200], 'other_key': []}
+    # Fallback for unexpected inputs during testing
+    return {"0": data}
+
+def test_convert_series_successful_conversion_from_list(mocker):
+    """Test standard list input is converted and assigned a default name."""
+    input_data = [10, 20, 30]
+    mocker.patch("explorica._utils.conversion.convert_dict",
+        return_value=mock_convert_dict(input_data))
+    expected_data = pd.Series([10, 20, 30], name=0)
+    
+    result = convert_series(input_data)
+    
+    pd.testing.assert_series_equal(result, expected_data, check_dtype=False)
+    assert result.name == 0
+
+def test_convert_series_successful_conversion_from_single_key_dict(mocker):
+    """Test dictionary input is converted and retains the key as name."""
+    input_data = {'category': ['A', 'B', 'C']}
+    mocker.patch("explorica._utils.conversion.convert_dict",
+        return_value=mock_convert_dict(input_data))
+    expected_data = pd.Series(['A', 'B', 'C'], name="category")
+    
+    result = convert_series(input_data)
+    
+    pd.testing.assert_series_equal(result, expected_data, check_dtype=False)
+    assert result.name == "category"
+
+def test_convert_series_empty_list_input(mocker):
+    """Test that an empty list returns an empty Pandas Series."""
+    input_data = []
+    mocker.patch("explorica._utils.conversion.convert_dict",
+        return_value=mock_convert_dict(input_data))
+    expected_data = pd.Series([], dtype='object') # pandas often defaults to object for empty Series
+    
+    result = convert_series(input_data)
+    
+    pd.testing.assert_series_equal(result, expected_data, check_names=True)
+    assert result.empty is True
+
+def test_convert_series_empty_dict_input(mocker):
+    """Test that an empty dictionary returns an empty Pandas Series."""
+    input_data = {}
+    mocker.patch("explorica._utils.conversion.convert_dict",
+        return_value=mock_convert_dict(input_data))
+    expected_data = pd.Series([], dtype='object')
+    
+    result = convert_series(input_data)
+    
+    pd.testing.assert_series_equal(result, expected_data, check_names=True)
+    assert result.empty is True
+
+def test_convert_series_raises_value_error_for_multidimensional_dict(mocker):
+    """Test that input with multiple keys/dimensions raises a ValueError."""
+    input_data = {'feature_a': [1, 2], 'feature_b': [3, 4]}
+    mocker.patch("explorica._utils.conversion.convert_dict",
+        return_value=mock_convert_dict(input_data))
+    expected_error_message = ERR_MSG_MULTIDIMENSIONAL_DATA.format(2)
+    
+    with pytest.raises(ValueError) as excinfo:
+        convert_series(input_data)
+        
+    assert expected_error_message in str(excinfo.value)
+    
+def test_convert_series_raises_value_error_for_another_multidimensional_dict(mocker):
+    """Test a different multi-dimensional case to ensure robustness."""
+    input_data = {'data_key': [100, 200], 'other_key': []}
+    mocker.patch("explorica._utils.conversion.convert_dict",
+        return_value=mock_convert_dict(input_data))
+    expected_error_message = ERR_MSG_MULTIDIMENSIONAL_DATA.format(2)
+    
+    with pytest.raises(ValueError) as excinfo:
+        convert_series(input_data)
+    
+    assert expected_error_message in str(excinfo.value)

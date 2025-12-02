@@ -9,6 +9,8 @@ Methods
 -------
 convert_dataframe(dataset)
     Convert an input dataset to a pandas DataFrame with optional transposition.
+convert_series(data)
+    Convert an input data to a pandas Series.
 convert_numpy(dataset)
     Convert an input dataset to a NumPy array with optional transposition.
 convert_dict(dataset, data_name)
@@ -47,6 +49,7 @@ Notes
 
 from .conversion import (
     convert_dataframe,
+    convert_series,
     convert_from_alias,
     convert_numpy,
     convert_dict,
@@ -65,6 +68,7 @@ from .validation import (
 
 __all__ = [
     "convert_dataframe",
+    "convert_series",
     "convert_numpy",
     "convert_dict",
     "convert_params_for_keys",

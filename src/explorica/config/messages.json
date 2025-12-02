@@ -18,7 +18,8 @@
         "duplicate_column_names_f": "Duplicate column names found in '{}' DataFrame.",
         "duplicate_keys_f": "Duplicate keys detected in '{}'. Please ensure that '{}' contains unique keys.",
         "is_not_positive_integer_f": "{} must be a positive integer.",
-        "invalid_dtype_in_input": "Invalid data type '{}' in input '{}'. Please provide '{}' data type."
+        "invalid_dtype_in_input": "Invalid data type '{}' in input '{}'. Please provide '{}' data type.",
+        "multidimensional_data_f": "Input data must be 1-dimensional, but contains {} features. Please, provide a single column/sequence."
     }
     ,
     "warns":
