@@ -84,6 +84,8 @@ def handle_nan(
     """
     if not is_dataframe:
         df = convert_dataframe(data)
+    else:
+        df = data.copy()
     nan_policy = convert_from_alias(nan_policy, supported_policy)
     validate_string_flag(
         nan_policy,
@@ -93,11 +95,6 @@ def handle_nan(
             f"Choose from: {supported_policy}"
         ),
     )
-
-    if not is_dataframe:
-        df = convert_dataframe(data)
-    else:
-        df = data.copy()
 
     if nan_policy == "drop":
         df = df.dropna(axis=0)

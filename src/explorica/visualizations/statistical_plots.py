@@ -35,7 +35,8 @@ import seaborn as sns
 from scipy.optimize import curve_fit
 
 from ._utils import temp_plot_theme, save_plot, get_empty_plot
-from explorica._utils import (convert_dataframe, natural_number, handle_nan,
+from explorica._utils import (convert_dataframe, convert_series,
+                              natural_number, handle_nan,
                               read_config, validate_lengths_match,
                               validate_string_flag)
 
@@ -49,7 +50,6 @@ ERR_MSG_UNSUPPORTED_METHOD_F = read_config("messages")["errors"]["unsupported_me
 def distplot(data: Sequence[float] | Mapping[str, Sequence[Any]],
              bins: int = 30,
              kde: bool = True,
-             title: str = "",
              **kwargs) -> tuple[Figure, Axes]:
     """
     Plot a histogram with optional kernel density estimate.
@@ -70,8 +70,14 @@ def distplot(data: Sequence[float] | Mapping[str, Sequence[Any]],
         Number of bins in the histogram.
     kde : bool, default=True
         If True, adds kernel density estimate curve.
+    opacity : float, default=0.5
+        Transparency of the histogram bars (alpha value). Must be between 0 and 1.
     title : str, default=""
         Plot title.
+    xlabel : str, default=""
+        Label for the X-axis.
+    ylabel : str, default=""
+        Label for the Y-axis.
     figsize : tuple[float, float], default=(10, 6)
         Figure size (width, height) in inches.
     style : str, default=None
@@ -136,23 +142,25 @@ def distplot(data: Sequence[float] | Mapping[str, Sequence[Any]],
         └── some_plot.png
     """
     params = {
-        "style": None,
         "palette": None,
+        "opacity": 0.5,
+
+        "title": "",
+        "xlabel": "",
+        "ylabel": "",
+        "style": None,
         "figsize": (10, 6),
         "directory": None,
         "nan_policy": "drop",
         "verbose": False,
         **kwargs
     }
-    series = convert_dataframe(data)
+    series = convert_series(data)
     series = handle_nan(
         series,
         params["nan_policy"],
-        supported_policy = ("drop", "raise"))
-    if series.shape[1] != 1:
-        raise ValueError(
-            (f"Input data must be 1-dimensional, but contains {series.shape[1]} features. "
-             f"Please provide a single column/sequence."))
+        supported_policy = ("drop", "raise"),
+        is_dataframe=False)
     if not isinstance(bins, natural_number):
         raise ValueError(
             "'bins' must be a positive integer."
@@ -161,14 +169,14 @@ def distplot(data: Sequence[float] | Mapping[str, Sequence[Any]],
     with temp_plot_theme(palette=params["palette"], style=params["style"]):
         if not series.empty:
             fig, ax = plt.subplots(figsize=params["figsize"])
-            sns.histplot(series, bins=bins, kde=kde, ax=ax)
-            ax.set_title(title)
-            xlabel = "Value" if series.name is None else series.name
-            ax.set_xlabel(xlabel)
-            ax.set_ylabel("Frequency")
+            sns.histplot(series, bins=bins, kde=kde,
+                         alpha=params["opacity"], ax=ax)
         else:
             fig, ax = get_empty_plot(figsize=params["figsize"])
             warnings.warn(WRN_MSG_EMPTY_DATA.format("distplot"))
+        ax.set_title(params["title"])
+        ax.set_xlabel(params["xlabel"])
+        ax.set_ylabel(params["ylabel"])
         if params["directory"]:
             save_plot(
                 fig,

@@ -5,165 +5,275 @@ It includes methods for creating various types of plots such as distplots, boxpl
 Modules:
     - DataVisualizer: Class for visualizing data with methods like distplot, heatmap, etc.
 """
-from typing import Iterable, Callable, Optional, Sequence, Mapping, Any
-import contextlib
+from typing import Optional, Sequence, Mapping, Any
 import warnings
 import logging
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
-import seaborn as sns
 import plotly.express as px
 import pandas as pd
-import numpy as np
-from scipy.optimize import curve_fit
 
+from explorica._utils import (convert_dataframe, convert_series, handle_nan,
+                              read_config, validate_lengths_match,
+                              validate_string_flag)
 from ._utils import temp_plot_theme, save_plot, get_empty_plot
-from explorica._utils import (convert_dataframe, natural_number, handle_nan,
-                              read_config, temp_log_level)
 
 logger = logging.getLogger(__name__)
 
 WRN_MSG_EMPTY_DATA = read_config("messages")["warns"]["DataVisualizer"]["empty_data_f"]
+ERR_MSG_ARRAYS_LENS_MISMATCH = read_config("messages")["errors"]["arrays_lens_mismatch_f"]
+ERR_MSG_MULTIDIMENSIONAL_DATA = read_config("messages")["errors"]["multidimensional_data_f"]
+ERR_MSG_UNSUPPORTED_METHOD = read_config("messages")["errors"]["unsupported_method_f"]
 
 
-def barchart(data: Sequence[float],
-             category: Sequence[float],
+def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
+             category: Sequence[Any] | Mapping[Any, Sequence[Any]],
              ascending: bool = None,
              horizontal: bool = False,
              **kwargs
-             ) -> None:
+             ) -> tuple[Figure, Axes]:
     """
-    Plots a bar chart using the given category and value series.
+    Plots a Bar Chart using categorical and numerical data series.
+
+    This function creates a bar chart to visualize the relationship between 
+    categorical labels and numerical values. It supports both vertical and 
+    horizontal orientations, automatic sorting, and comprehensive styling 
+    options through integration with Seaborn's visualization system.    
 
     Parameters:
     -----------
-    categories : pd.Series
-        A series containing categorical labels.
-    values : pd.Series
-        A series containing numeric values associated with each category.
+    data : Sequence[float] | Mapping[Any, Sequence[float]]
+        A sequence containing numerical values (bar heights).
+    category : Sequence[Any] | Mapping[Any, Sequence[Any]]
+        A sequence containing categorical labels (bar names).
     ascending : bool, optional
-        If True or False, sorts the bars by value in ascending or descending order respectively. 
-        If None (default), no sorting is applied and original order is preserved.
-    horizontal : bool
-        If True, plots a horizontal bar chart instead of a vertical one.
-    title : str
-        Title of the chart. Defaults to an empty string.
+        If True or False, sorts the bars by value in ascending or descending order, respectively. 
+        If None (default), the original order is preserved.
+    horizontal : bool, optional
+        If True, plots a horizontal bar chart (barh) instead of a vertical one. 
+        Defaults to False.
+    opacity : float, default=0.5
+        Transparency of the bars (alpha value). Must be between 0 and 1.
+    title : str, optional
+        The title of the chart. Defaults to an empty string.
+    xlabel : str, optional
+        The label for the X-axis. Overrides the automatic label.
+    ylabel : str, optional
+        The label for the Y-axis. Overrides the automatic label.
+    figsize : tuple[float, float], optional
+        The Matplotlib figure size (width, height) in inches. Defaults to (10, 6).
+    palette : str or dict, optional
+        The Seaborn/Matplotlib color palette to use for the plot.
+    style : str, optional
+        The Matplotlib/Seaborn style to apply to the figure
+        (e.g., 'whitegrid', 'darkgrid').
+    nan_policy : str | Literal['drop', 'raise'], default='drop'
+            Policy for handling NaN values in input data:
+            - 'raise' : raise ValueError if any NaNs are present in `data`.
+            - 'drop'  : drop rows (axis=0) containing NaNs before computation. This
+                        does **not** drop entire columns.
+    directory : str, optional
+        The path to the directory for saving the plot. If None (default), the plot is not saved.
+    verbose : bool, optional
+        If True, prints messages about the saving process. Defaults to False.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The Matplotlib Figure object generated.
+    ax : matplotlib.axes.Axes
+        The Matplotlib Axes object generated.
 
     Raises:
     -------
     ValueError
-        If input sizes mismatch.
-        If either 'categories' or 'values' contains null values.
+        If the lengths of the 'data' and 'category' input series do not match.
+        If the 'data' or 'category' input contains more than one column/dimension.
+        If nan_policy='raise' and missing values (NaN/null) are found in the data.
+    
+    Examples
+    --------
+    Simple vertical Bar Chart:
+
+    >>> import numpy as np
+    >>> values = [25, 40, 15, 60, 35]
+    >>> labels = ['Apple', 'Banana', 'Cherry', 'Date', 'Elderberry']
+    >>> fig, ax = barchart(values, labels, title="Продажи фруктов")
+    >>> # plt.show()
+
+    Horizontal Bar Chart with descending sort:
+
+    >>> values_h = [150, 80, 220]
+    >>> labels_h = ['Group A', 'Group B', 'Group C']
+    >>> fig, ax = barchart(values_h, labels_h, 
+    ...                    horizontal=True, 
+    ...                    ascending=False,
+    ...                    palette='viridis')
+    >>> # plt.show()
     """
     params = {
+        "palette": None,
+        "opacity": 0.5,
+
         "title": "",
+        "xlabel": "",
+        "ylabel": "",
         "style": None,
         "figsize": (10, 6),
-        "palette": None,
         "directory": None,
         "nan_policy": "drop",
+        "verbose": False,
         **kwargs
     }
-    # Parameter validation
-    series_category = handle_nan(category, nan_policy=params["nan_policy"],
-                          supported_policy=("drop", "raise"), data_name="category")
-    series_values = handle_nan(data, nan_policy=params["nan_policy"],
-                          supported_policy=("drop", "raise"), data_name="data")
-    if series_category.size != series_values.size:
-        raise ValueError("The length of 'categories' must match the length of 'values'.")
+
+    series_category = convert_series(category)
+    series_value = convert_series(data)
+
+    validate_lengths_match(
+        series_category, series_value,
+        err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("data", "category"))
+
     df = pd.DataFrame({"category": series_category,
-                       "value": series_values})
+                       "value": series_value})
+
+    df = handle_nan(df, nan_policy=params["nan_policy"],
+                          supported_policy=("drop", "raise"), data_name="data or category")
+
     if ascending is not None:
         df = df.sort_values(
          "value", ascending=ascending)
+
     with temp_plot_theme(palette=params["palette"],
                          style=params["style"]):
-        fig, ax = plt.subplots(params["figsize"])
-        if horizontal:
-            plt.barh(df["category"], df["value"], ax=ax)
+        if not df.empty:
+            fig, ax = plt.subplots(figsize=params["figsize"])
+            if horizontal:
+                ax.barh(df["category"], df["value"], alpha=params["opacity"])
+            else:
+                ax.bar(df["category"], df["value"], alpha=params["opacity"])
         else:
-            plt.bar(df["category"], df["value"], ax=ax)
+            fig, ax = get_empty_plot(figsize=params["figsize"])
+            warnings.warn(WRN_MSG_EMPTY_DATA.format("barchart"))
         ax.set_title(params["title"])
+        ax.set_xlabel(params["xlabel"])
+        ax.set_ylabel(params["ylabel"])
         if params["directory"] is not None:
-            save_plot(fig, directory=params["directory"], plot_name="barchart")
+            save_plot(fig, directory=params["directory"],
+                      plot_name="barchart", verbose=params["verbose"])
     return fig, ax
 
 
 def piechart(data: Sequence[float],
              category: Sequence[Any],
              autopct_method: str = "value",
-             title: str = "",
              **kwargs
              ) -> tuple[Figure, Axes]:
     """
     Draws a pie chart based on categorical and corresponding numerical data.
 
+    This function generates a pie chart where each segment represents a category
+    from the input data. The size of each segment is proportional to the corresponding
+    numerical value in `data`. The chart supports automatic display of percentages,
+    raw values, or both on each segment.
+
     Parameters:
     -----------
-    categories : pd.Series
-        A categorical series representing the pie chart segments.
-    values : pd.Series
-        A numerical series representing the sizes of the segments.
+    data : Sequence[float]
+        A numerical sequence representing the sizes of the segments.
+    category : Sequence[Any]
+        A categorical sequence representing the pie chart segments.
     autopct_method : str, default="value"
         Determines how the values are displayed on the pie chart.
         Supported options: "percent", "value", "both".
     title : str, optional
         Title of the pie chart.
+    xlabel : str, optional
+        The label for the X-axis. Overrides the automatic label.
+    ylabel : str, optional
+        The label for the Y-axis. Overrides the automatic label.
     show_legend : bool, default=True
         Whether to display a legend.
     show_labels : bool, default=True
         Whether to display category labels directly on the chart.
+    palette : str or list, optional
+        Color palette to use for the plot.
+    figsize : tuple, default=(10, 6)
+        Figure size (width, height) in inches.
+    directory : str, optional
+        If provided, the plot will be saved to this directory.
+    nan_policy : {"drop", "raise"}, default="drop"
+        How to handle NaN values.
+    verbose : bool, default=False
+        If True, print additional information.
+
+    Returns:
+    --------
+    tuple[Figure, Axes]
+        matplotlib figure and axes objects
 
     Raises:
     -------
     ValueError
         If input sizes mismatch.
-        If either 'categories' or 'values' contains null values.
         If invalid autopct method is provided.
     """
     params = {
         "show_legend": True,
         "show_labels": True,
+        "palette": None,
+
+        "title": "",
+        "xlabel": "",
+        "ylabel": "",
         "style": None,
         "figsize": (10, 6),
-        "palette": None,
         "directory": None,
         "nan_policy": "drop",
+        "verbose": False,
         **kwargs
     }
-    supported_autopct_method = {"percent", "value", "both"}
 
     # Parameter validation
-    if autopct_method not in supported_autopct_method:
-        raise ValueError(f"Unsupported autopct '{autopct_method}'. "
-                         f"Choose from: {supported_autopct_method}")
+    supported_autopct = {"percent", "value", "both"}
+    validate_string_flag(autopct_method, supported_autopct,
+                         err_msg=ERR_MSG_UNSUPPORTED_METHOD.format(
+                             autopct_method, supported_autopct))
 
-    series_value = handle_nan(data, nan_policy=params["nan_policy"],
-                              supported_policy=("drop", "raise"), data_name="data")
-    series_category = handle_nan(data, nan_policy=params["nan_policy"],
-                                 supported_policy=("drop", "raise"), data_name="category")
+    series_category = convert_series(category)
+    series_value = convert_series(data)
 
-    if series_value.size != series_category.size:
-        raise ValueError("The length of 'categories' must match the length of 'values'")
+    validate_lengths_match(
+        series_category, series_value,
+        err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("data", "category"))
 
-    labels = series_category if params["show_labels"] else None
+    df = pd.DataFrame({"category": series_category,
+                       "value": series_value})
+
+    df = handle_nan(df, nan_policy=params["nan_policy"],
+                          supported_policy=("drop", "raise"), data_name="data or category")
+
+    labels = df["category"] if params["show_labels"] else None
     with temp_plot_theme(palette=params["palette"], style=params["style"]):
-        fig, ax = plt.subplots(figsize = params["figsize"])
-        wedges, _, _ = plt.pie(
-        series_value,
-        labels=labels,
-        autopct=_make_autopct(series_value, autopct_method),
-        startangle=90,
-        ax=ax)
-    
-        if params["show_legend"]:
-            ax.legend(wedges, series_category, loc="center left", bbox_to_anchor=(1, 0.5))
-        if title:
-            ax.set_title(title)
+        if not df.empty:
+            fig, ax = plt.subplots(figsize = params["figsize"])
+            wedges, _, _ = ax.pie(
+            df["value"],
+            labels=labels,
+            autopct=_make_autopct(df["value"], autopct_method),
+            startangle=90,)
+            if params["show_legend"]:
+                ax.legend(wedges, df["category"], loc="center left", bbox_to_anchor=(1, 0.5))
+        else:
+            fig, ax = get_empty_plot(figsize=params["figsize"])
+            warnings.warn(WRN_MSG_EMPTY_DATA.format("piechart"))
+        ax.set_xlabel(params["xlabel"])
+        ax.set_ylabel(params["ylabel"])
+        ax.set_title(params["title"])
         if params["directory"] is not None:
-            save_plot(fig, params["directory"], plot_name="piechart")
+            save_plot(fig, directory=params["directory"],
+                      plot_name="piechart", verbose=params["verbose"])
     return fig, ax
 
 
@@ -176,10 +286,9 @@ def _make_autopct(values: pd.Series, method: str):
         val = int(round(pct * total / 100.0))
         if method == "percent":
             return f"{pct:.1f}%"
-        elif method == "value":
+        if method == "value":
             return f"{val}"
-        else:
-            return f"{pct:.1f}%\n({val})"
+        return f"{pct:.1f}%\n({val})"
     return formatter
 
 

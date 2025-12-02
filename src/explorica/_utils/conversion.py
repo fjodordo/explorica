@@ -12,6 +12,8 @@ convert_numpy(data)
     Convert an input data to a NumPy array with optional transposition.
 convert_dataframe(data)
     Convert an input data to a pandas DataFrame with optional transposition.
+convert_series(data)
+    Convert an input data to a pandas Series.
 convert_from_alias(arg, default_values, path)
     Convert a string alias into its canonical (default) configuration value.
 convert_params_for_keys(arg, keys, data_name, validate_dtype_as)
@@ -48,6 +50,8 @@ import numpy as np
 import pandas as pd
 
 from .readers import read_config
+
+ERR_MSG_MULTIDIMENSIONAL_DATA = read_config("messages")["errors"]["multidimensional_data_f"]
 
 
 @staticmethod
@@ -242,6 +246,61 @@ def convert_dataframe(data: Sequence[Sequence]) -> pd.DataFrame:
     dictionary = convert_dict(data)
     result = pd.DataFrame(dictionary)
     return result
+
+
+def convert_series(data: Union[Sequence[Any] | Mapping]) -> pd.Series:
+    """
+    Validate and normalize input data into a single-dimensional Pandas Series.
+
+    This function ensures that the input data represents a univariate sample ready for
+    statistical processing or visualization. It handles common inputs 
+    like lists, NumPy arrays, dictionaries, and Pandas structures.
+
+    Parameters
+    ----------
+    data : array-like, dict
+        The input data structure. This may be a 1D sequence (list, np.ndarray, 
+        pd.Series) or a dictionary/DataFrame containing a single feature.
+
+    Returns
+    -------
+    pd.Series
+        A validated, one-dimensional data series. Returns an empty Series 
+        if the input data is empty, ensuring pipeline robustness.
+
+    Raises
+    ------
+    ValueError
+        If the input structure contains more than one dimension or feature. 
+        This is typically raised for dictionaries or DataFrames with multiple 
+        keys/columns.
+
+    Notes
+    -----
+    The function relies on an internal 'convert_dict' utility to standardize 
+    various inputs (e.g., NumPy arrays, lists, Series) into a dictionary 
+    format before validating dimensionality.
+
+    Examples
+    --------
+    >>> result = convert_series({"0": [1, 2, 3]})
+    >>> print(result.name)
+    0
+
+    >>> # Example of unacceptable input violating the dimensionality constraint:
+    >>> convert_series({'a': [1, 2], 'b': [3, 4]}) 
+    Traceback (most recent call last):
+        ...
+    ValueError: Input data is multidimensional and has 2 columns.
+    """
+    dictionary = convert_dict(data)
+    if len(dictionary) > 1:
+        raise ValueError(ERR_MSG_MULTIDIMENSIONAL_DATA.format(len(dictionary)))
+    if len(dictionary) == 0:
+        return pd.Series([])
+    return pd.Series(list(dictionary.values())[0], name=list(dictionary)[0])
+         
+
 
 
 def convert_dict(
