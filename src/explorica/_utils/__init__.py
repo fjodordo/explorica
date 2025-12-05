@@ -57,7 +57,7 @@ from .conversion import (
 )
 from .helpers import handle_nan, temp_log_level
 from .readers import read_config
-from .types import natural_number
+from .types import natural_number, NaturalNumber
 from .validation import (
     validate_array_not_contains_nan,
     validate_at_least_one_exist,
@@ -79,6 +79,7 @@ __all__ = [
     "validate_string_flag",
     "validate_unique_column_names",
     "natural_number",
+    "NaturalNumber",
     "handle_nan",
     "temp_log_level",
     "read_config",

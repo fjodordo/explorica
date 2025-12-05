@@ -15,7 +15,7 @@ from matplotlib.axes import Axes
 import plotly.express as px
 import pandas as pd
 
-from explorica._utils import (convert_dataframe, convert_series, handle_nan,
+from explorica._utils import (convert_series, handle_nan,
                               read_config, validate_lengths_match,
                               validate_string_flag)
 from ._utils import temp_plot_theme, save_plot, get_empty_plot
@@ -26,6 +26,17 @@ WRN_MSG_EMPTY_DATA = read_config("messages")["warns"]["DataVisualizer"]["empty_d
 ERR_MSG_ARRAYS_LENS_MISMATCH = read_config("messages")["errors"]["arrays_lens_mismatch_f"]
 ERR_MSG_MULTIDIMENSIONAL_DATA = read_config("messages")["errors"]["multidimensional_data_f"]
 ERR_MSG_UNSUPPORTED_METHOD = read_config("messages")["errors"]["unsupported_method_f"]
+DEFAULT_MPL_PLOT_PARAMS = {
+        "title": "",
+        "xlabel": "",
+        "ylabel": "",
+        "style": None,
+        "figsize": (10, 6),
+        "directory": None,
+        "nan_policy": "drop",
+        "verbose": False,
+}
+
 
 
 def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
@@ -92,7 +103,7 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
         If the lengths of the 'data' and 'category' input series do not match.
         If the 'data' or 'category' input contains more than one column/dimension.
         If nan_policy='raise' and missing values (NaN/null) are found in the data.
-    
+
     Examples
     --------
     Simple vertical Bar Chart:
@@ -114,17 +125,9 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
     >>> # plt.show()
     """
     params = {
+        **DEFAULT_MPL_PLOT_PARAMS,
         "palette": None,
         "opacity": 0.5,
-
-        "title": "",
-        "xlabel": "",
-        "ylabel": "",
-        "style": None,
-        "figsize": (10, 6),
-        "directory": None,
-        "nan_policy": "drop",
-        "verbose": False,
         **kwargs
     }
 
@@ -220,18 +223,10 @@ def piechart(data: Sequence[float],
         If invalid autopct method is provided.
     """
     params = {
+        **DEFAULT_MPL_PLOT_PARAMS,
         "show_legend": True,
         "show_labels": True,
         "palette": None,
-
-        "title": "",
-        "xlabel": "",
-        "ylabel": "",
-        "style": None,
-        "figsize": (10, 6),
-        "directory": None,
-        "nan_policy": "drop",
-        "verbose": False,
         **kwargs
     }
 
@@ -406,66 +401,3 @@ def mapbox(lat: Sequence[float],
     else:
         fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
     fig.show()
-
-class DataVisualizer:
-    """
-    A utility class for quick and consistent data visualizations 
-    using seaborn, matplotlib, and Plotly.
-
-    This class simplifies the creation of common plots with pre-configured styles and layout 
-    options, helping to keep Jupyter notebooks clean, readable, and standardized.
-
-    Class Attributes
-    ----------------
-    style : str
-        Default seaborn style to apply to matplotlib-based plots 
-        (e.g., 'whitegrid', 'dark', 'ticks').
-
-    palette : seaborn color palette
-        Default color palette used for plots. This must be a palette object returned by 
-        `sns.color_palette(...)`, supporting `.as_hex()` and `.as_rgb()` methods.
-
-    colormap : str
-        Default seaborn colormap to apply to atplotlib-based plots 
-        (e.g., 'coolwarm', 'viridis', 'plasma')
-
-    Methods
-    -------
-    set_theme(palette=None, style=None, colormap=None)
-        Updates class-wide style settings, including seaborn palette, matplotlib style, 
-        and colormap for use in visualizations.
-
-    distplot(series, kde=True)
-        Plots a distribution histogram for a numeric variable with optional KDE.
-
-    boxplot(series)
-        Draws a boxplot for a numeric variable.
-
-    hexbin(x, y)
-        Plots a hexbin plot for two numeric variables using the default colormap.
-
-    heatmap(dataframe)
-        Plots a heatmap of correlations or numerical matrix using the default colormap.
-
-    piechart(categories, values)
-        Draws a pie chart with percentage annotations. Supports custom or auto-generated labels.
-
-    barchart(categories, values)
-        Plots both a vertical and horizontal bar chart from a categorical series.
-
-    scatterplot(x, y, category=None, trend_line=None)
-        Draws a scatterplot with optional trendline (user-defined or fitted by type: 'linear', 
-        'exp', etc.).
-
-    mapbox(lat, lon, category=None, dot_names=None)
-        Plots geospatial points on an interactive Plotly mapbox. Supports optional point 
-        categories and sizes.
-
-    _make_autopct(values, method)
-        Internal static helper to format piechart percentage labels.
-        
-    Notes
-    -----
-    This class is intended for internal exploratory data analysis (EDA), dashboard prototyping, or 
-    report visualizations where quick, clean outputs are more important than deep customization.
-    """

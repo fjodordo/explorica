@@ -1,4 +1,5 @@
 from collections import deque
+from pathlib import Path
 
 import pandas as pd
 import numpy as np
@@ -12,7 +13,6 @@ import seaborn as sns
 
 from explorica.visualizations import (distplot, boxplot, scatterplot,
                                       heatmap, hexbin, piechart, barchart, mapbox)
-from explorica.visualizations.plots import _make_autopct
 
 EXAMPLE_PLOT = plt.subplots(figsize=(10, 6))
 plt.plot(ax=EXAMPLE_PLOT[1])
@@ -74,6 +74,7 @@ def test_plot_empty_input(plot):
     assert len(ax.lines) == 0
     assert len(ax.patches) == 0
     assert len(ax.collections) == 0
+    plt.close(fig)
 
 @pytest.mark.parametrize("plot", ALL_PLOTS)
 def test_plot_returns_figure_and_axes(plot, tmp_path, mocker):
@@ -388,12 +389,6 @@ def test_piechart_invalid_autopct_method_raises_error():
     with pytest.raises(ValueError, match="Unsupported method"):
         piechart([1, 2], ['A', 'B'], autopct_method="invalid")
 
-def test_piechart_empty_data_warns_and_returns_empty_plot():
-    with pytest.warns(UserWarning, match="Data for 'piechart' is empty"):
-        fig, ax = piechart([], [])
-    assert len(ax.patches) == 0
-    assert len(ax.texts) == 1 # Текст, установленный get_empty_plot
-    plt.close(fig)
 
 def test_piechart_nan_policy_drop():
     data = [10, 20, np.nan, 40]
@@ -423,9 +418,229 @@ def test_piechart_xlabel_ylabel_setting():
     ylabel = "Categories"
     data = [1, 1, 1]
     categories = ['a', 'b', 'c']
-    
+
     fig, ax = piechart(data, categories, xlabel=xlabel, ylabel=ylabel)
-    
+
     assert ax.get_xlabel() == xlabel
     assert ax.get_ylabel() == ylabel
     plt.close(fig)
+
+# tests for visualizations.boxplot()
+
+def test_boxplot_single_list_input():
+    data = [1.0, 2.0, 3.0]
+    fig, ax = boxplot(data)
+
+    assert isinstance(fig, Figure)
+    assert isinstance(ax, Axes)
+
+    assert ax.get_title() == ""
+    assert ax.get_xlabel() == ""
+
+    assert list(fig.get_size_inches()) == [10, 6]
+
+
+def test_boxplot_kwargs_applied():
+    custom_figsize = (8, 4)
+    custom_title = "My Custom Plot"
+    fig, ax = boxplot([1, 2],
+                         title=custom_title,
+                         xlabel="Data Points",
+                         figsize=custom_figsize)
+
+    assert ax.get_title() == custom_title
+    assert ax.get_xlabel() == "Data Points"
+
+    assert list(fig.get_size_inches()) == [8, 4]
+    plt.close(fig)
+
+def test_piechart_empty_data_warns_and_returns_empty_plot():
+    with pytest.warns(UserWarning, match="Data for 'piechart' is empty"):
+        fig, ax = piechart([], [])
+    assert len(ax.patches) == 0
+    assert len(ax.texts) == 1
+    plt.close(fig)
+
+# tests for visualizations.hexbin()
+
+def test_hexbin_simple_input():
+    data = [1, 2, 3, 4, 5]
+    target = [10, 20, 30, 40, 50]
+    
+    fig, ax = hexbin(data, target)
+
+    assert isinstance(fig, Figure)
+    assert isinstance(ax, Axes)
+
+    assert ax.get_title() == ""
+    assert ax.get_xlabel() == ""
+
+    assert list(fig.get_size_inches()) == [10, 6]
+    plt.close(fig)
+
+def test_hexbin_kwargs_applied(mocker):
+    custom_figsize = (12, 8)
+    custom_title = "Density Plot"
+    custom_gridsize = 50
+    custom_opacity = 0.5
+    
+    data = [1, 2, 3]
+    target = [1, 2, 3]
+    
+    fig, ax = hexbin(data, target,
+                     title=custom_title,
+                     xlabel="X Data",
+                     ylabel="Y Data",
+                     gridsize=custom_gridsize,
+                     opacity=custom_opacity,
+                     figsize=custom_figsize)
+
+    assert ax.get_title() == custom_title
+    assert ax.get_xlabel() == "X Data"
+    assert ax.get_ylabel() == "Y Data"
+
+    assert list(fig.get_size_inches()) == list(custom_figsize)
+    
+    assert len(ax.collections) > 0, "`hexbin` must contains PolyCollection for check of alpha."
+    
+    poly_collection = ax.collections[0]
+
+    assert poly_collection.get_alpha() == custom_opacity
+
+    plt.close(fig)
+
+def test_hexbin_valueerror_mismatched_lengths():
+    data = [1, 2, 3]
+    target = [1, 2]
+    
+    with pytest.raises(ValueError, match = "must match length"):
+        hexbin(data, target)
+
+
+def test_hexbin_valueerror_invalid_gridsize():
+    with pytest.raises(ValueError) as excinfo:
+        hexbin([1, 2], [1, 2], gridsize=0)
+    assert "'gridsize' must be a positive integer." in str(excinfo.value)
+
+    with pytest.raises(ValueError) as excinfo:
+        hexbin([1, 2], [1, 2], gridsize="large")
+
+    assert "'gridsize' must be a positive integer." in str(excinfo.value)
+
+# tests for visualizations.scatterplot()
+
+def test_scatterplot_basic_output():
+    x = [1, 2, 3, 4, 5]
+    y = [2, 3, 5, 7, 11]
+
+    fig, ax = scatterplot(x, y)
+
+    assert isinstance(fig, Figure)
+    assert isinstance(ax, Axes)
+    assert len(ax.collections) == 1
+    plt.close(fig)
+
+def test_scatterplot_with_categories():
+    x = [1, 2, 3, 4, 5, 6]
+    y = [2, 3, 5, 7, 11, 13]
+    cat = ["A", "A", "B", "B", "C", "C"]
+
+    fig, ax = scatterplot(x, y, category=cat, show_legend=True)
+
+    assert len(ax.collections) == len(set(cat))
+    legend_texts = [text.get_text() for text in ax.get_legend().get_texts()]
+    assert set(legend_texts) == set(cat)
+    plt.close(fig)
+
+def test_scatterplot_linear_trendline():
+    x = np.array([0, 1, 2, 3, 4])
+    y = np.array([0, 2, 4, 6, 8])
+
+    fig, ax = scatterplot(x, y, trendline="linear")
+
+    assert any(line.get_linestyle() == '-' or line.get_linestyle() == '--' for line in ax.lines)
+    trendline_x = ax.lines[0].get_xdata()
+    assert np.isclose(trendline_x.min(), min(x))
+    assert np.isclose(trendline_x.max(), max(x))
+    plt.close(fig)
+
+def test_scatterplot_polynomial_trendline():
+    x = np.array([0, 1, 2, 3, 4])
+    y = np.array([0, 1, 4, 9, 16])
+
+    fig, ax = scatterplot(x, y, trendline="polynomial", trendline_kws={"degree": 2})
+
+    assert len(ax.lines) == 1
+    y_pred = ax.lines[0].get_ydata()
+    assert np.isclose(y_pred[0], 0)
+    assert np.isclose(y_pred[-1], 16)
+    plt.close(fig)
+
+def test_scatterplot_custom_callable_trendline():
+    x = np.linspace(0, 4, 5)
+    y = np.array([1, 2, 3, 4, 5])
+
+    def custom_line(x):
+        return x + 1
+
+    fig, ax = scatterplot(x, y, trendline=custom_line)
+    line = ax.lines[0]
+    x_domain = line.get_xdata()
+    y_pred = line.get_ydata()
+
+    assert len(x_domain) == 1000
+    assert len(y_pred) == 1000
+    
+    # check several control dots
+    idx_check = [0, 500, -1]
+    for i in idx_check:
+        assert np.isclose(y_pred[i], custom_line(x_domain[i]))
+    plt.close(fig)
+
+def test_scatterplot_empty_input_warns():
+    fig, ax = scatterplot([], [])
+    assert len(ax.texts) == 1
+    plt.close(fig)
+
+def test_scatterplot_nan_handling_drop():
+    x = [1, 2, 3, np.nan, 5]
+    y = [2, 4, 6, 8, np.nan]
+
+    fig, ax = scatterplot(x, y, nan_policy="drop")
+    assert len(ax.collections[0].get_offsets()) == 3
+    plt.close(fig)
+
+def test_scatterplot_nan_handling_raise():
+    x = [1, 2, np.nan]
+    y = [1, 2, 3]
+    with pytest.raises(ValueError):
+        scatterplot(x, y, nan_policy="raise")
+
+# tests for visualizations.heatmap()
+
+def test_heatmap_basic_plot():
+    data = np.array([[1, 2], [3, 4]])
+    fig, ax = heatmap(data)
+    assert isinstance(fig, plt.Figure)
+    assert isinstance(ax, plt.Axes)
+    plt.close(fig)
+
+def test_heatmap_empty_data_warning():
+    data = np.array([]).reshape(0, 0)
+    with pytest.warns(UserWarning, match="empty"):
+        fig, ax = heatmap(data)
+    assert isinstance(fig, plt.Figure)
+    assert isinstance(ax, plt.Axes)
+    plt.close(fig)
+
+def test_heatmap_plot_kws_override():
+    data = np.array([[1, 2], [3, 4]])
+    fig, ax = heatmap(data, plot_kws={"annot": False, "cbar": False})
+    assert len(ax.texts) == 0
+    plt.close(fig)
+
+def test_heatmap_directory(tmp_path):
+    data = np.array([[1, 2], [3, 4]])
+    heatmap(data, directory=str(tmp_path), title="TestSave")
+    files = [f.name for f in Path(tmp_path).iterdir()]
+    assert any("heatmap" in f for f in files)

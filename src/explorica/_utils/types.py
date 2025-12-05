@@ -32,7 +32,23 @@ Basic type validation
 from numbers import Number
 
 
-class NaturalNumber:
+class NaturalNumberMeta(type):
+    """Metaclass to enable isinstance checks for natural numbers."""
+
+    def __instancecheck__(cls, instance):
+        """Return True if instance is a positive integer."""
+        return (
+            isinstance(instance, Number) and instance > 0 and instance == int(instance)
+        )
+
+    def __repr__(cls):
+        return "NaturalNumber"
+
+    def __init__(cls, *_):
+        cls.__name__ = "NaturalNumber"
+
+# pylint: disable=R0903
+class NaturalNumber(metaclass=NaturalNumberMeta):
     """
     Type descriptor for natural numbers (positive integers).
 
@@ -51,17 +67,6 @@ class NaturalNumber:
     >>> isinstance(3.14, natural_number)  # False (not whole)
     >>> isinstance("5", natural_number)   # False (not numeric)
     """
-
-    def __instancecheck__(self, instance):
-        return (
-            isinstance(instance, Number) and instance > 0 and instance == int(instance)
-        )
-
-    def __repr__(self):
-        return "natural_number"
-
-    def __init__(self):
-        self.__name__ = "natural_number"
-
-
-natural_number = NaturalNumber()
+# disabled, because `natural_number` will be removed in future versions
+# pylint: disable=C0103
+natural_number = NaturalNumber

@@ -299,7 +299,6 @@ def convert_series(data: Union[Sequence[Any] | Mapping]) -> pd.Series:
     if len(dictionary) == 0:
         return pd.Series([])
     return pd.Series(list(dictionary.values())[0], name=list(dictionary)[0])
-         
 
 
 
@@ -466,8 +465,9 @@ def convert_from_alias(arg: str, default_values: Iterable = None, path: str = "g
                 return default_value
     else:
         for default_value in default_values:
-            if arg_lower in alias_dict[path][default_value]:
-                return default_value
+            if default_value in alias_dict[path]:
+                if arg_lower in alias_dict[path][default_value]:
+                    return default_value
     return arg
 
 
