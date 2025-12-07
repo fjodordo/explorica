@@ -1,9 +1,11 @@
 """
 This module contains the DataVisualizer class for visualizing different types of data.
-It includes methods for creating various types of plots such as distplots, boxplots, and more.
+It includes methods for creating various types of plots such as distplots, boxplots,
+and more.
 
 Modules:
-    - DataVisualizer: Class for visualizing data with methods like distplot, heatmap, etc.
+    - DataVisualizer: Class for visualizing data with methods like distplot,
+      heatmap, etc.
 """
 from typing import Optional, Sequence, Mapping, Any
 import warnings
@@ -18,25 +20,20 @@ import pandas as pd
 from explorica._utils import (convert_series, handle_nan,
                               read_config, validate_lengths_match,
                               validate_string_flag)
-from ._utils import temp_plot_theme, save_plot, get_empty_plot
+from ._utils import (temp_plot_theme, save_plot, get_empty_plot,
+                     resolve_plotly_palette, DEFAULT_MPL_PLOT_PARAMS,
+                     VisualizationResult)
 
 logger = logging.getLogger(__name__)
 
 WRN_MSG_EMPTY_DATA = read_config("messages")["warns"]["DataVisualizer"]["empty_data_f"]
-ERR_MSG_ARRAYS_LENS_MISMATCH = read_config("messages")["errors"]["arrays_lens_mismatch_f"]
-ERR_MSG_MULTIDIMENSIONAL_DATA = read_config("messages")["errors"]["multidimensional_data_f"]
+ERR_MSG_ARRAYS_LENS_MISMATCH = read_config(
+    "messages")["errors"]["arrays_lens_mismatch_f"]
+ERR_MSG_MULTIDIMENSIONAL_DATA = read_config(
+    "messages")["errors"]["multidimensional_data_f"]
 ERR_MSG_UNSUPPORTED_METHOD = read_config("messages")["errors"]["unsupported_method_f"]
-DEFAULT_MPL_PLOT_PARAMS = {
-        "title": "",
-        "xlabel": "",
-        "ylabel": "",
-        "style": None,
-        "figsize": (10, 6),
-        "directory": None,
-        "nan_policy": "drop",
-        "verbose": False,
-}
-
+WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F = read_config("messages")[
+    "warns"]["DataVisualizer"]["categories_exceeds_palette_f"]
 
 
 def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
@@ -60,7 +57,8 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
     category : Sequence[Any] | Mapping[Any, Sequence[Any]]
         A sequence containing categorical labels (bar names).
     ascending : bool, optional
-        If True or False, sorts the bars by value in ascending or descending order, respectively. 
+        If True or False, sorts the bars by value
+        in ascending or descending order, respectively. 
         If None (default), the original order is preserved.
     horizontal : bool, optional
         If True, plots a horizontal bar chart (barh) instead of a vertical one. 
@@ -80,22 +78,46 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
     style : str, optional
         The Matplotlib/Seaborn style to apply to the figure
         (e.g., 'whitegrid', 'darkgrid').
+    plot_kws : dict, optional
+        Dictionary of keyword arguments passed directly to the underlying matplotlib
+        functions (`plt.bar` & `plt.barh`). This allows overriding any default plotting
+        behavior. If not provided, the function internally constructs a dictionary
+        from its own relevant parameters. Keys provided in `plot_kws` take precedence
+        over internally generated defaults.
     nan_policy : str | Literal['drop', 'raise'], default='drop'
             Policy for handling NaN values in input data:
             - 'raise' : raise ValueError if any NaNs are present in `data`.
             - 'drop'  : drop rows (axis=0) containing NaNs before computation. This
                         does **not** drop entire columns.
     directory : str, optional
-        The path to the directory for saving the plot. If None (default), the plot is not saved.
+        The path to the directory for saving the plot. If None (default),
+        the plot is not saved.
     verbose : bool, optional
         If True, prints messages about the saving process. Defaults to False.
 
     Returns
     -------
-    fig : matplotlib.figure.Figure
-        The Matplotlib Figure object generated.
-    ax : matplotlib.axes.Axes
-        The Matplotlib Axes object generated.
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        Contains the following attributes:
+            - figure : matplotlib.figure.Figure or plotly.graph_objects.Figure
+            The generated figure object ready for display or saving.
+            - axes : matplotlib.axes.Axes or None
+            For Matplotlib figures, the primary Axes object; None for Plotly figures.
+            - engine : str
+            The plotting engine used, either 'matplotlib' or 'plotly'.
+            - width : int or None
+            Figure width in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - height : int or None
+            Figure height in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - title : str or None
+            The title of the visualization, if specified.
+            - extra_info : dict or None
+            Optional dictionary storing additional metadata about the visualization,
+            such as color palettes, zoom levels, legend settings, or any other info
+            relevant to downstream processing or reproducibility.
 
     Raises:
     -------
@@ -111,18 +133,18 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
     >>> import numpy as np
     >>> values = [25, 40, 15, 60, 35]
     >>> labels = ['Apple', 'Banana', 'Cherry', 'Date', 'Elderberry']
-    >>> fig, ax = barchart(values, labels, title="Продажи фруктов")
-    >>> # plt.show()
+    >>> plot = barchart(values, labels, title="Продажи фруктов")
+    >>> # plot.figure.show()
 
     Horizontal Bar Chart with descending sort:
 
     >>> values_h = [150, 80, 220]
     >>> labels_h = ['Group A', 'Group B', 'Group C']
-    >>> fig, ax = barchart(values_h, labels_h, 
-    ...                    horizontal=True, 
-    ...                    ascending=False,
-    ...                    palette='viridis')
-    >>> # plt.show()
+    >>> plot = barchart(values_h, labels_h, 
+    ...                 horizontal=True, 
+    ...                 ascending=False,
+    ...                 palette='viridis')
+    >>> # plot.figure.show()
     """
     params = {
         **DEFAULT_MPL_PLOT_PARAMS,
@@ -130,6 +152,9 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
         "opacity": 0.5,
         **kwargs
     }
+    plot_kws_merged = {
+        "alpha": params["opacity"],
+        **params.get("plot_kws", {})}
 
     series_category = convert_series(category)
     series_value = convert_series(data)
@@ -141,8 +166,9 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
     df = pd.DataFrame({"category": series_category,
                        "value": series_value})
 
-    df = handle_nan(df, nan_policy=params["nan_policy"],
-                          supported_policy=("drop", "raise"), data_name="data or category")
+    df = handle_nan(
+        df, nan_policy=params["nan_policy"],
+        supported_policy=("drop", "raise"), data_name="data or category")
 
     if ascending is not None:
         df = df.sort_values(
@@ -153,9 +179,9 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
         if not df.empty:
             fig, ax = plt.subplots(figsize=params["figsize"])
             if horizontal:
-                ax.barh(df["category"], df["value"], alpha=params["opacity"])
+                ax.barh(df["category"], df["value"], **plot_kws_merged)
             else:
-                ax.bar(df["category"], df["value"], alpha=params["opacity"])
+                ax.bar(df["category"], df["value"], **plot_kws_merged)
         else:
             fig, ax = get_empty_plot(figsize=params["figsize"])
             warnings.warn(WRN_MSG_EMPTY_DATA.format("barchart"))
@@ -165,7 +191,11 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
         if params["directory"] is not None:
             save_plot(fig, directory=params["directory"],
                       plot_name="barchart", verbose=params["verbose"])
-    return fig, ax
+    return VisualizationResult(figure=fig, axes=ax, engine="matplotlib",
+                               title=params["title"],
+                               width=params["figsize"][0],
+                               height=params["figsize"][1],
+                               )
 
 
 def piechart(data: Sequence[float],
@@ -204,6 +234,12 @@ def piechart(data: Sequence[float],
         Color palette to use for the plot.
     figsize : tuple, default=(10, 6)
         Figure size (width, height) in inches.
+    plot_kws : dict, optional
+        Dictionary of keyword arguments passed directly to the underlying matplotlib
+        functions (`plt.pie`). This allows overriding any default plotting
+        behavior. If not provided, the function internally constructs a dictionary
+        from its own relevant parameters. Keys provided in `plot_kws` take precedence
+        over internally generated defaults.
     directory : str, optional
         If provided, the plot will be saved to this directory.
     nan_policy : {"drop", "raise"}, default="drop"
@@ -211,16 +247,54 @@ def piechart(data: Sequence[float],
     verbose : bool, default=False
         If True, print additional information.
 
-    Returns:
-    --------
-    tuple[Figure, Axes]
-        matplotlib figure and axes objects
+    Returns
+    -------
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        Contains the following attributes:
+            - figure : matplotlib.figure.Figure or plotly.graph_objects.Figure
+            The generated figure object ready for display or saving.
+            - axes : matplotlib.axes.Axes or None
+            For Matplotlib figures, the primary Axes object; None for Plotly figures.
+            - engine : str
+            The plotting engine used, either 'matplotlib' or 'plotly'.
+            - width : int or None
+            Figure width in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - height : int or None
+            Figure height in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - title : str or None
+            The title of the visualization, if specified.
+            - extra_info : dict or None
+            Optional dictionary storing additional metadata about the visualization,
+            such as color palettes, zoom levels, legend settings, or any other info
+            relevant to downstream processing or reproducibility.
 
     Raises:
     -------
     ValueError
         If input sizes mismatch.
         If invalid autopct method is provided.
+    
+    Examples
+    --------
+    >>> import explorica.visualizations as visualizations
+    >>> data = [10, 20, 30]
+    >>> categories = ["A", "B", "C"]
+    >>> result = visualizations.piechart(
+    ...     data,
+    ...     categories,
+    ...     autopct_method="both",
+    ...     title="Sample Pie Chart",
+    ...     show_legend=True
+    ... )
+    >>> result.figure.show()  # Show the pie chart
+    >>> result.axes  # <matplotlib.axes._subplots.AxesSubplot object at 0x...>
+    >>> result.title
+    'Sample Pie Chart'
+    >>> result.engine
+    'matplotlib'
     """
     params = {
         **DEFAULT_MPL_PLOT_PARAMS,
@@ -229,7 +303,12 @@ def piechart(data: Sequence[float],
         "palette": None,
         **kwargs
     }
+    plot_kws_merged = {
+        "labels": None,
+        "startangle": 90,
+        "autopct": None,
 
+        **params.get("plot_kws", {})}
     # Parameter validation
     supported_autopct = {"percent", "value", "both"}
     validate_string_flag(autopct_method, supported_autopct,
@@ -246,20 +325,27 @@ def piechart(data: Sequence[float],
     df = pd.DataFrame({"category": series_category,
                        "value": series_value})
 
-    df = handle_nan(df, nan_policy=params["nan_policy"],
-                          supported_policy=("drop", "raise"), data_name="data or category")
+    df = handle_nan(
+        df, nan_policy=params["nan_policy"],
+        supported_policy=("drop", "raise"), data_name="data or category")
 
     labels = df["category"] if params["show_labels"] else None
     with temp_plot_theme(palette=params["palette"], style=params["style"]):
         if not df.empty:
+            # construct labels and autopct if not provided
+            plot_kws_merged["labels"] = (labels if plot_kws_merged["labels"] is None
+                                         else plot_kws_merged["labels"])
+            plot_kws_merged["autopct"] = (_make_autopct(
+                df["value"], autopct_method)
+                if plot_kws_merged["autopct"] is None
+                else plot_kws_merged["autopct"])
             fig, ax = plt.subplots(figsize = params["figsize"])
             wedges, _, _ = ax.pie(
             df["value"],
-            labels=labels,
-            autopct=_make_autopct(df["value"], autopct_method),
-            startangle=90,)
+            **plot_kws_merged)
             if params["show_legend"]:
-                ax.legend(wedges, df["category"], loc="center left", bbox_to_anchor=(1, 0.5))
+                ax.legend(wedges, df["category"], loc="center left",
+                          bbox_to_anchor=(1, 0.5))
         else:
             fig, ax = get_empty_plot(figsize=params["figsize"])
             warnings.warn(WRN_MSG_EMPTY_DATA.format("piechart"))
@@ -269,8 +355,12 @@ def piechart(data: Sequence[float],
         if params["directory"] is not None:
             save_plot(fig, directory=params["directory"],
                       plot_name="piechart", verbose=params["verbose"])
-    return fig, ax
-
+    return VisualizationResult(figure=fig,
+                               axes=ax,
+                               engine="matplotlib",
+                               width=params["figsize"][0],
+                               height=params["figsize"][1],
+                               title=params["title"])
 
 def _make_autopct(values: pd.Series, method: str):
     """
@@ -290,114 +380,200 @@ def _make_autopct(values: pd.Series, method: str):
 def mapbox(lat: Sequence[float],
            lon: Sequence[float],
            category: Optional[Sequence] = None,
-           dot_names: Optional[Sequence] = None,
-           size: Optional[Sequence[float]] = None,
-           title: Optional[str] = None,
-           show_legend: Optional[bool] = True,
-           palette: Optional[Sequence[str]] = None,
-           map_style: Optional[str] = "open-street-map"
-           ) -> None:
+           **kwargs) -> None:
     """
-    Displays a geographic scatter plot (Mapbox) with optional
-    category-based coloring, size scaling,
-    and hover labels.
+    Display an interactive geographic scatter plot (Mapbox) with optional
+    category-based coloring, point scaling, and hover labels.
 
-        This method is intended for quick visualization of spatial data using latitude and longitude
-        coordinates. It supports additional inputs like category, size, and dot names to enhance the
-        plot’s readability without requiring complex setup.
+    This method provides a high-level interface for visualizing spatial data
+    using latitude and longitude coordinates. It supports categorical coloring,
+    dynamic point sizing, custom hover labels, and Plotly Mapbox styling.
 
-        Parameters
-        ----------
-        lat : Iterable
-            Latitude values for each point. Cannot contain null values.
-        lon : Iterable
-            Longitude values for each point. Must match length of `lat` and cannot contain nulls.
-        category : Iterable, optional
-            Categorical labels used to color the points. 
-            If provided, must be the same lengths as `lat` and `lon`
-            and contain no null values.
-        dot_names : Iterable, optional
-            Names to be displayed on hover. Should match the lengths of `lat` and `lon` if provided.
-        size : Iterable, optional
-            Numerical values used to scale the size of the points. 
-            Must match the lengths of `lat` and `lon`
-            and contain no nulls.
-        title : str, optional
-            Plot title to be displayed at the top of the map.
-        show_legend : bool, optional, default=True
-            Whether to display the legend (relevant only if `category` is provided).
-        palette : Iterable, optional
-            List of color values (hex or named) to use for coloring categories. If not provided,
-            the default class palette is used. If the number of unique categories exceeds the number
-            of colors, a warning is raised and colors may repeat.
-        map_style : str, optional
-            Mapbox style to be used for rendering the map. Default is "open-street-map".
-            Other options include "carto-positron", "carto-darkmatter", etc.
+    Parameters
+    ----------
+    lat : Sequence of float
+        Latitude values for each point. Cannot contain null values.
+    lon : Sequence of float
+        Longitude values for each point. Must match the length of `lat` and
+        cannot contain null values.
+    category : Sequence, optional
+        Categorical labels used to color the points. Must match the length of
+        `lat` and `lon`, cannot contain nulls, and determines the number of
+        discrete colors in the plot.
 
-        Raises
-        ------
-        ValueError
-            If lat/lon are missing, contain nulls, or their lengths don't match.
-            If any of the optional inputs (`category`, `dot_names`, `size`) are provided but
-            contain nulls or do not match the lengths of `lat` and `lon`.
+    Other Parameters
+    ----------------
+    hover_name : Sequence, optional
+        Labels to show on hover. Must match the length of `lat` and `lon`.
+    size : Sequence of float, optional
+        Numerical values used to scale point sizes. Must match the length
+        of `lat` and `lon`.
+    title : str, optional
+        Plot title.
+    show_legend : bool, default=True
+        Whether to display the legend. Relevant only if `category` is provided.
+    palette : Sequence of str, optional
+        List of colors (hex or named) for categories. If not provided, the default
+        Plotly color sequence (px.colors.qualitative.Plotly) is used.
+    opacity : float, default=0.7
+        Marker opacity.
+    height : int, default=600
+        Figure height in pixels.
+    width : int, default=800
+        Figure width in pixels.
+    template : str, default="plotly_white"
+        Plotly template used for styling. E.g., "plotly_dark", "ggplot2", "seaborn".
+    map_style : str, default="open-street-map"
+        Mapbox style used for rendering the map. E.g., "carto-positron",
+        "carto-darkmatter", "stamen-terrain", "open-street-map".
+    plot_kws : dict, optional
+        Dictionary of keyword arguments passed directly to the underlying Plotly
+        function (`px.scatter_mapbox`). This allows overriding any default plotting
+        behavior. If not provided, the function internally constructs a dictionary
+        from its own relevant parameters. Keys provided in `plot_kws` take precedence
+        over internally generated defaults.
+    nan_policy : str, default="drop"
+        Policy for handling NaN values in input data. Supports 'drop' 
+        (removes rows with NaNs) or 'raise' (raises an error).
+    directory : str or Path, optional
+        Path to save the figure as HTML.
+    verbose : bool, default=False
+        Enable logging.
 
-        Warnings
-        --------
-        UserWarning
-            If the number of unique categories exceeds the number of colors in the palette.
+    Returns
+    -------
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        Contains the following attributes:
+            - figure : matplotlib.figure.Figure or plotly.graph_objects.Figure
+            The generated figure object ready for display or saving.
+            - axes : matplotlib.axes.Axes or None
+            For Matplotlib figures, the primary Axes object; None for Plotly figures.
+            - engine : str
+            The plotting engine used, either 'matplotlib' or 'plotly'.
+            - width : int or None
+            Figure width in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - height : int or None
+            Figure height in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - title : str or None
+            The title of the visualization, if specified.
+            - extra_info : dict or None
+            Optional dictionary storing additional metadata about the visualization,
+            such as color palettes, zoom levels, legend settings, or any other info
+            relevant to downstream processing or reproducibility.
 
-        Examples
-        --------
-        >>> DataVisualizer.mapbox(
-        ...     lat=df["latitude"],
-        ...     lon=df["longitude"],
-        ...     category=df["region"],
-        ...     dot_names=df["city"],
-        ...     title="Distribution of Cities",
-        ...     palette=sns.color_palette("tab10").as_hex()
-        ... )
+    Raises
+    ------
+    ValueError
+        If `lat`, `lon`, or any optional input contain nulls or mismatched
+        lengths.
+    UserWarning
+        If the number of unique categories exceeds the provided palette size.
+        If the input data becomes empty after applying `nan_policy`.
+
+    Notes
+    -----
+    - The plot is saved as an interactive HTML file when `directory` is set.
+    - Color resolution is handled internally using `resolve_plotly_palette`.
+    - This function is intended for rapid map-based EDA rather than full
+      cartographic customization.
+    - Supported Plotly templates: https://plotly.com/python/templates/
+    - Supported Mapbox styles: https://plotly.com/python/mapbox-layers/
+
+    Examples
+    --------
+    >>> import explorica.visualizations as visualizations
+    >>> latitude = [34.0522, 40.7128, 37.7749, 51.5074]
+    >>> longitude = [-118.2437, -74.0060, -122.4194, -0.1278]
+    >>> fig = visualizations.mapbox(
+    ...     latitude,
+    ...     longitude,
+    ...     title="Distribution of Cities",
+    ...     palette=sns.color_palette("tab10").as_hex()
+    ... )
+    >>> result.figure.show() # Display the interactive Plotly figure
+    >>> result.title # 'Distribution of Cities'
+    >>> result.extra_info # Optional metadata dictionary
     """
+    params = {"hover_name": None,
+              "size": None,
+              "title": None,
+              "show_legend": True,
+              "palette": None,
+              "opacity": 0.7,
+              "zoom": 1,
+              "height": 600,
+              "width": 800,
+              "template": "plotly_white",
+              "map_style": "open-street-map",
+              "plot_kws": {},
+              "nan_policy": "drop",
+              "directory": None,
+              "verbose": False,
+              **kwargs}
 
-    if lat is None or lon is None:
-        raise ValueError("latitude and longitude must be provided")
-    if pd.isna(lat).any() or pd.isna(lon).any():
-        raise ValueError("The input 'lat' or 'lon' contains NaN values."
-                         "Please clean or impute missing data before visualization.")
-    if len(lat) != len(lon):
-        raise ValueError("The length of latitude must match the length of longitude.")
-    names_optional_iterables = ("category", "dot_names", "size")
-    for i, array in enumerate((category, dot_names, size)):
-        if array is None:
+    plot_kws_merged = {
+        "opacity": params["opacity"],
+        "height": params["height"],
+        "width": params["width"],
+        "template": params["template"],
+        "color_discrete_sequence": params["palette"],
+        "zoom": params["zoom"],
+        **(params["plot_kws"] or {})}
+
+    lat_series, lon_series, category_series = (
+        convert_series(lat), convert_series(lon), convert_series(category))
+    params["hover_name"] = convert_series(params["hover_name"])
+    params["size"] = convert_series(params["size"])
+
+    validate_lengths_match(lat_series, lon_series,
+                            err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("lat", "lon"))
+    df = pd.DataFrame({"lat": convert_series(lat),
+                       "lon": convert_series(lon)})
+
+    for key, value in {"category": category_series,
+                       "hover_name": params["hover_name"],
+                       "size": params["size"]}.items():
+        if value.empty:
             continue
-        if pd.isna(array).any():
-            raise ValueError(f"The input '{names_optional_iterables[i]}' contains NaN values."
-                             f"Please clean or impute missing data before visualization.")
-        if len(array) != len(lat):
-            raise ValueError(f"The length of '{names_optional_iterables[i]}' "
-                             f"must match the length of latitude and longitude.")
-    if palette is not None:
-        colors = palette
+        validate_lengths_match(
+            lat_series, value,
+            err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("lat and lon", key))
+        df[key] = value
+    df = handle_nan(df, nan_policy=params["nan_policy"],
+                        supported_policy=("drop", "raise"), data_name="input sequences")
+    unique_categories = df["category"].nunique() if "category" in df else 1
+    if "category" in df:
+        plot_kws_merged["color_discrete_sequence"] = resolve_plotly_palette(
+            params["palette"])
+        if len(plot_kws_merged["color_discrete_sequence"]) < unique_categories:
+            warnings.warn(WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F.format(
+                unique_categories, len(plot_kws_merged["color_discrete_sequence"])),
+                UserWarning)
+    if not df.empty:
+        fig = px.scatter_map(
+            lat=df["lat"],
+            lon=df["lon"],
+            color=df["category"] if "category" in df else None,
+            hover_name=df["hover_name"] if "hover_name" in df else None,
+            size=df["size"] if "size" in df else None,
+            **plot_kws_merged,)
+        fig.update_layout(mapbox_style=params["map_style"],
+                          showlegend=params["show_legend"])
     else:
-        colors = palette.as_hex()
-    if category is not None:
-        n_unique_categories = len(set(category))
-        if n_unique_categories > len(colors):
-            warnings.warn(f"Number of categories ({n_unique_categories}) "
-                          f"exceeds the palette size ({len(colors)}). Colors may repeat.",
-                        UserWarning)
-    fig = px.scatter_map(
-        lat=lat,
-        lon=lon,
-        color=category,
-        hover_name=dot_names,
-        size=size,
-        zoom=1,
-        height=600,
-        color_discrete_sequence=colors)
-    fig.update_layout(mapbox_style=map_style, showlegend=show_legend)
-    if title is not None:
-        fig.update_layout(title=title, title_x=0.5, title_y=0.98,
+        fig = get_empty_plot(figsize=(params["width"], params["height"]),
+                             engine="plotly")
+        warnings.warn(WRN_MSG_EMPTY_DATA.format("mapbox"))
+    if params["title"] is not None:
+        fig.update_layout(title=params["title"], title_x=0.5, title_y=0.98,
                           title_font_size=22, margin={"r":0,"t":40,"l":0,"b":0})
     else:
         fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
-    fig.show()
+    if params["directory"] is not None:
+        save_plot(fig, directory=params["directory"],
+                  plot_name="mapbox", verbose=params["verbose"], engine="plotly")
+    return VisualizationResult(figure=fig, engine="plotly",
+                               width=params["width"], height=params["height"],
+                               title=params["title"])

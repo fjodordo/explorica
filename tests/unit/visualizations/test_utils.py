@@ -16,7 +16,7 @@ plt.plot(ax=PLOT[1])
 # tests for visualizations._utils.save_plot()
 
 def test_save_plot_invalid_file_format():
-    with pytest.raises(ValueError, match="Unsupported format"):
+    with pytest.raises(ValueError, match="Unsupported file format"):
         _utils.save_plot(PLOT[0], directory="./plot.mp4")
 
 

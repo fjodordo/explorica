@@ -20,6 +20,8 @@ hexbin(data, target, colormap, **kwargs)
 scatterplot(data, target, category, **kwargs)
     Draws a scatterplot with optional categorical coloring and trendline.
     Supported trendline types include 'linear', 'exp', etc.
+heatmap(data, **kwargs)
+    Generates a heatmap to visualize a 2D array of numeric values.
 """
 
 import warnings
@@ -37,7 +39,8 @@ from explorica._utils import (convert_dataframe, convert_series,
                               NaturalNumber, handle_nan,
                               read_config, validate_lengths_match,
                               validate_string_flag, convert_from_alias)
-from ._utils import temp_plot_theme, save_plot, get_empty_plot
+from ._utils import (temp_plot_theme, save_plot, get_empty_plot,
+                     DEFAULT_MPL_PLOT_PARAMS, VisualizationResult)
 
 WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F = read_config("messages")[
     "warns"]["DataVisualizer"]["categories_exceeds_palette_f"]
@@ -45,17 +48,8 @@ WRN_MSG_EMPTY_DATA = read_config("messages")["warns"]["DataVisualizer"]["empty_d
 ERR_MSG_ARRAYS_LENS_MISMATCH_F = read_config("messages")["errors"][
     "arrays_lens_mismatch_f"]
 ERR_MSG_UNSUPPORTED_METHOD_F = read_config("messages")["errors"]["unsupported_method_f"]
-ERR_MSG_ARRAYS_LENS_MISMATCH = read_config("messages")["errors"]["arrays_lens_mismatch_f"]
-DEFAULT_MPL_PLOT_PARAMS = {
-        "title": "",
-        "xlabel": "",
-        "ylabel": "",
-        "style": None,
-        "figsize": (10, 6),
-        "directory": None,
-        "nan_policy": "drop",
-        "verbose": False,
-}
+ERR_MSG_ARRAYS_LENS_MISMATCH = read_config(
+    "messages")["errors"]["arrays_lens_mismatch_f"]
 
 def distplot(data: Sequence[float] | Mapping[str, Sequence[float]],
              bins: int = 30,
@@ -94,6 +88,12 @@ def distplot(data: Sequence[float] | Mapping[str, Sequence[float]],
         Seaborn style context (e.g., "whitegrid", "darkgrid").
     palette : str, default=None
        Seaborn color palette (e.g., "viridis", "husl").
+    plot_kws : dict, optional
+        Dictionary of keyword arguments passed directly to the underlying seaborn
+        function (`sns.histplot`). This allows overriding any default plotting
+        behavior. If not provided, the function internally constructs a dictionary
+        from its own relevant parameters. Keys provided in `plot_kws` take precedence
+        over internally generated defaults.
     directory : str, optional
         File path to save figure (e.g., "./plot.png").
     nan_policy : str | Literal['drop', 'raise'],
@@ -104,12 +104,31 @@ def distplot(data: Sequence[float] | Mapping[str, Sequence[float]],
                     does **not** drop entire columns.
     verbose : bool, default=False
         If True, enables informational logging during plot generation.
-    
+
     Returns
     -------
-    tuple(matplotlib.figure.Figure, matplotlib.axes.Axes)
-        Figure and axes objects for further customization.
-    
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        Contains the following attributes:
+            - figure : matplotlib.figure.Figure or plotly.graph_objects.Figure
+            The generated figure object ready for display or saving.
+            - axes : matplotlib.axes.Axes or None
+            For Matplotlib figures, the primary Axes object; None for Plotly figures.
+            - engine : str
+            The plotting engine used, either 'matplotlib' or 'plotly'.
+            - width : int or None
+            Figure width in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - height : int or None
+            Figure height in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - title : str or None
+            The title of the visualization, if specified.
+            - extra_info : dict or None
+            Optional dictionary storing additional metadata about the visualization,
+            such as color palettes, zoom levels, legend settings, or any other info
+            relevant to downstream processing or reproducibility.
+
     Raises
     ------
     ValueError
@@ -128,33 +147,31 @@ def distplot(data: Sequence[float] | Mapping[str, Sequence[float]],
     
     Examples
     --------
-    Basic one-liner usage with pandas Series:
+    Basic usage with a numeric sequence:
 
-    >>> import pandas as pd
-    >>> import explorica.visualizations as visualizations
+    >>> from explorica.visualizations import distplot
+    >>> result = distplot([1, 2, 2, 3, 3, 3])
+    >>> isinstance(result.figure, object)
+    True
+    >>> result.axes is not None
+    True
 
-    >>> data = pd.Series([0, 1, 2, 3, 3, 3, 3, 3, 3, 3, 4, 4, 5])
-    >>> visualizations.distplot(data) # Will show a histogram
+    Displaying the plot interactively (not executed in tests):
 
-    Customized plot with styling and saving:
-
-    >>> visualizations.distplot(
-    ...     data, 
-    ...     bins=20,
-    ...     kde=False,
-    ...     style="darkgrid", 
-    ...     palette="viridis",
-    ...     title="Distribution",
-    ...     directory="./histogram.png")
-        ./
-        ├── main.py
-        └── some_plot.png
+    >>> result = distplot([1, 2, 3, 4, 5])
+    >>> result.figure.show()  # doctest: +SKIP
     """
     params = {
         **DEFAULT_MPL_PLOT_PARAMS,
-        "palette": None,
         "opacity": 0.5,
+        "palette": None,
         **kwargs
+    }
+    plot_kws_merged = {
+        "alpha": params["opacity"],
+        "bins": bins,
+        "kde": kde,
+        **(params["plot_kws"] or {})
     }
     series = convert_series(data)
     series = handle_nan(
@@ -170,8 +187,7 @@ def distplot(data: Sequence[float] | Mapping[str, Sequence[float]],
     with temp_plot_theme(palette=params["palette"], style=params["style"]):
         if not series.empty:
             fig, ax = plt.subplots(figsize=params["figsize"])
-            sns.histplot(series, bins=bins, kde=kde,
-                         alpha=params["opacity"], ax=ax)
+            sns.histplot(series, ax=ax, **plot_kws_merged)
         else:
             fig, ax = get_empty_plot(figsize=params["figsize"])
             warnings.warn(WRN_MSG_EMPTY_DATA.format("distplot"))
@@ -184,9 +200,10 @@ def distplot(data: Sequence[float] | Mapping[str, Sequence[float]],
                 directory=params["directory"],
                 verbose=params["verbose"],
                 plot_name="distplot")
-        return fig, ax
-
-
+    return VisualizationResult(figure=fig, axes=ax, engine="matplotlib",
+                               width=params["figsize"][0],
+                               height=params["figsize"][1],
+                               title=params["title"])
 
 def boxplot(data: Sequence[float] | Mapping[str, Sequence[float]],
             **kwargs
@@ -211,6 +228,12 @@ def boxplot(data: Sequence[float] | Mapping[str, Sequence[float]],
         Color palette to use for the plot.
     figsize : tuple, default=(10, 6)
         Figure size (width, height) in inches.
+    plot_kws : dict, optional
+        Dictionary of keyword arguments passed directly to the underlying matplotlib
+        function (`plt.boxplot`). This allows overriding any default plotting
+        behavior. If not provided, the function internally constructs a dictionary
+        from its own relevant parameters. Keys provided in `plot_kws` take precedence
+        over internally generated defaults.
     directory : str, optional
         If provided, the plot will be saved to this directory.
     nan_policy : {"drop", "raise"}, default="drop"
@@ -220,18 +243,39 @@ def boxplot(data: Sequence[float] | Mapping[str, Sequence[float]],
 
     Returns
     -------
-    tuple(matplotlib.figure.Figure, matplotlib.axes.Axes)
-        Figure and axes objects for further customization.
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        Contains the following attributes:
+            - figure : matplotlib.figure.Figure or plotly.graph_objects.Figure
+            The generated figure object ready for display or saving.
+            - axes : matplotlib.axes.Axes or None
+            For Matplotlib figures, the primary Axes object; None for Plotly figures.
+            - engine : str
+            The plotting engine used, either 'matplotlib' or 'plotly'.
+            - width : int or None
+            Figure width in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - height : int or None
+            Figure height in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - title : str or None
+            The title of the visualization, if specified.
+            - extra_info : dict or None
+            Optional dictionary storing additional metadata about the visualization,
+            such as color palettes, zoom levels, legend settings, or any other info
+            relevant to downstream processing or reproducibility.
 
     Examples
     --------
     >>> # Single dataset
-    >>> fig, ax = boxplot([1, 2, 3, 4, 5], title="Boxplot Example")
+    >>> plot = boxplot([1, 2, 3, 4, 5], title="Boxplot Example")
+    >>> plot.figure.show()
     >>> 
     >>> # With NaN values and drop policy
     >>> import numpy as np
     >>> data_with_nan = [1, 2, np.nan, 4, 5]
-    >>> fig, ax = boxplot(data_with_nan, nan_policy="drop")
+    >>> plot = boxplot(data_with_nan, nan_policy="drop")
+    >>> plot.figure.show()
     """
     params = {
         **DEFAULT_MPL_PLOT_PARAMS,
@@ -245,7 +289,7 @@ def boxplot(data: Sequence[float] | Mapping[str, Sequence[float]],
     with temp_plot_theme(palette=params["palette"], style=params["style"]):
         if not series.empty:
             fig, ax = plt.subplots(figsize = params["figsize"])
-            sns.boxplot(series, ax=ax)
+            sns.boxplot(series, ax=ax, **(params["plot_kws"] or {}))
         else:
             fig, ax = get_empty_plot(figsize=params["figsize"])
             warnings.warn(WRN_MSG_EMPTY_DATA.format("boxplot"))
@@ -256,7 +300,10 @@ def boxplot(data: Sequence[float] | Mapping[str, Sequence[float]],
             save_plot(fig, params["directory"],
                       plot_name="boxplot",
                       verbose=params["verbose"])
-    return fig, ax
+    return VisualizationResult(figure=fig, axes=ax, engine="matplotlib",
+                               width=params["figsize"][0],
+                               height=params["figsize"][1],
+                               title=params["title"])
 
 
 
@@ -294,6 +341,12 @@ def hexbin(data: Sequence[Number],
         Seaborn style context (e.g., "whitegrid", "darkgrid").
     figsize : tuple, default=(10, 6)
         Figure size (width, height) in inches.
+    plot_kws : dict, optional
+        Dictionary of keyword arguments passed directly to the underlying matplotlib
+        function (`plt.hexbin`). This allows overriding any default plotting
+        behavior. If not provided, the function internally constructs a dictionary
+        from its own relevant parameters. Keys provided in `plot_kws` take precedence
+        over internally generated defaults.
     directory : str, optional
         If provided, the plot will be saved to this directory.
     nan_policy : {"drop", "raise"}, default="drop"
@@ -303,10 +356,27 @@ def hexbin(data: Sequence[Number],
 
     Returns
     -------
-    fig : matplotlib.figure.Figure
-        The figure object containing the plot.
-    ax : matplotlib.axes.Axes
-        The axes object containing the plot.
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        Contains the following attributes:
+            - figure : matplotlib.figure.Figure or plotly.graph_objects.Figure
+            The generated figure object ready for display or saving.
+            - axes : matplotlib.axes.Axes or None
+            For Matplotlib figures, the primary Axes object; None for Plotly figures.
+            - engine : str
+            The plotting engine used, either 'matplotlib' or 'plotly'.
+            - width : int or None
+            Figure width in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - height : int or None
+            Figure height in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - title : str or None
+            The title of the visualization, if specified.
+            - extra_info : dict or None
+            Optional dictionary storing additional metadata about the visualization,
+            such as color palettes, zoom levels, legend settings, or any other info
+            relevant to downstream processing or reproducibility.
 
     Raises
     ------
@@ -323,13 +393,14 @@ def hexbin(data: Sequence[Number],
     
     Examples
     --------
-    >>> fig, ax = hexbin(
+    >>> plot = hexbin(
     ...     [1, 2, 3, 4, 5],
     ...     [2, 4, 6, 8, 10],
     ...     xlabel="X Variable",
     ...     ylabel="Y Variable",
     ...     gridsize=20
     ... )
+    >>> plot.figure.show()
     """
     params = {
         **DEFAULT_MPL_PLOT_PARAMS,
@@ -338,6 +409,11 @@ def hexbin(data: Sequence[Number],
         "opacity": 1,
         **kwargs,
     }
+    plot_kws_merged = {
+        "gridsize": params["gridsize"],
+        "alpha": params["opacity"],
+        **params["plot_kws"]
+        }
     # NaturalNumber is descriptor, isinstace ensures positive integer check
     if not isinstance(params["gridsize"], NaturalNumber):
         raise ValueError(
@@ -354,8 +430,7 @@ def hexbin(data: Sequence[Number],
     with temp_plot_theme(cmap=params["cmap"], style=params["style"]):
         if not df.empty:
             fig, ax = plt.subplots(figsize = params["figsize"])
-            ax.hexbin(df["x"], df["y"],
-                      gridsize=params["gridsize"], alpha=params["opacity"])
+            ax.hexbin(df["x"], df["y"], **plot_kws_merged)
         else:
             fig, ax = get_empty_plot(figsize=params["figsize"])
             warnings.warn(WRN_MSG_EMPTY_DATA.format("hexbin"))
@@ -366,7 +441,10 @@ def hexbin(data: Sequence[Number],
             save_plot(fig, params["directory"],
                       plot_name="hexbin",
                       verbose=params["verbose"])
-    return fig, ax
+    return VisualizationResult(figure=fig, axes=ax, engine="matplotlib",
+                               width=params["figsize"][0],
+                               height=params["figsize"][1],
+                               title=params["title"])
 
 def scatterplot(data: Sequence[Number],
                 target: Sequence[Number],
@@ -434,9 +512,16 @@ def scatterplot(data: Sequence[Number],
             The domain (min, max) for which the trendline should be calculated 
             and plotted. If None, it uses the min and max of the input `data` (x).
         * **'degree'** : int, default=2
-            The degree of the polynomial to fit. Only used when `trendline='polynomial'`.
+            The degree of the polynomial to fit. Only used when
+            `trendline='polynomial'`.
         * **'dots'** : int, default=1000
             The number of data points used to draw the smooth trendline curve.
+    plot_kws : dict, optional
+        Dictionary of keyword arguments passed directly to the underlying matplotlib
+        function (`plt.scatter`). This allows overriding any default plotting
+        behavior. If not provided, the function internally constructs a dictionary
+        from its own relevant parameters. Keys provided in `plot_kws` take precedence
+        over internally generated defaults. Doesn't work if category is provided.
     nan_policy : str, default="drop"
         Policy for handling NaN values in input data. Supports 'drop' 
         (removes rows with NaNs) or 'raise' (raises an error).
@@ -447,8 +532,27 @@ def scatterplot(data: Sequence[Number],
 
     Returns
     -------
-    tuple[Figure, Axes]
-        The Matplotlib Figure and Axes objects of the generated plot.
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        Contains the following attributes:
+            - figure : matplotlib.figure.Figure or plotly.graph_objects.Figure
+            The generated figure object ready for display or saving.
+            - axes : matplotlib.axes.Axes or None
+            For Matplotlib figures, the primary Axes object; None for Plotly figures.
+            - engine : str
+            The plotting engine used, either 'matplotlib' or 'plotly'.
+            - width : int or None
+            Figure width in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - height : int or None
+            Figure height in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - title : str or None
+            The title of the visualization, if specified.
+            - extra_info : dict or None
+            Optional dictionary storing additional metadata about the visualization,
+            such as color palettes, zoom levels, legend settings, or any other info
+            relevant to downstream processing or reproducibility.
     
     Raises
     ------
@@ -478,8 +582,9 @@ def scatterplot(data: Sequence[Number],
     >>> category = ['A', 'A', 'B', 'B', 'A', 'B', 'A']
     
     # 1. Basic scatterplot with trendline
-    >>> fig, ax = scatterplot(data, target, trendline='linear', show_legend=False, 
+    >>> plot = scatterplot(data, target, trendline='linear', show_legend=False, 
     ...                       title='basic scatterplot')
+    >>> plot.figure.show()
     """
     params = {
         **DEFAULT_MPL_PLOT_PARAMS,
@@ -492,8 +597,12 @@ def scatterplot(data: Sequence[Number],
         "cmap": None,
         **kwargs,
     }
+    plot_kws_merged = {
+        "alpha": params["opacity"],
+        **(params["plot_kws"] or {})
+    }
     params["trendline_kws"] = params["trendline_kws"] or {
-        "color": None,     
+        "color": None,
         "linestyle": '-',     
         "linewidth": 2,
         "dots": 1000,
@@ -514,7 +623,8 @@ def scatterplot(data: Sequence[Number],
                 figsize=params["figsize"],
                 trendline=params["trendline"],
                 title_legend=params["title_legend"],
-                trendline_kws = params["trendline_kws"]
+                trendline_kws = params["trendline_kws"],
+                scatter_kws=plot_kws_merged
             )
         else:
             fig, ax = get_empty_plot(figsize=params["figsize"])
@@ -526,7 +636,10 @@ def scatterplot(data: Sequence[Number],
             save_plot(fig, params["directory"],
                       plot_name="scatterplot",
                       verbose=params["verbose"])
-    return fig, ax
+    return VisualizationResult(figure=fig, axes=ax, engine="matplotlib",
+                               width=params["figsize"][0],
+                               height=params["figsize"][1],
+                               title=params["title"])
 
 def _scatterplot_data_preprocess(data: Sequence[Number],
                                      target: Sequence[Number],
@@ -534,9 +647,11 @@ def _scatterplot_data_preprocess(data: Sequence[Number],
                                      nan_policy: str,
                                      trendline: str|Callable|None):
     """
-    Processes, validates, and prepares input dataspecifically for the `scatterplot` function.
+    Processes, validates, and prepares input dataspecifically for the
+    `scatterplot` function.
 
-    This utility function performs all preliminary checks before plotting the scatter chart:
+    This utility function performs all preliminary checks before plotting the
+    scatter chart:
     1. Converts input sequences (data, target, category) to pandas Series.
     2. Validates that the lengths of all provided arrays match.
     3. Applies the specified policy for handling missing values (`nan_policy`).
@@ -593,8 +708,9 @@ def _scatterplot_get_scatter_with_trendline(df,
     and adds a trendline for the `scatterplot` function.
 
     This function handles the core plotting logic, including:
-    1. Plotting categorical data by iterating over unique categories and explicitly assigning colors 
-       from the current Matplotlib color cycle (defined by 'palette' in the theme).
+    1. Plotting categorical data by iterating over unique categories
+       and explicitly assigning colors from the current Matplotlib color
+       cycle (defined by 'palette' in the theme).
     2. Plotting uncategorized data.
     3. Fitting and plotting the trendline (if requested).
     4. Adding the legend for categorical data.
@@ -626,8 +742,10 @@ def _scatterplot_get_scatter_with_trendline(df,
     if have_category:
         unique_categories = df["category"].unique()
 
-        # Calculate the total number of unique elements (categories + trendline, if present)
-        unique_objects = len(unique_categories) + 1 if kwargs.get("trendline") is not None else 0
+        # Calculate the total number of unique
+        # elements (categories + trendline, if present)
+        unique_objects = (len(unique_categories) + 1
+                          if kwargs.get("trendline") is not None else 0)
         for i, cat in enumerate(unique_categories):
             subset_df = df.loc[df["category"] == cat]
             ax.scatter(
@@ -637,7 +755,8 @@ def _scatterplot_get_scatter_with_trendline(df,
                 color=colors[i % len(colors)],
                 alpha=opacity,
             )
-        # Assign the next available color from the cycle to the trendline (if not manually set)
+        # Assign the next available color
+        # from the cycle to the trendline (if not manually set)
         trendline_kws["color"] = trendline_kws.get(
             "color", colors[(len(unique_categories) + 1) % len(colors)])
     else:
@@ -646,7 +765,7 @@ def _scatterplot_get_scatter_with_trendline(df,
         ax.scatter(
             df["x"],
             df["y"],
-            alpha=opacity,
+            **kwargs.get("scatter_kws", {})
         )
 
         # Assign the second color to the trendline (if not manually set)
@@ -675,7 +794,8 @@ def _scatterplot_get_scatter_with_trendline(df,
 
         # Place the legend outside the plot area
         ax.legend(
-            title=kwargs.get("title_legend"), bbox_to_anchor=(1.05, 1), loc="upper left")
+            title=kwargs.get("title_legend"),
+            bbox_to_anchor=(1.05, 1), loc="upper left")
     return fig, ax
 
 def scatterplot_fit_trendline(x: pd.Series,
@@ -722,7 +842,8 @@ def scatterplot_fit_trendline(x: pd.Series,
 
         x_domain = np.linspace(x_min, x_max, dots)
         y_pred = method(x_domain)
-        validate_lengths_match(y_pred, x_domain, err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format(
+        validate_lengths_match(y_pred, x_domain,
+                               err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format(
             "x_domain", "y_predicted from custom trendline function"))
         trendline = (x_domain, y_pred)
     elif method == "linear":
@@ -743,7 +864,8 @@ def _scatterplot_fit_polinomial_ols(
     """
     Calculates the polynomial trendline using Ordinary Least Squares (OLS).
 
-    This function is a helper for `_fit_trendline` and returns coordinates ready for plotting.
+    This function is a helper for `_fit_trendline` and returns coordinates
+    ready for plotting.
 
     Parameters
     ----------
@@ -795,7 +917,8 @@ def _scatterplot_fit_linear_ols(
     y : pandas.Series or np.ndarray
         The dependent variable data (Y).
     **trendline_kws
-        Keyword arguments, primarily expects 'dots' (int) and optional 'x_range' (tuple).
+        Keyword arguments, primarily expects 'dots'
+        (int) and optional 'x_range' (tuple).
 
     Returns
     -------
@@ -844,11 +967,11 @@ def heatmap(data: Sequence[float]|Sequence[Sequence[float]]|
     figsize : tuple of (float, float), default=(10, 6)
         Figure size.
     plot_kws : dict, optional
-        Dictionary of keyword arguments passed directly to the underlying plotting
-        function. This allows overriding any default plotting behavior. If not
-        provided, the function may internally construct a dictionary from its own
-        relevant parameters. Keys provided in `plot_kws` take precedence over
-        internally generated defaults.
+        Dictionary of keyword arguments passed directly to the underlying seaborn
+        function (`sns.heatmap`). This allows overriding any default plotting
+        behavior. If not provided, the function internally constructs a dictionary
+        from its own relevant parameters. Keys provided in `plot_kws` take precedence
+        over internally generated defaults.
     directory : str or None, default=None
         Directory path to save the figure. If None, the figure is not saved.
     nan_policy : str, default="drop"
@@ -859,10 +982,27 @@ def heatmap(data: Sequence[float]|Sequence[Sequence[float]]|
 
     Returns
     -------
-    fig : matplotlib.figure.Figure
-        The figure object containing the heatmap.
-    ax : matplotlib.axes.Axes
-        The axes object containing the heatmap.
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        Contains the following attributes:
+            - figure : matplotlib.figure.Figure or plotly.graph_objects.Figure
+            The generated figure object ready for display or saving.
+            - axes : matplotlib.axes.Axes or None
+            For Matplotlib figures, the primary Axes object; None for Plotly figures.
+            - engine : str
+            The plotting engine used, either 'matplotlib' or 'plotly'.
+            - width : int or None
+            Figure width in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - height : int or None
+            Figure height in pixels (Plotly) or inches (Matplotlib);
+            None if not specified.
+            - title : str or None
+            The title of the visualization, if specified.
+            - extra_info : dict or None
+            Optional dictionary storing additional metadata about the visualization,
+            such as color palettes, zoom levels, legend settings, or any other info
+            relevant to downstream processing or reproducibility.
     
     Raises
     ------
@@ -879,8 +1019,8 @@ def heatmap(data: Sequence[float]|Sequence[Sequence[float]]|
     --------
     >>> import numpy as np
     >>> data = np.array([[1, 2, 3], [4, 5, 6]])
-    >>> fig, ax = heatmap(data, title="Example Heatmap", figsize=(8, 5))
-    >>> ax.get_title()
+    >>> plot = heatmap(data, title="Example Heatmap", figsize=(8, 5))
+    >>> plot.axes.get_title()
     'Example Heatmap'
     """
     params = {
@@ -890,7 +1030,6 @@ def heatmap(data: Sequence[float]|Sequence[Sequence[float]]|
         "cbar": True,
         "fmt": ".2f",
         "square": True,
-        "plot_kws": None,
         **kwargs}
     df = convert_dataframe(data)
     df = handle_nan(df, params["nan_policy"], supported_policy = ("drop", "raise"))
@@ -913,4 +1052,7 @@ def heatmap(data: Sequence[float]|Sequence[Sequence[float]]|
     ax.set_ylabel(params["ylabel"])
     if params["directory"] is not None:
         save_plot(fig, params["directory"], plot_name="heatmap")
-    return fig, ax
+    return VisualizationResult(figure=fig, axes=ax, engine="matplotlib",
+                               width=params["figsize"][0],
+                               height=params["figsize"][1],
+                               title=params["title"])
