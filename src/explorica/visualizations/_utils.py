@@ -33,41 +33,193 @@ Examples
 
 import logging
 import contextlib
-from typing import Sequence
+from typing import Sequence, Union, Optional
+from dataclasses import dataclass
 from contextlib import contextmanager, ExitStack
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+import plotly.express as px
+from plotly.graph_objs import Figure as PxFigure
 
 from explorica._utils import temp_log_level
 
 logger = logging.getLogger(__name__)
 
-def save_plot(
-    fig: plt.Figure,
-    directory: str = ".",
-    overwrite: bool = True,
-    plot_name: str = "plot",
-    verbose: bool = False,
-    ):
+DEFAULT_MPL_PLOT_PARAMS = {
+        "title": "",
+        "xlabel": "",
+        "ylabel": "",
+        "style": None,
+        "figsize": (10, 6),
+        "directory": None,
+        "nan_policy": "drop",
+        "verbose": False,
+        "plot_kws": {},
+}
+
+@dataclass
+class VisualizationResult:
     """
-    Save a matplotlib figure to disk with optional logging and format handling.
+    Container for the result of a visualization.
+
+    Attributes
+    ----------
+    figure : matplotlib.figure.Figure | plotly.graph_objects.Figure
+        The generated figure object.
+    axes : Optional[matplotlib.axes.Axes], default=None
+        The main axes object for Matplotlib visualizations. Not applicable to Plotly.
+    engine : str
+        Plotting engine used ('matplotlib' or 'plotly').
+    width : Optional[int]
+        Figure width in pixels (for Plotly) or inches (for Matplotlib).
+    height : Optional[int]
+        Figure height in pixels (for Plotly) or inches (for Matplotlib).
+    title : Optional[str]
+        Figure title.
+    extra_info : dict, optional
+        Optional dictionary storing additional metadata about the visualization.
+        This can include information such as color palettes, zoom levels, legend
+        settings, or any other relevant details for downstream processing or
+        reproducibility.
     
-    This function handles file path validation, format detection, and error handling
-    for saving matplotlib figures. It supports the following formats:
-    "png", "eps", "jpg", "jpeg", "pdf", "pgf", "ps",  "raw", "rgba", "svg",
-    "svgz", "tif", "tiff", "webp".
+    Examples
+    --------
+    >>> import explorica.visualizations as visualizations
+    >>> result = visualizations.mapbox(
+    ...     lat=[34.05, 40.71], lon=[-118.24, -74.00],
+    ...     title="Cities Map"
+    ... )
+    >>> result.fig # Access the Plotly figure
+    >>> result.axes # None for Plotly
+    >>> result.title 'Cities Map'
+    """
+    figure: Union[plt.Figure, PxFigure]
+    axes: Optional[plt.Axes] = None
+    engine: str = "matplotlib"
+    width: Optional[int] = None
+    height: Optional[int] = None
+    title: Optional[str] = None
+    extra_info: dict = None
+
+def validate_file_format(ext: str, engine: str):
+    """
+    Validate that a given file extension is supported by the specified engine.
+
+    This is an internal utility used by `save_plot` to ensure that only
+    supported formats are written to disk.
 
     Parameters
     ----------
-    fig : matplotlib.pyplot.Figure
-        Figure object to save.
+    ext : str
+        File extension to validate (without leading dot, e.g., 'png', 'html').
+    engine : str
+        Plotting engine, either 'matplotlib' or 'plotly'.
+
+    Raises
+    ------
+    ValueError
+        If the extension is not supported for the given engine.
+
+    Notes
+    -----
+    - Matplotlib supports multiple static image formats.
+    - Plotly supports only 'html'.
+    """
+    supported_formats = {
+        "matplotlib": {"png","jpg","jpeg","svg","pdf","eps","pgf","ps",
+                       "raw","rgba","svgz","tif","tiff","webp"},
+        "plotly": {"html"},
+    }
+    if ext not in supported_formats[engine]:
+        supported = ", ".join(sorted(supported_formats[engine]))
+        raise ValueError(
+            f"Unsupported file format '{ext}' for engine '{engine}'. "
+            f"Supported formats are: {supported}."
+        )
+
+def resolve_plot_path(directory: str, plot_name: str, engine: str):
+    """
+    Resolve the absolute path and file extension for a plot file.
+
+    If the input path does not include an extension, a default filename
+    is generated based on the engine ('plot_name.html' for Plotly,
+    'plot_name.png' for Matplotlib).
+
+    Parameters
+    ----------
+    directory : str
+        Target directory or path where the plot will be saved.
+    plot_name : str
+        Base name for the plot file if the directory does not include an extension.
+    engine : str
+        Plotting engine, either 'matplotlib' or 'plotly'.
+
+    Returns
+    -------
+    tuple[Path, str]
+        - Absolute path to the file including filename.
+        - File extension (without leading dot).
+    """
+    directory = Path(directory).absolute()
+    ext = directory.suffix.lower()
+    # If the extension is not specified, assume the input is a directory path
+    if ext == "":
+        directory = (directory / f"{plot_name}.html" if engine == "plotly"
+                     else directory / f"{plot_name}.png")
+        ext = directory.suffix.lower()
+    return directory, ext[1:]
+
+def _save_plot_validate_plot_name(plot_name: str):
+    """
+    Internal utility to validate that a plot name is non-empty.
+
+    Raises a ValueError if the plot name is an empty string.
+
+    Parameters
+    ----------
+    plot_name : str
+        Name of the plot file.
+
+    Raises
+    ------
+    ValueError
+        If `plot_name` is empty.
+    """
+    if plot_name == "":
+        err_msg = ("The 'plot_name' cannot be empty. "
+        "Please provide a non-empty name or use the default value 'plot'.")
+        logger.error(err_msg)
+        raise ValueError(err_msg)
+
+def save_plot(
+    fig: plt.Figure | PxFigure,
+    directory: str = ".",
+    overwrite: bool = True,
+    plot_name: str = "plot",
+    **kwargs
+    ):
+    """
+    Save a matplotlib or Plotly figure to disk with flexible format handling,
+    logging, and directory management.
+
+    This function validates the figure object, resolves output paths, checks
+    for overwrite policies, and saves the figure in the specified format.
+    It supports both static Matplotlib figures and interactive Plotly figures.
+
+    Parameters
+    ----------
+    fig : matplotlib.pyplot.Figure or plotly.graph_objs._figure.Figure
+        The figure object to save. Must be a Matplotlib Figure for engine="matplotlib"
+        or a Plotly Figure for engine="plotly".
     directory : str, default="."
-        File path where the figure will be saved. If the path has no file extension,
-        it is treated as a directory path and the plot is saved as '{plot_name}.png' 
-        within it. If the path includes an extension, the plot is saved with that
-        exact filename.
+        Target file path or directory for saving the figure.
+        - If the path includes an extension (e.g., ".png" or ".html"), the figure is
+          saved with that filename.
+        - If no extension is provided, the figure is saved as
+          '{plot_name}.png' (for Matplotlib)
+        or '{plot_name}.html' (for Plotly) within the directory.
     overwrite : bool, default=True
         If True, the target file will be overwritten if it exists.
         If False, a FileExistsError is raised.
@@ -76,6 +228,13 @@ def save_plot(
         directory is a path without extension. Cannot be empty.
     verbose : bool, default=False
         If True, enables informational logging.
+    engine : str, default="matplotlib"
+        Specifies which plotting engine to use for saving:
+        - "matplotlib": saves Matplotlib figures in one of the supported static
+          formats.
+        - "plotly": saves Plotly figures as interactive HTML files.
+        Only one engine can be used at a time. The fig type must match the chosen
+        engine.
 
     Raises
     ------
@@ -91,6 +250,15 @@ def save_plot(
         If unable to write to the specified directory.
     FileExistsError
         If the output file already exists and 'overwrite' is set to False.
+    
+    Notes
+    -----
+    Supported file formats:
+        Matplotlib (engine="matplotlib"): "png", "eps", "jpg", "jpeg", "pdf", "pgf",
+        "ps",  "raw", "rgba", "svg", "svgz", "tif", "tiff", "webp".
+        Plotly (engine="plotly"): "html" only. Plotly figures are
+        saved as interactive HTML pages
+        that can be opened in a browser, preserving hover info, zooming, and panning.
 
     Examples
     --------
@@ -104,14 +272,14 @@ def save_plot(
     # ----------------------------------------------------------------------
 
     log_context = (temp_log_level(logger, logging.INFO) if
-                    verbose else contextlib.nullcontext())
+                    kwargs.get("verbose", False) else contextlib.nullcontext())
     # 1.1. Check 'fig' type
-    if not isinstance(fig, plt.Figure):
+    if not isinstance(fig, (plt.Figure, PxFigure)):
         logger.error("Failed to save '%s' to %s: "
-                     "Expected matplotlib Figure object, got %s.",
+                     "Expected matplotlib or plotly Figure object, got %s.",
                      plot_name, directory, type(fig).__name__)
         raise TypeError(
-            f"Expected matplotlib Figure object, got {type(fig).__name__}. "
+            f"Expected matplotlib or plotly Figure object, got {type(fig).__name__}. "
             f"Please create a figure using plt.subplots() or plt.figure() first."
         )
 
@@ -119,7 +287,8 @@ def save_plot(
     if not isinstance(directory, str):
         logger.error("Invalid type for argument 'directory'. Expected str, "
             "but received %s.", type(directory).__name__)
-        raise TypeError(f"Invalid type for argument '{directory}'. Expected str or pathlib.Path, "
+        raise TypeError(
+            f"Invalid type for argument '{directory}'. Expected str or pathlib.Path, "
             f"but received {type(directory).__name__}.")
 
     # 1.3. Check 'directory' for non empty path
@@ -139,41 +308,19 @@ def save_plot(
             raise ValueError(err_msg)
 
     # 1.5. Check 'plot_name' for non empty value
-    if plot_name == "":
-        err_msg = ("The 'plot_name' cannot be empty. "
-        "Please provide a non-empty name or use the default value 'plot'.")
-        logger.error(err_msg)
-        raise ValueError(err_msg)
+    _save_plot_validate_plot_name(plot_name)
 
     # ----------------------------------------------------------------------
     # 2. PATH RESOLUTION, FORMAT DETECTION, AND I/O OPERATIONS
     # ----------------------------------------------------------------------
     try:
-        directory = Path(directory).absolute()
-
-        file_format = directory.suffix.lower()
-
         # 2.1. Determine output path:
         # If the extension is not specified, assume the input is a directory path
-        if file_format == "":
-            # No extension - treat as directory and add filename
-            directory = directory / f"{plot_name}.png"
-            file_format = ".png"
-        file_format = file_format[1:] # Remove the dot
+        directory, file_format = resolve_plot_path(directory, plot_name,
+                                                   kwargs.get("engine", "matplotlib"))
 
         # 2.2. Check format support
-        supported_formats = {
-            "png", "eps", "jpg",
-            "jpeg", "pdf", "pgf",
-            "ps",  "raw", "rgba",
-            "svg", "svgz", "tif",
-            "tiff", "webp"
-        }
-        if file_format not in supported_formats:
-            raise ValueError(
-                f"Unsupported format: '{file_format}'. "
-                f"Supported formats: {sorted(supported_formats)}"
-            )
+        validate_file_format(file_format, kwargs.get('engine', 'matplotlib'))
         path = directory.parent
         # 2.3. Create parent directories if they do not exist
         if not path.exists():
@@ -186,7 +333,13 @@ def save_plot(
             raise FileExistsError((f"Attempted to save plot to existing path "
                                    f"without 'overwrite=True'. Path: {directory}"))
         # 2.5. Execute final save call
-        fig.savefig(directory)
+        if kwargs.get("engine", "matplotlib") == "matplotlib":
+            fig.savefig(directory)
+        elif kwargs.get("engine", "matplotlib") == "plotly":
+            fig.write_html(directory)
+        else:
+            raise ValueError((f"Invalid 'engine' parameter: {kwargs.get('engine')}. "
+                             f"Supported engines are 'matplotlib' and 'plotly'."))
         with log_context:
             logger.info("'%s' saved to %s", plot_name, directory)
     # ----------------------------------------------------------------------
@@ -204,39 +357,79 @@ def save_plot(
         raise
 
 def get_empty_plot(message: str = "No data available for visualization",
-                   figsize: Sequence[float] = (10, 6)):
+                   figsize: Sequence[float] = (10, 6),
+                   engine: str = "matplotlib"):
     """
-    Generate a placeholder Matplotlib Figure and Axes object.
+    Generate a placeholder empty plot for Matplotlib or Plotly.
 
-    This utility function is used to create a standard, empty plot canvas
-    with a centered informational message. This is typically used to handle
-    edge cases where input data is empty, invalid, or requires special
-    handling that prevents generating a standard visualization, ensuring
-    the calling function still returns valid Matplotlib objects.
+    This utility creates a standardized empty visualization canvas with a
+    centered informational message. It is typically used when input data is
+    empty, invalid, or removed during preprocessing, ensuring that the calling
+    function still returns a valid figure object.
 
     Parameters
     ----------
     message : str, default="No data available for visualization"
         The informational text displayed at the center of the plot.
     figsize : Sequence[float], default=(10, 6)
-        The size of the resulting figure, passed directly to
-        `matplotlib.pyplot.subplots`.
-    
+        The size of the resulting figure.
+        - For ``engine='matplotlib'``: interpreted as inches and passed
+          directly to ``matplotlib.pyplot.subplots``.
+        - For ``engine='plotly'``: interpreted as pixel dimensions for
+          ``figure.update_layout(width=..., height=...)``.
+    engine : {'matplotlib', 'plotly'}, default='matplotlib'
+        Visualization backend to use for generating the empty plot.
+
     Returns
     -------
-    tuple (matplotlib.figure.Figure, matplotlib.axes.Axes)
-        Figure and axes objects for further customization.
+    tuple
+        If ``engine='matplotlib'``:
+            (matplotlib.figure.Figure, matplotlib.axes.Axes)
+            The Matplotlib figure and axes objects.
+    plotly.graph_objects.Figure
+        If ``engine='plotly'``:
+            A Plotly figure object with a centered annotation.
+
+    Notes
+    -----
+    - The Plotly version uses a minimal ``simple_white`` template and hides axes.
+    - This function is backend-agnostic and serves as a shared mechanism for
+      handling empty-data cases across visualization utilities.
 
     Examples
     --------
-    >>> fig, ax = get_empty_plot(message="Data validation failed")
-    >>> # fig and ax are now Matplotlib objects that can be displayed or saved.
+    >>> fig, ax = get_empty_plot(message="No data", engine="matplotlib")
+    >>> fig
+
+    >>> fig = get_empty_plot(message="Nothing to display", engine="plotly")
+    >>> fig
     """
-    fig, ax = plt.subplots(figsize=figsize)
-    ax.text(0.5, 0.5, message,
-        ha="center", va="center", transform=ax.transAxes,
-        fontsize=12, color="gray", style="italic")
-    return fig, ax
+    if engine == "matplotlib":
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.text(0.5, 0.5, message,
+            ha="center", va="center", transform=ax.transAxes,
+            fontsize=12, color="gray", style="italic")
+        output = fig, ax
+    elif engine == "plotly":
+        fig = PxFigure()
+        fig.add_annotation(
+            text=message,
+            x=0.5, y=0.5,
+            xref="paper", yref="paper",
+            showarrow=False,
+            font={"size": 16, "color": "gray"},
+        )
+        fig.update_layout(
+            template="simple_white",
+            xaxis={"visible": False},
+            yaxis={"visible": False},
+            width=figsize[0],
+            height=figsize[1],
+        )
+        output = fig
+    else:
+        output = None
+    return output
 
 @contextmanager
 def temp_plot_theme(palette: str = None,
@@ -328,3 +521,73 @@ def temp_plot_cmap(cmap: str):
         yield
     finally:
         plt.rcParams['image.cmap'] = original_cmap
+
+
+def resolve_plotly_palette(palette: str|Sequence[str],
+                           categorical=True):
+    """
+    Resolve a Plotly color palette for categorical or sequential data.
+
+    This utility function returns a list of colors suitable for use in Plotly
+    visualizations. It supports built-in Plotly palettes as well as custom
+    user-provided sequences of colors. The function automatically selects
+    an appropriate default palette if none is provided.
+
+    Parameters
+    ----------
+    palette : str or Sequence[str]
+        The name of a built-in Plotly palette (e.g., "Plotly" for categorical,
+        "Viridis" for sequential) or a custom sequence of color strings (hex codes
+        or named colors). If `None`, a default palette is used.
+    categorical : bool, default=True
+        Whether to treat the palette as categorical (`True`) or sequential (`False`).
+        Determines the set of default palettes and the namespace to search for named
+        palettes.
+
+    Returns
+    -------
+    List[str]
+        A list of color strings suitable for Plotly visualizations.
+
+    Raises
+    ------
+    ValueError
+        If a string is provided that does not correspond to a known Plotly palette
+        in the appropriate namespace.
+
+    Notes
+    -----
+    - Categorical palettes are found in `plotly.express.colors.qualitative`.
+    - Sequential palettes are found in `plotly.express.colors.sequential`.
+    - This function is intended to standardize palette selection for consistent
+    plotting behavior across Explorica visualizations.
+
+    Examples
+    --------
+    >>> import plotly.express as px
+    >>> resolve_plotly_palette("Plotly")
+    ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', ...]
+    >>> resolve_plotly_palette(["#FF0000", "#00FF00", "#0000FF"])
+    ['#FF0000', '#00FF00', '#0000FF']
+    >>> resolve_plotly_palette(None, categorical=False)
+    ['#440154', '#482878', '#3E4989', ...]  # Viridis sequential palette
+    """
+    if palette is None:
+        return (px.colors.qualitative.Plotly if categorical
+                else px.colors.sequential.Viridis)
+    if isinstance(palette, str):
+        if categorical:
+            try:
+                colors = getattr(px.colors.qualitative, palette)
+            except AttributeError as exc:
+                raise ValueError(
+                    f"Unknown categorical palette {palette} for Plotly") from exc
+        else:
+            try:
+                colors = getattr(px.colors.sequential, palette)
+            except AttributeError as exc:
+                raise ValueError(
+                    f"Unknown sequential palette {palette} for Plotly") from exc
+    else:
+        colors = palette
+    return colors
