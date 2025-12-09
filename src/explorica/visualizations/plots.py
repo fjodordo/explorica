@@ -24,7 +24,7 @@ Notes
   which provides a consistent interface for accessing the figure, axes (if applicable),
   plotting engine, and additional metadata.
 - `plot_kws` allows passing keyword arguments directly to the underlying plotting
-  function used by the engine (Matplotlib, Seaborn, or Plotly). 
+  function used by the engine (Matplotlib, Seaborn, or Plotly).
       This provides fine-grained control over styling and behavior
       specific to that function.
 
@@ -68,29 +68,40 @@ import plotly.express as px
 import pandas as pd
 
 from explorica.types import VisualizationResult
-from explorica._utils import (convert_series, handle_nan,
-                              validate_lengths_match,
-                              validate_string_flag)
-from ._utils import (temp_plot_theme, save_plot, get_empty_plot,
-                     resolve_plotly_palette, DEFAULT_MPL_PLOT_PARAMS,
-                     WRN_MSG_EMPTY_DATA, ERR_MSG_ARRAYS_LENS_MISMATCH,
-                     ERR_MSG_UNSUPPORTED_METHOD, WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F)
+from explorica._utils import (
+    convert_series,
+    handle_nan,
+    validate_lengths_match,
+    validate_string_flag,
+)
+from ._utils import (
+    temp_plot_theme,
+    save_plot,
+    get_empty_plot,
+    resolve_plotly_palette,
+    DEFAULT_MPL_PLOT_PARAMS,
+    WRN_MSG_EMPTY_DATA,
+    ERR_MSG_ARRAYS_LENS_MISMATCH,
+    ERR_MSG_UNSUPPORTED_METHOD,
+    WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
-             category: Sequence[Any] | Mapping[Any, Sequence[Any]],
-             ascending: bool = None,
-             horizontal: bool = False,
-             **kwargs
-             ) -> VisualizationResult:
+def barchart(
+    data: Sequence[float] | Mapping[Any, Sequence[float]],
+    category: Sequence[Any] | Mapping[Any, Sequence[Any]],
+    ascending: bool = None,
+    horizontal: bool = False,
+    **kwargs,
+) -> VisualizationResult:
     """
     Plots a Bar Chart using categorical and numerical data series.
 
-    This function creates a bar chart to visualize the relationship between 
-    categorical labels and numerical values. It supports both vertical and 
-    horizontal orientations, automatic sorting, and comprehensive styling 
+    This function creates a bar chart to visualize the relationship between
+    categorical labels and numerical values. It supports both vertical and
+    horizontal orientations, automatic sorting, and comprehensive styling
     options through integration with Seaborn's visualization system.
 
     Under the hood, the function uses Matplotlib's `matplotlib.axes.Axes.bar` and
@@ -107,10 +118,10 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
         A sequence containing categorical labels (bar names).
     ascending : bool, optional
         If True or False, sorts the bars by value
-        in ascending or descending order, respectively. 
+        in ascending or descending order, respectively.
         If None (default), the original order is preserved.
     horizontal : bool, optional
-        If True, plots a horizontal bar chart (barh) instead of a vertical one. 
+        If True, plots a horizontal bar chart (barh) instead of a vertical one.
         Defaults to False.
     opacity : float, default=0.5
         Transparency of the bars (alpha value). Must be between 0 and 1.
@@ -159,7 +170,7 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
         If the lengths of the 'data' and 'category' input series do not match.
         If the 'data' or 'category' input contains more than one column/dimension.
         If nan_policy='raise' and missing values (NaN/null) are found in the data.
-    
+
     Warns
     -----
     UserWarning
@@ -188,42 +199,37 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
     # Horizontal Bar Chart with descending sort:
     >>> values_h = [150, 80, 220]
     >>> labels_h = ['Group A', 'Group B', 'Group C']
-    >>> plot = barchart(values_h, labels_h, 
-    ...                 horizontal=True, 
+    >>> plot = barchart(values_h, labels_h,
+    ...                 horizontal=True,
     ...                 ascending=False,
     ...                 palette='viridis')
     >>> # plot.figure.show()
     """
-    params = {
-        **DEFAULT_MPL_PLOT_PARAMS,
-        "palette": None,
-        "opacity": 0.5,
-        **kwargs
-    }
-    plot_kws_merged = {
-        "alpha": params["opacity"],
-        **params.get("plot_kws", {})}
+    params = {**DEFAULT_MPL_PLOT_PARAMS, "palette": None, "opacity": 0.5, **kwargs}
+    plot_kws_merged = {"alpha": params["opacity"], **params.get("plot_kws", {})}
 
     series_category = convert_series(category)
     series_value = convert_series(data)
 
     validate_lengths_match(
-        series_category, series_value,
-        err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("data", "category"))
+        series_category,
+        series_value,
+        err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("data", "category"),
+    )
 
-    df = pd.DataFrame({"category": series_category,
-                       "value": series_value})
+    df = pd.DataFrame({"category": series_category, "value": series_value})
 
     df = handle_nan(
-        df, nan_policy=params["nan_policy"],
-        supported_policy=("drop", "raise"), data_name="data or category")
+        df,
+        nan_policy=params["nan_policy"],
+        supported_policy=("drop", "raise"),
+        data_name="data or category",
+    )
 
     if ascending is not None:
-        df = df.sort_values(
-         "value", ascending=ascending)
+        df = df.sort_values("value", ascending=ascending)
 
-    with temp_plot_theme(palette=params["palette"],
-                         style=params["style"]):
+    with temp_plot_theme(palette=params["palette"], style=params["style"]):
         if not df.empty:
             fig, ax = plt.subplots(figsize=params["figsize"])
             if horizontal:
@@ -233,25 +239,35 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
         else:
             fig, ax = get_empty_plot(figsize=params["figsize"])
             warnings.warn(WRN_MSG_EMPTY_DATA.format("barchart"))
+        ax.set_ylabel(params["ylabel"])
         ax.set_title(params["title"])
         ax.set_xlabel(params["xlabel"])
-        ax.set_ylabel(params["ylabel"])
         if params["directory"] is not None:
-            save_plot(fig, directory=params["directory"],
-                      plot_name="barchart", verbose=params["verbose"])
-    return VisualizationResult(figure=fig, axes=ax, engine="matplotlib",
-                               title=params["title"],
-                               width=params["figsize"][0],
-                               height=params["figsize"][1],
-                               extra_info={"horizontal": horizontal,}
-                               )
+            save_plot(
+                fig,
+                directory=params["directory"],
+                plot_name="barchart",
+                verbose=params["verbose"],
+            )
+    return VisualizationResult(
+        figure=fig,
+        axes=ax,
+        title=params["title"],
+        engine="matplotlib",
+        width=params["figsize"][0],
+        height=params["figsize"][1],
+        extra_info={
+            "horizontal": horizontal,
+        },
+    )
 
 
-def piechart(data: Sequence[float],
-             category: Sequence[Any],
-             autopct_method: str = "value",
-             **kwargs
-             ) -> VisualizationResult:
+def piechart(
+    data: Sequence[float],
+    category: Sequence[Any],
+    autopct_method: str = "value",
+    **kwargs,
+) -> VisualizationResult:
     """
     Draws a pie chart based on categorical and corresponding numerical data.
 
@@ -260,8 +276,8 @@ def piechart(data: Sequence[float],
     numerical value in `data`. The chart supports automatic display of percentages,
     raw values, or both on each segment.
 
-    Under the hood, the function uses Matplotlib's `matplotlib.axes.Axes.pie` function 
-    and applies Seaborn styles for aesthetic defaults. This allows passing 
+    Under the hood, the function uses Matplotlib's `matplotlib.axes.Axes.pie` function
+    and applies Seaborn styles for aesthetic defaults. This allows passing
     additional kwargs directly to the underlying Matplotlib calls via `plot_kws`.
     For complete parameter documentation and
     advanced customization options, see urls below
@@ -324,7 +340,7 @@ def piechart(data: Sequence[float],
     UserWarning
         Raised if the input data is empty. An empty plot with a warning message
         will be returned in this case.
-    
+
     Notes
     -----
     This function uses matplotlib.axes.Axes.pie under the hood. For complete parameter
@@ -339,7 +355,7 @@ def piechart(data: Sequence[float],
     # Simple pie chart displaying raw values
     >>> data = [15, 30, 45, 10]
     >>> categories = ["A", "B", "C", "D"]
-    >>> result = vis.piechart(data, categories, autopct_method="value", 
+    >>> result = vis.piechart(data, categories, autopct_method="value",
     ...                       title="Simple Pie")
     >>> result.figure.show() # Display the chart
     >>> result.title
@@ -359,72 +375,89 @@ def piechart(data: Sequence[float],
         "show_legend": True,
         "show_labels": True,
         "palette": None,
-        **kwargs
+        **kwargs,
     }
     plot_kws_merged = {
         "labels": None,
         "startangle": 90,
         "autopct": None,
-
-        **params.get("plot_kws", {})}
+        **params.get("plot_kws", {}),
+    }
     # Parameter validation
     supported_autopct = {"percent", "value", "both"}
-    validate_string_flag(autopct_method, supported_autopct,
-                         err_msg=ERR_MSG_UNSUPPORTED_METHOD.format(
-                             autopct_method, supported_autopct))
+    validate_string_flag(
+        autopct_method,
+        supported_autopct,
+        err_msg=ERR_MSG_UNSUPPORTED_METHOD.format(autopct_method, supported_autopct),
+    )
 
     series_category = convert_series(category)
     series_value = convert_series(data)
 
     validate_lengths_match(
-        series_category, series_value,
-        err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("data", "category"))
+        series_category,
+        series_value,
+        err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("data", "category"),
+    )
 
-    df = pd.DataFrame({"category": series_category,
-                       "value": series_value})
+    df = pd.DataFrame({"category": series_category, "value": series_value})
 
     df = handle_nan(
-        df, nan_policy=params["nan_policy"],
-        supported_policy=("drop", "raise"), data_name="data or category")
+        df,
+        nan_policy=params["nan_policy"],
+        supported_policy=("drop", "raise"),
+        data_name="data or category",
+    )
 
     labels = df["category"] if params["show_labels"] else None
     with temp_plot_theme(palette=params["palette"], style=params["style"]):
         if not df.empty:
             # construct labels and autopct if not provided
-            plot_kws_merged["labels"] = (labels if plot_kws_merged["labels"] is None
-                                         else plot_kws_merged["labels"])
-            plot_kws_merged["autopct"] = (_make_autopct(
-                df["value"], autopct_method)
+            plot_kws_merged["labels"] = (
+                labels
+                if plot_kws_merged["labels"] is None
+                else plot_kws_merged["labels"]
+            )
+            plot_kws_merged["autopct"] = (
+                _make_autopct(df["value"], autopct_method)
                 if plot_kws_merged["autopct"] is None
-                else plot_kws_merged["autopct"])
-            fig, ax = plt.subplots(figsize = params["figsize"])
-            wedges, _, _ = ax.pie(
-            df["value"],
-            **plot_kws_merged)
+                else plot_kws_merged["autopct"]
+            )
+            fig, ax = plt.subplots(figsize=params["figsize"])
+            wedges, _, _ = ax.pie(df["value"], **plot_kws_merged)
             if params["show_legend"]:
-                ax.legend(wedges, df["category"], loc="center left",
-                          bbox_to_anchor=(1, 0.5))
+                ax.legend(
+                    wedges, df["category"], loc="center left", bbox_to_anchor=(1, 0.5)
+                )
         else:
             fig, ax = get_empty_plot(figsize=params["figsize"])
             warnings.warn(WRN_MSG_EMPTY_DATA.format("piechart"))
         ax.set_xlabel(params["xlabel"])
-        ax.set_ylabel(params["ylabel"])
         ax.set_title(params["title"])
+        ax.set_ylabel(params["ylabel"])
         if params["directory"] is not None:
-            save_plot(fig, directory=params["directory"],
-                      plot_name="piechart", verbose=params["verbose"])
-    return VisualizationResult(figure=fig,
-                               axes=ax,
-                               engine="matplotlib",
-                               width=params["figsize"][0],
-                               height=params["figsize"][1],
-                               title=params["title"],
-                               extra_info={"autopct_method": autopct_method})
+            save_plot(
+                fig,
+                directory=params["directory"],
+                plot_name="piechart",
+                verbose=params["verbose"],
+            )
+    return VisualizationResult(
+        figure=fig,
+        axes=ax,
+        engine="matplotlib",
+        height=params["figsize"][1],
+        title=params["title"],
+        extra_info={"autopct_method": autopct_method},
+        width=params["figsize"][0],
+    )
+
 
 def _make_autopct(values: pd.Series, method: str):
     """
     Internal helper to format piechart percentage labels.
     """
+
     def formatter(pct):
         total = sum(values)
         val = int(round(pct * total / 100.0))
@@ -433,13 +466,16 @@ def _make_autopct(values: pd.Series, method: str):
         if method == "value":
             return f"{val}"
         return f"{pct:.1f}%\n({val})"
+
     return formatter
 
 
-def mapbox(lat: Sequence[float],
-           lon: Sequence[float],
-           category: Optional[Sequence] = None,
-           **kwargs) -> VisualizationResult:
+def mapbox(
+    lat: Sequence[float],
+    lon: Sequence[float],
+    category: Optional[Sequence] = None,
+    **kwargs,
+) -> VisualizationResult:
     """
     Display an interactive geographic scatter plot (Mapbox) with optional
     category-based coloring, point scaling, and hover labels.
@@ -448,8 +484,8 @@ def mapbox(lat: Sequence[float],
     using latitude and longitude coordinates. It supports categorical coloring,
     dynamic point sizing, custom hover labels, and Plotly Mapbox styling.
 
-    Under the hood, the function uses Plotly's `plotly.express.scatter_map` function 
-    and applies plotly styles for aesthetic defaults. This allows passing 
+    Under the hood, the function uses Plotly's `plotly.express.scatter_map` function
+    and applies plotly styles for aesthetic defaults. This allows passing
     additional kwargs directly to the underlying Plotly calls via `plot_kws`.
     For complete parameter documentation and
     advanced customization options, see urls below
@@ -499,7 +535,7 @@ def mapbox(lat: Sequence[float],
         over internally generated defaults. For complete parameter documentation and
         advanced customization options, see urls below
     nan_policy : str, default="drop"
-        Policy for handling NaN values in input data. Supports 'drop' 
+        Policy for handling NaN values in input data. Supports 'drop'
         (removes rows with NaNs) or 'raise' (raises an error).
     directory : str or Path, optional
         Path to save the figure as HTML.
@@ -518,7 +554,7 @@ def mapbox(lat: Sequence[float],
     ValueError
         If `lat`, `lon`, or any optional input contain nulls or mismatched
         lengths.
-    
+
     Warns
     -----
     UserWarning
@@ -572,22 +608,24 @@ def mapbox(lat: Sequence[float],
     >>> output.exists()
     True
     """
-    params = {"hover_name": None,
-              "size": None,
-              "title": None,
-              "show_legend": True,
-              "palette": None,
-              "opacity": 0.7,
-              "zoom": 1,
-              "height": 600,
-              "width": 800,
-              "template": "plotly_white",
-              "map_style": "open-street-map",
-              "plot_kws": {},
-              "nan_policy": "drop",
-              "directory": None,
-              "verbose": False,
-              **kwargs}
+    params = {
+        "hover_name": None,
+        "size": None,
+        "title": None,
+        "show_legend": True,
+        "palette": None,
+        "opacity": 0.7,
+        "zoom": 1,
+        "height": 600,
+        "width": 800,
+        "template": "plotly_white",
+        "map_style": "open-street-map",
+        "plot_kws": {},
+        "nan_policy": "drop",
+        "directory": None,
+        "verbose": False,
+        **kwargs,
+    }
 
     plot_kws_merged = {
         "opacity": params["opacity"],
@@ -596,37 +634,55 @@ def mapbox(lat: Sequence[float],
         "template": params["template"],
         "color_discrete_sequence": params["palette"],
         "zoom": params["zoom"],
-        **params.get("plot_kws", {})}
+        **params.get("plot_kws", {}),
+    }
 
     lat_series, lon_series, category_series = (
-        convert_series(lat), convert_series(lon), convert_series(category))
+        convert_series(lat),
+        convert_series(lon),
+        convert_series(category),
+    )
     params["hover_name"] = convert_series(params["hover_name"])
     params["size"] = convert_series(params["size"])
 
-    validate_lengths_match(lat_series, lon_series,
-                            err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("lat", "lon"))
-    df = pd.DataFrame({"lat": convert_series(lat),
-                       "lon": convert_series(lon)})
+    validate_lengths_match(
+        lat_series,
+        lon_series,
+        err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("lat", "lon"),
+    )
+    df = pd.DataFrame({"lat": convert_series(lat), "lon": convert_series(lon)})
 
-    for key, value in {"category": category_series,
-                       "hover_name": params["hover_name"],
-                       "size": params["size"]}.items():
+    for key, value in {
+        "category": category_series,
+        "hover_name": params["hover_name"],
+        "size": params["size"],
+    }.items():
         if value.empty:
             continue
         validate_lengths_match(
-            lat_series, value,
-            err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("lat and lon", key))
+            lat_series,
+            value,
+            err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("lat and lon", key),
+        )
         df[key] = value
-    df = handle_nan(df, nan_policy=params["nan_policy"],
-                        supported_policy=("drop", "raise"), data_name="input sequences")
+    df = handle_nan(
+        df,
+        nan_policy=params["nan_policy"],
+        supported_policy=("drop", "raise"),
+        data_name="input sequences",
+    )
     unique_categories = df["category"].nunique() if "category" in df else 1
     if "category" in df:
         plot_kws_merged["color_discrete_sequence"] = resolve_plotly_palette(
-            params["palette"])
+            params["palette"]
+        )
         if len(plot_kws_merged["color_discrete_sequence"]) < unique_categories:
-            warnings.warn(WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F.format(
-                unique_categories, len(plot_kws_merged["color_discrete_sequence"])),
-                UserWarning)
+            warnings.warn(
+                WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F.format(
+                    unique_categories, len(plot_kws_merged["color_discrete_sequence"])
+                ),
+                UserWarning,
+            )
     if not df.empty:
         fig = px.scatter_map(
             lat=df["lat"],
@@ -634,21 +690,38 @@ def mapbox(lat: Sequence[float],
             color=df["category"] if "category" in df else None,
             hover_name=df["hover_name"] if "hover_name" in df else None,
             size=df["size"] if "size" in df else None,
-            **plot_kws_merged,)
-        fig.update_layout(mapbox_style=params["map_style"],
-                          showlegend=params["show_legend"])
+            **plot_kws_merged,
+        )
+        fig.update_layout(
+            mapbox_style=params["map_style"], showlegend=params["show_legend"]
+        )
     else:
-        fig = get_empty_plot(figsize=(params["width"], params["height"]),
-                             engine="plotly")
+        fig = get_empty_plot(
+            figsize=(params["width"], params["height"]), engine="plotly"
+        )
         warnings.warn(WRN_MSG_EMPTY_DATA.format("mapbox"))
     if params["title"] is not None:
-        fig.update_layout(title=params["title"], title_x=0.5, title_y=0.98,
-                          title_font_size=22, margin={"r":0,"t":40,"l":0,"b":0})
+        fig.update_layout(
+            title=params["title"],
+            title_x=0.5,
+            title_y=0.98,
+            title_font_size=22,
+            margin={"r": 0, "t": 40, "l": 0, "b": 0},
+        )
     else:
-        fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+        fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
     if params["directory"] is not None:
-        save_plot(fig, directory=params["directory"],
-                  plot_name="mapbox", verbose=params["verbose"], engine="plotly")
-    return VisualizationResult(figure=fig, engine="plotly",
-                               width=params["width"], height=params["height"],
-                               title=params["title"])
+        save_plot(
+            fig,
+            directory=params["directory"],
+            plot_name="mapbox",
+            verbose=params["verbose"],
+            engine="plotly",
+        )
+    return VisualizationResult(
+        figure=fig,
+        engine="plotly",
+        width=params["width"],
+        height=params["height"],
+        title=params["title"],
+    )

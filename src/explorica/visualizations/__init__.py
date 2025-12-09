@@ -34,11 +34,13 @@ from .statistical_plots import distplot, boxplot, heatmap, hexbin
 from .scatterplot import scatterplot
 
 
-__all__ = ["piechart",
-           "barchart",
-           "mapbox",
-           "distplot",
-           "boxplot",
-           "scatterplot",
-           "heatmap",
-           "hexbin",]
+__all__ = [
+    "piechart",
+    "barchart",
+    "mapbox",
+    "distplot",
+    "boxplot",
+    "scatterplot",
+    "heatmap",
+    "hexbin",
+]

@@ -47,26 +47,30 @@ from explorica._utils import temp_log_level, read_config
 logger = logging.getLogger(__name__)
 
 DEFAULT_MPL_PLOT_PARAMS = {
-        "title": "",
-        "xlabel": "",
-        "ylabel": "",
-        "style": None,
-        "figsize": (10, 6),
-        "directory": None,
-        "nan_policy": "drop",
-        "verbose": False,
-        "plot_kws": {},
+    "title": "",
+    "xlabel": "",
+    "ylabel": "",
+    "style": None,
+    "figsize": (10, 6),
+    "directory": None,
+    "nan_policy": "drop",
+    "verbose": False,
+    "plot_kws": {},
 }
 
-WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F = read_config("messages")[
-    "warns"]["DataVisualizer"]["categories_exceeds_palette_f"]
+WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F = read_config("messages")["warns"][
+    "DataVisualizer"
+]["categories_exceeds_palette_f"]
 WRN_MSG_EMPTY_DATA = read_config("messages")["warns"]["DataVisualizer"]["empty_data_f"]
 ERR_MSG_UNSUPPORTED_METHOD = read_config("messages")["errors"]["unsupported_method_f"]
 ERR_MSG_UNSUPPORTED_METHOD_F = read_config("messages")["errors"]["unsupported_method_f"]
-ERR_MSG_ARRAYS_LENS_MISMATCH = read_config(
-    "messages")["errors"]["arrays_lens_mismatch_f"]
+ERR_MSG_ARRAYS_LENS_MISMATCH = read_config("messages")["errors"][
+    "arrays_lens_mismatch_f"
+]
 ERR_MSG_ARRAYS_LENS_MISMATCH_F = read_config("messages")["errors"][
-    "arrays_lens_mismatch_f"]
+    "arrays_lens_mismatch_f"
+]
+
 
 def validate_file_format(ext: str, engine: str):
     """
@@ -93,8 +97,22 @@ def validate_file_format(ext: str, engine: str):
     - Plotly supports only 'html'.
     """
     supported_formats = {
-        "matplotlib": {"png","jpg","jpeg","svg","pdf","eps","pgf","ps",
-                       "raw","rgba","svgz","tif","tiff","webp"},
+        "matplotlib": {
+            "png",
+            "jpg",
+            "jpeg",
+            "svg",
+            "pdf",
+            "eps",
+            "pgf",
+            "ps",
+            "raw",
+            "rgba",
+            "svgz",
+            "tif",
+            "tiff",
+            "webp",
+        },
         "plotly": {"html"},
     }
     if ext not in supported_formats[engine]:
@@ -103,6 +121,7 @@ def validate_file_format(ext: str, engine: str):
             f"Unsupported file format '{ext}' for engine '{engine}'. "
             f"Supported formats are: {supported}."
         )
+
 
 def resolve_plot_path(directory: str, plot_name: str, engine: str):
     """
@@ -131,10 +150,14 @@ def resolve_plot_path(directory: str, plot_name: str, engine: str):
     ext = directory.suffix.lower()
     # If the extension is not specified, assume the input is a directory path
     if ext == "":
-        directory = (directory / f"{plot_name}.html" if engine == "plotly"
-                     else directory / f"{plot_name}.png")
+        directory = (
+            directory / f"{plot_name}.html"
+            if engine == "plotly"
+            else directory / f"{plot_name}.png"
+        )
         ext = directory.suffix.lower()
     return directory, ext[1:]
+
 
 def _save_plot_validate_plot_name(plot_name: str):
     """
@@ -153,18 +176,21 @@ def _save_plot_validate_plot_name(plot_name: str):
         If `plot_name` is empty.
     """
     if plot_name == "":
-        err_msg = ("The 'plot_name' cannot be empty. "
-        "Please provide a non-empty name or use the default value 'plot'.")
+        err_msg = (
+            "The 'plot_name' cannot be empty. "
+            "Please provide a non-empty name or use the default value 'plot'."
+        )
         logger.error(err_msg)
         raise ValueError(err_msg)
+
 
 def save_plot(
     fig: plt.Figure | PxFigure,
     directory: str = ".",
     overwrite: bool = True,
     plot_name: str = "plot",
-    **kwargs
-    ):
+    **kwargs,
+):
     """
     Save a matplotlib or Plotly figure to disk with flexible format handling,
     logging, and directory management.
@@ -189,7 +215,7 @@ def save_plot(
         If True, the target file will be overwritten if it exists.
         If False, a FileExistsError is raised.
     plot_name : str, default="plot"
-        Name of the plot used for logging and for generating filenames when 
+        Name of the plot used for logging and for generating filenames when
         directory is a path without extension. Cannot be empty.
     verbose : bool, default=False
         If True, enables informational logging.
@@ -208,14 +234,14 @@ def save_plot(
         If 'directory' is not a string object.
     ValueError
         If 'plot_name' is empty.
-        If 'directory' path is empty, or if any segment of the path 
+        If 'directory' path is empty, or if any segment of the path
         (folder name) consists only of whitespace.
         If provided file format is unsupported.
     PermissionError
         If unable to write to the specified directory.
     FileExistsError
         If the output file already exists and 'overwrite' is set to False.
-    
+
     Notes
     -----
     Supported file formats:
@@ -236,13 +262,20 @@ def save_plot(
     # 1. SETUP AND API SANITY CHECKS (FAIL-FAST)
     # ----------------------------------------------------------------------
 
-    log_context = (temp_log_level(logger, logging.INFO) if
-                    kwargs.get("verbose", False) else contextlib.nullcontext())
+    log_context = (
+        temp_log_level(logger, logging.INFO)
+        if kwargs.get("verbose", False)
+        else contextlib.nullcontext()
+    )
     # 1.1. Check 'fig' type
     if not isinstance(fig, (plt.Figure, PxFigure)):
-        logger.error("Failed to save '%s' to %s: "
-                     "Expected matplotlib or plotly Figure object, got %s.",
-                     plot_name, directory, type(fig).__name__)
+        logger.error(
+            "Failed to save '%s' to %s: "
+            "Expected matplotlib or plotly Figure object, got %s.",
+            plot_name,
+            directory,
+            type(fig).__name__,
+        )
         raise TypeError(
             f"Expected matplotlib or plotly Figure object, got {type(fig).__name__}. "
             f"Please create a figure using plt.subplots() or plt.figure() first."
@@ -250,11 +283,14 @@ def save_plot(
 
     # 1.2. Check 'directory' type
     if not isinstance(directory, str):
-        logger.error("Invalid type for argument 'directory'. Expected str, "
-            "but received %s.", type(directory).__name__)
+        logger.error(
+            "Invalid type for argument 'directory'. Expected str, but received %s.",
+            type(directory).__name__,
+        )
         raise TypeError(
             f"Invalid type for argument '{directory}'. Expected str or pathlib.Path, "
-            f"but received {type(directory).__name__}.")
+            f"but received {type(directory).__name__}."
+        )
 
     # 1.3. Check 'directory' for non empty path
     if not directory:
@@ -281,11 +317,12 @@ def save_plot(
     try:
         # 2.1. Determine output path:
         # If the extension is not specified, assume the input is a directory path
-        directory, file_format = resolve_plot_path(directory, plot_name,
-                                                   kwargs.get("engine", "matplotlib"))
+        directory, file_format = resolve_plot_path(
+            directory, plot_name, kwargs.get("engine", "matplotlib")
+        )
 
         # 2.2. Check format support
-        validate_file_format(file_format, kwargs.get('engine', 'matplotlib'))
+        validate_file_format(file_format, kwargs.get("engine", "matplotlib"))
         path = directory.parent
         # 2.3. Create parent directories if they do not exist
         if not path.exists():
@@ -293,18 +330,29 @@ def save_plot(
             logger.warning("Directory '%s' was created automatically.", path)
         # 2.4. Check for overwrite policy (Fail-Safe)
         if directory.exists() and not overwrite:
-            logger.error("Attempted to save plot to existing path "
-                          "without 'overwrite=True'. Path: %s", directory)
-            raise FileExistsError((f"Attempted to save plot to existing path "
-                                   f"without 'overwrite=True'. Path: {directory}"))
+            logger.error(
+                "Attempted to save plot to existing path "
+                "without 'overwrite=True'. Path: %s",
+                directory,
+            )
+            raise FileExistsError(
+                (
+                    f"Attempted to save plot to existing path "
+                    f"without 'overwrite=True'. Path: {directory}"
+                )
+            )
         # 2.5. Execute final save call
         if kwargs.get("engine", "matplotlib") == "matplotlib":
             fig.savefig(directory)
         elif kwargs.get("engine", "matplotlib") == "plotly":
             fig.write_html(directory)
         else:
-            raise ValueError((f"Invalid 'engine' parameter: {kwargs.get('engine')}. "
-                             f"Supported engines are 'matplotlib' and 'plotly'."))
+            raise ValueError(
+                (
+                    f"Invalid 'engine' parameter: {kwargs.get('engine')}. "
+                    f"Supported engines are 'matplotlib' and 'plotly'."
+                )
+            )
         with log_context:
             logger.info("'%s' saved to %s", plot_name, directory)
     # ----------------------------------------------------------------------
@@ -313,17 +361,19 @@ def save_plot(
 
     # 3.1. Catching permissions related errors (common I/O error)
     except PermissionError as e:
-        logger.error("Permission denied saving '%s' to %s: %s",
-                     plot_name, directory, e)
+        logger.error("Permission denied saving '%s' to %s: %s", plot_name, directory, e)
         raise
     # 3.2 Catching all other system I/O errors (invalid characters, disk full, etc.)
     except Exception as e:
         logger.error("Failed to save '%s' to %s: %s", plot_name, directory, e)
         raise
 
-def get_empty_plot(message: str = "No data available for visualization",
-                   figsize: Sequence[float] = (10, 6),
-                   engine: str = "matplotlib"):
+
+def get_empty_plot(
+    message: str = "No data available for visualization",
+    figsize: Sequence[float] = (10, 6),
+    engine: str = "matplotlib",
+):
     """
     Generate a placeholder empty plot for Matplotlib or Plotly.
 
@@ -371,16 +421,26 @@ def get_empty_plot(message: str = "No data available for visualization",
     """
     if engine == "matplotlib":
         fig, ax = plt.subplots(figsize=figsize)
-        ax.text(0.5, 0.5, message,
-            ha="center", va="center", transform=ax.transAxes,
-            fontsize=12, color="gray", style="italic")
+        ax.text(
+            0.5,
+            0.5,
+            message,
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            fontsize=12,
+            color="gray",
+            style="italic",
+        )
         output = fig, ax
     elif engine == "plotly":
         fig = PxFigure()
         fig.add_annotation(
             text=message,
-            x=0.5, y=0.5,
-            xref="paper", yref="paper",
+            x=0.5,
+            y=0.5,
+            xref="paper",
+            yref="paper",
             showarrow=False,
             font={"size": 16, "color": "gray"},
         )
@@ -396,10 +456,9 @@ def get_empty_plot(message: str = "No data available for visualization",
         output = None
     return output
 
+
 @contextmanager
-def temp_plot_theme(palette: str = None,
-                    style: str = None,
-                    cmap: str = None):
+def temp_plot_theme(palette: str = None, style: str = None, cmap: str = None):
     """
     Temporarily set Matplotlib and Seaborn plotting styles and color maps.
 
@@ -419,7 +478,7 @@ def temp_plot_theme(palette: str = None,
     cmap : str or matplotlib.colors.Colormap, optional
         Name of a Matplotlib color map (e.g., "RdBu", "plasma"). Sets the
         default color map used for scalar-to-color mapping (e.g., in heatmaps).
-    
+
     Examples
     --------
     Temporarily apply a dark theme and custom palette:
@@ -450,6 +509,7 @@ def temp_plot_theme(palette: str = None,
             stack.enter_context(ctx)
         yield
 
+
 @contextmanager
 def temp_plot_cmap(cmap: str):
     """
@@ -467,7 +527,7 @@ def temp_plot_cmap(cmap: str):
         The name of the color map to use (e.g., "viridis", "RdBu") or a
         `Colormap` object. This value is assigned to
         `plt.rcParams['image.cmap']`.
-    
+
     Examples
     --------
     >>> import matplotlib.pyplot as plt
@@ -480,16 +540,15 @@ def temp_plot_cmap(cmap: str):
     ...
     >>> # Plots generated after this block will revert to the original cmap
     """
-    original_cmap = plt.rcParams['image.cmap']
-    plt.rcParams['image.cmap'] = cmap
+    original_cmap = plt.rcParams["image.cmap"]
+    plt.rcParams["image.cmap"] = cmap
     try:
         yield
     finally:
-        plt.rcParams['image.cmap'] = original_cmap
+        plt.rcParams["image.cmap"] = original_cmap
 
 
-def resolve_plotly_palette(palette: str|Sequence[str],
-                           categorical=True):
+def resolve_plotly_palette(palette: str | Sequence[str], categorical=True):
     """
     Resolve a Plotly color palette for categorical or sequential data.
 
@@ -538,21 +597,26 @@ def resolve_plotly_palette(palette: str|Sequence[str],
     ['#440154', '#482878', '#3E4989', ...]  # Viridis sequential palette
     """
     if palette is None:
-        return (px.colors.qualitative.Plotly if categorical
-                else px.colors.sequential.Viridis)
+        return (
+            px.colors.qualitative.Plotly
+            if categorical
+            else px.colors.sequential.Viridis
+        )
     if isinstance(palette, str):
         if categorical:
             try:
                 colors = getattr(px.colors.qualitative, palette)
             except AttributeError as exc:
                 raise ValueError(
-                    f"Unknown categorical palette {palette} for Plotly") from exc
+                    f"Unknown categorical palette {palette} for Plotly"
+                ) from exc
         else:
             try:
                 colors = getattr(px.colors.sequential, palette)
             except AttributeError as exc:
                 raise ValueError(
-                    f"Unknown sequential palette {palette} for Plotly") from exc
+                    f"Unknown sequential palette {palette} for Plotly"
+                ) from exc
     else:
         colors = palette
     return colors

@@ -2,7 +2,7 @@
 Backward-compatibility aliases for legacy type imports.
 
 This module exists solely to provide temporary compatibility for codebases
-that previously imported ``NaturalNumber`` from ``explorica._utils``.  
+that previously imported ``NaturalNumber`` from ``explorica._utils``.
 The canonical and stable location for this type is now :mod:`explorica.types`.
 
 Notes
@@ -23,6 +23,7 @@ Examples
 >>> # Recommended
 >>> from explorica.types import NaturalNumber
 """
+
 from explorica.types import NaturalNumber
 
 

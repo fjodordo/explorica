@@ -51,7 +51,9 @@ import pandas as pd
 
 from .readers import read_config
 
-ERR_MSG_MULTIDIMENSIONAL_DATA = read_config("messages")["errors"]["multidimensional_data_f"]
+ERR_MSG_MULTIDIMENSIONAL_DATA = read_config("messages")["errors"][
+    "multidimensional_data_f"
+]
 
 
 @staticmethod
@@ -253,32 +255,32 @@ def convert_series(data: Union[Sequence[Any] | Mapping]) -> pd.Series:
     Validate and normalize input data into a single-dimensional Pandas Series.
 
     This function ensures that the input data represents a univariate sample ready for
-    statistical processing or visualization. It handles common inputs 
+    statistical processing or visualization. It handles common inputs
     like lists, NumPy arrays, dictionaries, and Pandas structures.
 
     Parameters
     ----------
     data : array-like, dict
-        The input data structure. This may be a 1D sequence (list, np.ndarray, 
+        The input data structure. This may be a 1D sequence (list, np.ndarray,
         pd.Series) or a dictionary/DataFrame containing a single feature.
 
     Returns
     -------
     pd.Series
-        A validated, one-dimensional data series. Returns an empty Series 
+        A validated, one-dimensional data series. Returns an empty Series
         if the input data is empty, ensuring pipeline robustness.
 
     Raises
     ------
     ValueError
-        If the input structure contains more than one dimension or feature. 
-        This is typically raised for dictionaries or DataFrames with multiple 
+        If the input structure contains more than one dimension or feature.
+        This is typically raised for dictionaries or DataFrames with multiple
         keys/columns.
 
     Notes
     -----
-    The function relies on an internal 'convert_dict' utility to standardize 
-    various inputs (e.g., NumPy arrays, lists, Series) into a dictionary 
+    The function relies on an internal 'convert_dict' utility to standardize
+    various inputs (e.g., NumPy arrays, lists, Series) into a dictionary
     format before validating dimensionality.
 
     Examples
@@ -288,7 +290,7 @@ def convert_series(data: Union[Sequence[Any] | Mapping]) -> pd.Series:
     0
 
     >>> # Example of unacceptable input violating the dimensionality constraint:
-    >>> convert_series({'a': [1, 2], 'b': [3, 4]}) 
+    >>> convert_series({'a': [1, 2], 'b': [3, 4]})
     Traceback (most recent call last):
         ...
     ValueError: Input data is multidimensional and has 2 columns.
@@ -299,7 +301,6 @@ def convert_series(data: Union[Sequence[Any] | Mapping]) -> pd.Series:
     if len(dictionary) == 0:
         return pd.Series([])
     return pd.Series(list(dictionary.values())[0], name=list(dictionary)[0])
-
 
 
 def convert_dict(

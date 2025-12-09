@@ -17,7 +17,7 @@ Notes
   which provides a consistent interface for accessing the figure, axes (if applicable),
   plotting engine, and additional metadata.
 - `plot_kws` allows passing keyword arguments directly to the underlying plotting
-  function used by the engine (Matplotlib, Seaborn, or Plotly). 
+  function used by the engine (Matplotlib, Seaborn, or Plotly).
       This provides fine-grained control over styling and behavior
       specific to that function.
 
@@ -46,6 +46,7 @@ Examples
 ...                       title='Scatterplot with Polynomial Trendline')
 >>> plot.figure.show()
 """
+
 import warnings
 from typing import Any, Callable, Sequence
 from numbers import Number
@@ -69,25 +70,30 @@ from explorica.visualizations._utils import (
 )
 from explorica.types import VisualizationResult, NaturalNumber
 from ._utils import (
-    WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F, WRN_MSG_EMPTY_DATA,
-    ERR_MSG_ARRAYS_LENS_MISMATCH_F, ERR_MSG_UNSUPPORTED_METHOD_F,
-    ERR_MSG_ARRAYS_LENS_MISMATCH)
+    WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F,
+    WRN_MSG_EMPTY_DATA,
+    ERR_MSG_ARRAYS_LENS_MISMATCH_F,
+    ERR_MSG_UNSUPPORTED_METHOD_F,
+    ERR_MSG_ARRAYS_LENS_MISMATCH,
+)
 
-def scatterplot(data: Sequence[Number],
-                target: Sequence[Number],
-                category: Sequence[Any] = None,
-                **kwargs
-                ) -> VisualizationResult:
+
+def scatterplot(
+    data: Sequence[Number],
+    target: Sequence[Number],
+    category: Sequence[Any] = None,
+    **kwargs,
+) -> VisualizationResult:
     """
     Generates a scatter plot with optional categorization and a trendline.
 
     The function supports coloring points by category and displaying a fitted trendline.
-    The trendline can be automatically calculated using Ordinary Least Squares (OLS) 
-    for linear or polynomial regression, or a custom pre-calculated user function 
+    The trendline can be automatically calculated using Ordinary Least Squares (OLS)
+    for linear or polynomial regression, or a custom pre-calculated user function
     can be provided.
 
     Under the hood, the function uses Matplotlib's `matplotlib.axes.Axes.scatter`
-    function and applies Seaborn styles for aesthetic defaults. This allows passing 
+    function and applies Seaborn styles for aesthetic defaults. This allows passing
     additional kwargs directly to the underlying Matplotlib calls via `plot_kws`.
     For complete parameter documentation and
     advanced customization options, see urls below.
@@ -101,7 +107,7 @@ def scatterplot(data: Sequence[Number],
     category : Sequence[Any], optional
         Categorical data used for coloring points and generating a legend.
         Defaults to None (no categorization).
-    
+
     Other Parameters
     ----------------
     title : str, optional
@@ -142,7 +148,7 @@ def scatterplot(data: Sequence[Number],
         * **'linewidth'** : int, default=2
             Thickness of the trendline.
         * **'x_range'** : tuple[float, float], optional
-            The domain (min, max) for which the trendline should be calculated 
+            The domain (min, max) for which the trendline should be calculated
             and plotted. If None, it uses the min and max of the input `data` (x).
         * **'degree'** : int, default=2
             The degree of the polynomial to fit. Only used when
@@ -157,7 +163,7 @@ def scatterplot(data: Sequence[Number],
         precedence over internally generated defaults. For complete parameter
         documentation and advanced customization options, see urls below.
     nan_policy : str, default="drop"
-        Policy for handling NaN values in input data. Supports 'drop' 
+        Policy for handling NaN values in input data. Supports 'drop'
         (removes rows with NaNs) or 'raise' (raises an error).
     directory : str or None, optional
         Directory path to save the plot. If None, the plot is not saved.
@@ -251,23 +257,22 @@ def scatterplot(data: Sequence[Number],
         "cmap": None,
         **kwargs,
     }
-    plot_kws_merged = {
-        "alpha": params["opacity"],
-        **(params["plot_kws"] or {})
-    }
+    plot_kws_merged = {"alpha": params["opacity"], **(params["plot_kws"] or {})}
     params["trendline_kws"] = params["trendline_kws"] or {
         "color": None,
-        "linestyle": '-',     
+        "linestyle": "-",
         "linewidth": 2,
         "dots": 1000,
         "degree": 2,
-        "x_range": None}
+        "x_range": None,
+    }
     df, params["trendline"] = _scatterplot_data_preprocess(
-        data, target, category, params["nan_policy"], trendline=params["trendline"])
+        data, target, category, params["nan_policy"], trendline=params["trendline"]
+    )
 
-    with temp_plot_theme(palette=params["palette"],
-                         style=params["style"],
-                         cmap=params["cmap"]):
+    with temp_plot_theme(
+        palette=params["palette"], style=params["style"], cmap=params["cmap"]
+    ):
         if not df.empty:
             fig, ax = _scatterplot_get_scatter_with_trendline(
                 df,
@@ -277,8 +282,8 @@ def scatterplot(data: Sequence[Number],
                 figsize=params["figsize"],
                 trendline=params["trendline"],
                 title_legend=params["title_legend"],
-                trendline_kws = params["trendline_kws"],
-                scatter_kws=plot_kws_merged
+                trendline_kws=params["trendline_kws"],
+                scatter_kws=plot_kws_merged,
             )
         else:
             fig, ax = get_empty_plot(figsize=params["figsize"])
@@ -287,19 +292,29 @@ def scatterplot(data: Sequence[Number],
         ax.set_ylabel(params["ylabel"])
         ax.set_title(params["title"])
         if params["directory"] is not None:
-            save_plot(fig, params["directory"],
-                      plot_name="scatterplot",
-                      verbose=params["verbose"])
-    return VisualizationResult(figure=fig, axes=ax, engine="matplotlib",
-                               width=params["figsize"][0],
-                               height=params["figsize"][1],
-                               title=params["title"])
+            save_plot(
+                fig,
+                params["directory"],
+                plot_name="scatterplot",
+                verbose=params["verbose"],
+            )
+    return VisualizationResult(
+        engine="matplotlib",
+        figure=fig,
+        axes=ax,
+        width=params["figsize"][0],
+        height=params["figsize"][1],
+        title=params["title"],
+    )
 
-def _scatterplot_data_preprocess(data: Sequence[Number],
-                                     target: Sequence[Number],
-                                     category: Sequence[Any],
-                                     nan_policy: str,
-                                     trendline: str|Callable|None):
+
+def _scatterplot_data_preprocess(
+    data: Sequence[Number],
+    target: Sequence[Number],
+    category: Sequence[Any],
+    nan_policy: str,
+    trendline: str | Callable | None,
+):
     """
     Processes, validates, and prepares input dataspecifically for the
     `scatterplot` function.
@@ -315,7 +330,7 @@ def _scatterplot_data_preprocess(data: Sequence[Number],
     Returns
     -------
     df : pandas.DataFrame
-        DataFrame containing cleaned and ready-to-use 'x', 'y', and 'category' 
+        DataFrame containing cleaned and ready-to-use 'x', 'y', and 'category'
         columns (if provided).
     trendline : str or Callable or None
         The validated trendline method (string, function, or None).
@@ -334,29 +349,33 @@ def _scatterplot_data_preprocess(data: Sequence[Number],
             x,
             category_series,
             ERR_MSG_ARRAYS_LENS_MISMATCH_F.format("data and target", "category"),
-            )
+        )
         df["category"] = category_series
     df = handle_nan(
-        df, nan_policy, ("drop", "raise"),
-        data_name="data, target or category")
+        df, nan_policy, ("drop", "raise"), data_name="data, target or category"
+    )
     if trendline is not None:
         if isinstance(trendline, str):
             trendline = convert_from_alias(trendline, ("linear", "polynomial"))
             validate_string_flag(
-                trendline, ("linear", "polynomial"),
+                trendline,
+                ("linear", "polynomial"),
                 ERR_MSG_UNSUPPORTED_METHOD_F.format(
-                    trendline, ("linear", "polynomial")))
+                    trendline, ("linear", "polynomial")
+                ),
+            )
         elif not callable(trendline):
             raise ValueError(
                 ERR_MSG_UNSUPPORTED_METHOD_F.format(
-                    trendline, ("linear", "polynomial", "callable function")))
+                    trendline, ("linear", "polynomial", "callable function")
+                )
+            )
     return df, trendline
 
-def _scatterplot_get_scatter_with_trendline(df,
-                                   have_category,
-                                   show_legend,
-                                   opacity,
-                                   **kwargs):
+
+def _scatterplot_get_scatter_with_trendline(
+    df, have_category, show_legend, opacity, **kwargs
+):
     """
     Creates the Matplotlib Figure and Axes, plots scatter points,
     and adds a trendline for the `scatterplot` function.
@@ -388,7 +407,7 @@ def _scatterplot_get_scatter_with_trendline(df,
         The Matplotlib Figure and Axes objects.
     """
     fig, ax = plt.subplots(figsize=kwargs.get("figsize"))
-    colors = [c['color'] for c in plt.rcParams['axes.prop_cycle']]
+    colors = [c["color"] for c in plt.rcParams["axes.prop_cycle"]]
     trendline_kws = kwargs.get("trendline_kws", {}).copy()
 
     # CRITICAL: Create a copy of the trendline kwargs to prevent side effects
@@ -398,8 +417,9 @@ def _scatterplot_get_scatter_with_trendline(df,
 
         # Calculate the total number of unique
         # elements (categories + trendline, if present)
-        unique_objects = (len(unique_categories) + 1
-                          if kwargs.get("trendline") is not None else 0)
+        unique_objects = (
+            len(unique_categories) + 1 if kwargs.get("trendline") is not None else 0
+        )
         for i, cat in enumerate(unique_categories):
             subset_df = df.loc[df["category"] == cat]
             ax.scatter(
@@ -412,15 +432,12 @@ def _scatterplot_get_scatter_with_trendline(df,
         # Assign the next available color
         # from the cycle to the trendline (if not manually set)
         trendline_kws["color"] = trendline_kws.get(
-            "color", colors[(len(unique_categories) + 1) % len(colors)])
+            "color", colors[(len(unique_categories) + 1) % len(colors)]
+        )
     else:
         unique_objects = 1 + (1 if kwargs.get("trendline") is not None else 0)
         # Plot uncategorized data using the first color in the cycle
-        ax.scatter(
-            df["x"],
-            df["y"],
-            **kwargs.get("scatter_kws", {})
-        )
+        ax.scatter(df["x"], df["y"], **kwargs.get("scatter_kws", {}))
 
         # Assign the second color to the trendline (if not manually set)
         trendline_kws["color"] = trendline_kws.get("color", colors[1 % len(colors)])
@@ -433,30 +450,36 @@ def _scatterplot_get_scatter_with_trendline(df,
 
         # Calculate the trendline coordinates
         trendline = scatterplot_fit_trendline(
-            df["x"], df["y"], kwargs.get("trendline"),
+            df["x"],
+            df["y"],
+            kwargs.get("trendline"),
             trendline_kws={
                 "degree": trendline_kws.get("degree"),
                 "x_range": trendline_kws.get("x_range"),
-                "dots": trendline_kws.get("dots")})
+                "dots": trendline_kws.get("dots"),
+            },
+        )
 
         # Plot the calculated trendline
-        ax.plot(trendline[0], trendline[1],
-                color = trendline_kws.get("color"),
-                linestyle=trendline_kws.get("linestyle", "-"),
-                linewidth=trendline_kws.get("linewidth", 2))
+        ax.plot(
+            trendline[0],
+            trendline[1],
+            color=trendline_kws.get("color"),
+            linestyle=trendline_kws.get("linestyle", "-"),
+            linewidth=trendline_kws.get("linewidth", 2),
+        )
     if have_category and show_legend:
 
         # Place the legend outside the plot area
         ax.legend(
-            title=kwargs.get("title_legend"),
-            bbox_to_anchor=(1.05, 1), loc="upper left")
+            title=kwargs.get("title_legend"), bbox_to_anchor=(1.05, 1), loc="upper left"
+        )
     return fig, ax
 
-def scatterplot_fit_trendline(x: pd.Series,
-                   y: pd.Series,
-                   method: str|Callable,
-                   **trendline_kws
-                   ) -> tuple[np.ndarray, np.ndarray]:
+
+def scatterplot_fit_trendline(
+    x: pd.Series, y: pd.Series, method: str | Callable, **trendline_kws
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Dispatcher function to calculate trendline coordinates based on the method provided.
 
@@ -496,19 +519,23 @@ def scatterplot_fit_trendline(x: pd.Series,
 
         x_domain = np.linspace(x_min, x_max, dots)
         y_pred = method(x_domain)
-        validate_lengths_match(y_pred, x_domain,
-                               err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format(
-            "x_domain", "y_predicted from custom trendline function"))
+        validate_lengths_match(
+            y_pred,
+            x_domain,
+            err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format(
+                "x_domain", "y_predicted from custom trendline function"
+            ),
+        )
         trendline = (x_domain, y_pred)
     elif method == "linear":
         trendline = _scatterplot_fit_linear_ols(x, y, trendline_kws=trendline_kws)
     elif method == "polynomial":
-        trendline = _scatterplot_fit_polinomial_ols(
-            x, y, trendline_kws=trendline_kws)
+        trendline = _scatterplot_fit_polinomial_ols(x, y, trendline_kws=trendline_kws)
     else:
         trendline = None
 
     return trendline
+
 
 def _scatterplot_fit_polinomial_ols(
     x: pd.Series,
@@ -528,7 +555,7 @@ def _scatterplot_fit_polinomial_ols(
     y : pandas.Series
         The dependent variable data (Y).
     **trendline_kws
-        Keyword arguments, primarily expects 'degree' (int), 'dots' (int), 
+        Keyword arguments, primarily expects 'degree' (int), 'dots' (int),
         and optional 'x_range' (tuple).
 
     Returns
@@ -556,11 +583,8 @@ def _scatterplot_fit_polinomial_ols(
     y_pred = polynomial(x_domain)
     return (x_domain, y_pred)
 
-def _scatterplot_fit_linear_ols(
-    x: np.ndarray,
-    y: np.ndarray,
-    **trendline_kws
-):
+
+def _scatterplot_fit_linear_ols(x: np.ndarray, y: np.ndarray, **trendline_kws):
     """
     Calculates the linear trendline (degree 1) using Ordinary Least Squares (OLS).
 

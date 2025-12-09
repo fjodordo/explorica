@@ -24,7 +24,7 @@ Notes
   which provides a consistent interface for accessing the figure, axes (if applicable),
   plotting engine, and additional metadata.
 - `plot_kws` allows passing keyword arguments directly to the underlying plotting
-  function used by the engine (Matplotlib, Seaborn, or Plotly). 
+  function used by the engine (Matplotlib, Seaborn, or Plotly).
       This provides fine-grained control over styling and behavior
       specific to that function.
 
@@ -78,6 +78,7 @@ True
 ... )
 >>> result.figure.show()
 """
+
 import warnings
 from numbers import Number
 from typing import Sequence, Mapping, Any
@@ -87,17 +88,28 @@ import pandas as pd
 import seaborn as sns
 
 from explorica.types import VisualizationResult, NaturalNumber
-from explorica._utils import (convert_dataframe, convert_series,
-                              handle_nan, validate_lengths_match,)
-from ._utils import (temp_plot_theme, save_plot, get_empty_plot,
-                     DEFAULT_MPL_PLOT_PARAMS,
-                     WRN_MSG_EMPTY_DATA, ERR_MSG_ARRAYS_LENS_MISMATCH)
+from explorica._utils import (
+    convert_dataframe,
+    convert_series,
+    handle_nan,
+    validate_lengths_match,
+)
+from ._utils import (
+    temp_plot_theme,
+    save_plot,
+    get_empty_plot,
+    DEFAULT_MPL_PLOT_PARAMS,
+    WRN_MSG_EMPTY_DATA,
+    ERR_MSG_ARRAYS_LENS_MISMATCH,
+)
 
 
-def distplot(data: Sequence[float] | Mapping[str, Sequence[float]],
-             bins: int = 30,
-             kde: bool = True,
-             **kwargs) -> VisualizationResult:
+def distplot(
+    data: Sequence[float] | Mapping[str, Sequence[float]],
+    bins: int = 30,
+    kde: bool = True,
+    **kwargs,
+) -> VisualizationResult:
     """
     Plot a histogram with optional kernel density estimate.
 
@@ -106,8 +118,8 @@ def distplot(data: Sequence[float] | Mapping[str, Sequence[float]],
     data conversion, NaN values, and provides flexible styling options
     through integration with Seaborn's plotting system.
 
-    Under the hood, the function uses Seaborn's `seaborn.histplot` function 
-    and applies Seaborn styles for aesthetic defaults. This allows passing 
+    Under the hood, the function uses Seaborn's `seaborn.histplot` function
+    and applies Seaborn styles for aesthetic defaults. This allows passing
     additional kwargs directly to the underlying Seaborn calls via `plot_kws`.
     For complete parameter documentation and
     advanced customization options, see urls below.
@@ -174,7 +186,7 @@ def distplot(data: Sequence[float] | Mapping[str, Sequence[float]],
     UserWarning
         Raised if the input data is empty. An empty plot with a warning message
         will be returned in this case.
-        
+
     Notes
     -----
     This function uses seaborn.histplot under the hood. For complete parameter
@@ -183,11 +195,11 @@ def distplot(data: Sequence[float] | Mapping[str, Sequence[float]],
         https://seaborn.pydata.org/generated/seaborn.histplot.html#seaborn-histplot
     - Vectorization support is planned to be added.
     - Empty data returns a placeholder plot with informative message.
-    
+
     Examples
     --------
     >>> import explorica.visualizations as vis
-    
+
     # Simple distribution plot with KDE
     >>> data = [1, 2, 2, 3, 3, 3, 4]
     >>> result = vis.distplot(data, kde=True, title="Small Dataset Example")
@@ -218,28 +230,22 @@ def distplot(data: Sequence[float] | Mapping[str, Sequence[float]],
     ... )
     >>> result.figure.show()
     """
-    params = {
-        **DEFAULT_MPL_PLOT_PARAMS,
-        "opacity": 0.5,
-        "palette": None,
-        **kwargs
-    }
+    params = {**DEFAULT_MPL_PLOT_PARAMS, "opacity": 0.5, "palette": None, **kwargs}
     plot_kws_merged = {
         "alpha": params["opacity"],
         "bins": bins,
         "kde": kde,
-        **params.get("plot_kws", {})
+        **params.get("plot_kws", {}),
     }
     series = convert_series(data)
     series = handle_nan(
         series,
         params["nan_policy"],
-        supported_policy = ("drop", "raise"),
-        is_dataframe=False)
+        supported_policy=("drop", "raise"),
+        is_dataframe=False,
+    )
     if not isinstance(bins, NaturalNumber):
-        raise ValueError(
-            "'bins' must be a positive integer."
-        )
+        raise ValueError("'bins' must be a positive integer.")
     series = series.squeeze(axis=1)
     with temp_plot_theme(palette=params["palette"], style=params["style"]):
         if not series.empty:
@@ -256,24 +262,30 @@ def distplot(data: Sequence[float] | Mapping[str, Sequence[float]],
                 fig,
                 directory=params["directory"],
                 verbose=params["verbose"],
-                plot_name="distplot")
-    return VisualizationResult(figure=fig, axes=ax, engine="matplotlib",
-                               width=params["figsize"][0],
-                               height=params["figsize"][1],
-                               title=params["title"])
+                plot_name="distplot",
+            )
+    return VisualizationResult(
+        figure=fig,
+        axes=ax,
+        engine="matplotlib",
+        width=params["figsize"][0],
+        height=params["figsize"][1],
+        title=params["title"],
+    )
 
-def boxplot(data: Sequence[float] | Mapping[str, Sequence[float]],
-            **kwargs
-            ) -> VisualizationResult:
+
+def boxplot(
+    data: Sequence[float] | Mapping[str, Sequence[float]], **kwargs
+) -> VisualizationResult:
     """
     Draw a boxplot for a numeric variable.
 
     This function generates a standard boxplot to visualize the distribution,
     median, quartiles, and potential outliers of numeric data.
 
-    Under the hood, the function uses Seaborn's `seaborn.boxplot` function 
-    and applies Seaborn styles for aesthetic defaults. This allows passing 
-    additional kwargs directly to the underlying Seaborn calls via `plot_kws`.
+    Under the hood, the function uses Matplotlib's `matplotlib.axes.Axes.boxplot`
+    function and applies Seaborn styles for aesthetic defaults. This allows passing
+    additional kwargs directly to the underlying Matplotlib calls via `plot_kws`.
     For complete parameter documentation and advanced customization options, see
     urls below.
 
@@ -284,7 +296,7 @@ def boxplot(data: Sequence[float] | Mapping[str, Sequence[float]],
         - 1D sequence of numbers
         - Dictionary with single key-value pair (value is numeric sequence)
         - pandas Series or single-column DataFrame
-    
+
     Other Parameters
     ----------------
     title : str, optional
@@ -323,13 +335,13 @@ def boxplot(data: Sequence[float] | Mapping[str, Sequence[float]],
     UserWarning
         Raised if the input data is empty. An empty plot with a warning message
         will be returned in this case.
-    
+
     Notes
     -----
-    This function uses seaborn.boxplot under the hood. For complete parameter
-    documentation and advanced customization options, see:
-        Seaborn boxplot: 
-        https://seaborn.pydata.org/generated/seaborn.boxplot.html#seaborn.boxplot
+    This function uses matplotlib.axes.Axes.boxplot under the hood. For complete
+    parameter documentation and advanced customization options, see:
+        Matplotlib boxplot:
+        https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.boxplot.html
 
     Examples
     --------
@@ -356,13 +368,17 @@ def boxplot(data: Sequence[float] | Mapping[str, Sequence[float]],
         **kwargs,
     }
     series = convert_series(
-        handle_nan(data, params["nan_policy"],
-        supported_policy=("drop", "raise"), is_dataframe=False))
-
+        handle_nan(
+            data,
+            params["nan_policy"],
+            supported_policy=("drop", "raise"),
+            is_dataframe=False,
+        )
+    )
     with temp_plot_theme(palette=params["palette"], style=params["style"]):
         if not series.empty:
-            fig, ax = plt.subplots(figsize = params["figsize"])
-            sns.boxplot(series, ax=ax, **params.get("plot_kws", {}))
+            fig, ax = plt.subplots(figsize=params["figsize"])
+            ax.boxplot(series, **params.get("plot_kws", {}))
         else:
             fig, ax = get_empty_plot(figsize=params["figsize"])
             warnings.warn(WRN_MSG_EMPTY_DATA.format("boxplot"))
@@ -370,38 +386,42 @@ def boxplot(data: Sequence[float] | Mapping[str, Sequence[float]],
         ax.set_xlabel(params["xlabel"])
         ax.set_ylabel(params["ylabel"])
         if params["directory"] is not None:
-            save_plot(fig, params["directory"],
-                      verbose=params["verbose"],
-                      plot_name="boxplot")
-    return VisualizationResult(figure=fig, axes=ax, engine="matplotlib",
-                               width=params["figsize"][0],
-                               title=params["title"],
-                               height=params["figsize"][1],)
+            save_plot(
+                fig, params["directory"], verbose=params["verbose"], plot_name="boxplot"
+            )
+    return VisualizationResult(
+        figure=fig,
+        axes=ax,
+        engine="matplotlib",
+        width=params["figsize"][0],
+        title=params["title"],
+        height=params["figsize"][1],
+    )
 
-def hexbin(data: Sequence[Number],
-           target: Sequence[Number],
-           **kwargs
-           ) -> VisualizationResult:
+
+def hexbin(
+    data: Sequence[Number], target: Sequence[Number], **kwargs
+) -> VisualizationResult:
     """
     Create a hexbin plot for two numeric variables to visualize point density.
-    
+
     A hexbin plot is a bivariate histogram that uses hexagonal bins to display
     the density of points in a 2D space. It is particularly useful for large
     datasets where scatter plots become overcrowded.
 
     Under the hood, the function uses Matplotlib's `matplotlib.axes.Axes.hexbin`
-    function and applies Seaborn styles for aesthetic defaults. This allows passing 
+    function and applies Seaborn styles for aesthetic defaults. This allows passing
     additional kwargs directly to the underlying Matplotlib calls via `plot_kws`.
     For complete parameter documentation and advanced customization options, see
     urls below.
-    
+
     Parameters
     ----------
     data : Sequence[Number]
         First numeric variable (plotted on x-axis).
     target : Sequence[Number]
         Second numeric variable (plotted on y-axis).
-    
+
     Other Parameters
     ----------------
     cmap : str or matplotlib.colors.Colormap, optional
@@ -448,7 +468,7 @@ def hexbin(data: Sequence[Number],
         If `data` and `target` have different lengths.
         If NaN values are present and `nan_policy="raise"`.
         If `gridsize` is not a positive integer.
-    
+
     Warns
     -----
     UserWarning
@@ -459,12 +479,12 @@ def hexbin(data: Sequence[Number],
     -----
     This function uses matplotlib.axes.Axes.hexbin under the hood.
     For complete parameter documentation and advanced customization options, see:
-        Matplotlib hexbin: 
+        Matplotlib hexbin:
         https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.hexbin.html
     - Hexbin plots are most effective with large datasets (>1000 points)
     - The color intensity represents the count of points in each hexagon
     - For very sparse data, consider using a scatter plot instead
-    
+
     Examples
     --------
     import explorica.visualizations as vis
@@ -508,24 +528,28 @@ def hexbin(data: Sequence[Number],
     plot_kws_merged = {
         "gridsize": params["gridsize"],
         "alpha": params["opacity"],
-        **params.get("plot_kws", {})
-        }
+        **params.get("plot_kws", {}),
+    }
     # NaturalNumber is descriptor, isinstace ensures positive integer check
     if not isinstance(params["gridsize"], NaturalNumber):
-        raise ValueError(
-            "'gridsize' must be a positive integer."
-        )
+        raise ValueError("'gridsize' must be a positive integer.")
     x_series, y_series = convert_series(data), convert_series(target)
 
     validate_lengths_match(
-        x_series, y_series,
-        err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("data", "target"))
+        x_series,
+        y_series,
+        err_msg=ERR_MSG_ARRAYS_LENS_MISMATCH.format("data", "target"),
+    )
     df = pd.DataFrame({"x": x_series, "y": y_series})
-    df = handle_nan(df, params["nan_policy"], supported_policy=("drop", "raise"),
-                    data_name="data or target")
+    df = handle_nan(
+        df,
+        params["nan_policy"],
+        supported_policy=("drop", "raise"),
+        data_name="data or target",
+    )
     with temp_plot_theme(cmap=params["cmap"], style=params["style"]):
         if not df.empty:
-            fig, ax = plt.subplots(figsize = params["figsize"])
+            fig, ax = plt.subplots(figsize=params["figsize"])
             ax.hexbin(df["x"], df["y"], **plot_kws_merged)
         else:
             fig, ax = get_empty_plot(figsize=params["figsize"])
@@ -534,17 +558,26 @@ def hexbin(data: Sequence[Number],
         ax.set_xlabel(params["xlabel"])
         ax.set_ylabel(params["ylabel"])
         if params["directory"] is not None:
-            save_plot(fig, params["directory"],
-                      verbose=params["verbose"],
-                      plot_name="hexbin",)
-    return VisualizationResult(figure=fig, axes=ax, engine="matplotlib",
-                               width=params["figsize"][0],
-                               height=params["figsize"][1],
-                               title=params["title"])
+            save_plot(
+                fig,
+                params["directory"],
+                verbose=params["verbose"],
+                plot_name="hexbin",
+            )
+    return VisualizationResult(
+        figure=fig,
+        axes=ax,
+        engine="matplotlib",
+        width=params["figsize"][0],
+        height=params["figsize"][1],
+        title=params["title"],
+    )
 
-def heatmap(data: Sequence[float]|Sequence[Sequence[float]]|
-            Mapping[Any, Sequence[float]],
-            **kwargs) -> VisualizationResult:
+
+def heatmap(
+    data: Sequence[float] | Sequence[Sequence[float]] | Mapping[Any, Sequence[float]],
+    **kwargs,
+) -> VisualizationResult:
     """
     Draw a heatmap from the provided data using Matplotlib and Seaborn.
 
@@ -553,8 +586,8 @@ def heatmap(data: Sequence[float]|Sequence[Sequence[float]]|
     according to nan_policy, and provides options for figure size,
     annotations, and saving the plot to a directory.
 
-    Under the hood, the function uses Seaborn's `seaborn.heatmap` function 
-    and applies Seaborn styles for aesthetic defaults. This allows passing 
+    Under the hood, the function uses Seaborn's `seaborn.heatmap` function
+    and applies Seaborn styles for aesthetic defaults. This allows passing
     additional kwargs directly to the underlying Seaborn calls via `plot_kws`.
     For complete parameter documentation and advanced customization options, see
     urls below.
@@ -591,7 +624,7 @@ def heatmap(data: Sequence[float]|Sequence[Sequence[float]]|
     directory : str or None, optional
         Directory path to save the figure. If None, the figure is not saved.
     nan_policy : str, default="drop"
-        Policy for handling NaN values in input data. Supports 'drop' 
+        Policy for handling NaN values in input data. Supports 'drop'
         (removes rows with NaNs) or 'raise' (raises an error).
     verbose : bool, default=False
         Whether to print additional messages during plotting.
@@ -618,7 +651,7 @@ def heatmap(data: Sequence[float]|Sequence[Sequence[float]]|
     -----
     This function uses seaborn.heatmap under the hood. For complete parameter
     documentation and advanced customization options, see:
-        Seaborn heatmap: 
+        Seaborn heatmap:
         https://seaborn.pydata.org/generated/seaborn.heatmap.html
 
     Examples
@@ -664,19 +697,20 @@ def heatmap(data: Sequence[float]|Sequence[Sequence[float]]|
         "cbar": True,
         "fmt": ".2f",
         "square": True,
-        **kwargs}
+        **kwargs,
+    }
     df = convert_dataframe(data)
-    df = handle_nan(df, params["nan_policy"], supported_policy = ("drop", "raise"))
+    df = handle_nan(df, params["nan_policy"], supported_policy=("drop", "raise"))
     plot_kws_merged = {
-            "annot": params["annot"],
-            "cmap": params["cmap"],
-            "cbar": params["cbar"],
-            "fmt": params["fmt"],
-            "square": params["square"],
-            **params.get("plot_kws", {})
-        }
+        "annot": params["annot"],
+        "cmap": params["cmap"],
+        "cbar": params["cbar"],
+        "fmt": params["fmt"],
+        "square": params["square"],
+        **params.get("plot_kws", {}),
+    }
     if not df.empty:
-        fig, ax = plt.subplots(figsize = params["figsize"])
+        fig, ax = plt.subplots(figsize=params["figsize"])
         sns.heatmap(df, ax=ax, **plot_kws_merged)
     else:
         fig, ax = get_empty_plot(figsize=params["figsize"])
@@ -686,7 +720,11 @@ def heatmap(data: Sequence[float]|Sequence[Sequence[float]]|
     ax.set_ylabel(params["ylabel"])
     if params["directory"] is not None:
         save_plot(fig, params["directory"], plot_name="heatmap")
-    return VisualizationResult(figure=fig, axes=ax, engine="matplotlib",
-                               width=params["figsize"][0],
-                               height=params["figsize"][1],
-                               title=params["title"])
+    return VisualizationResult(
+        figure=fig,
+        axes=ax,
+        engine="matplotlib",
+        width=params["figsize"][0],
+        height=params["figsize"][1],
+        title=params["title"],
+    )
