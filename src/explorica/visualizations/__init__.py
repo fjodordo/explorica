@@ -30,7 +30,8 @@ plt.show()
 """
 
 from .plots import piechart, barchart, mapbox
-from .statistical_plots import distplot, boxplot, scatterplot, heatmap, hexbin
+from .statistical_plots import distplot, boxplot, heatmap, hexbin
+from .scatterplot import scatterplot
 
 
 __all__ = ["piechart",

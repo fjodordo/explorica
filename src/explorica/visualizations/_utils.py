@@ -7,7 +7,7 @@ consistency, and graceful error handling for edge cases (e.g., empty data).
 These utilities ensure that public methods remain clean, focused, and maintain a
 consistent user experience.
 
-Methods
+Functions
 -------
 save_plot(fig, directory, overwrite, plot_name, verbose)
     Saves a Matplotlib Figure object to disk with file handling and logging.
@@ -33,8 +33,7 @@ Examples
 
 import logging
 import contextlib
-from typing import Sequence, Union, Optional
-from dataclasses import dataclass
+from typing import Sequence
 from contextlib import contextmanager, ExitStack
 from pathlib import Path
 
@@ -43,7 +42,7 @@ import seaborn as sns
 import plotly.express as px
 from plotly.graph_objs import Figure as PxFigure
 
-from explorica._utils import temp_log_level
+from explorica._utils import temp_log_level, read_config
 
 logger = logging.getLogger(__name__)
 
@@ -59,49 +58,15 @@ DEFAULT_MPL_PLOT_PARAMS = {
         "plot_kws": {},
 }
 
-@dataclass
-class VisualizationResult:
-    """
-    Container for the result of a visualization.
-
-    Attributes
-    ----------
-    figure : matplotlib.figure.Figure | plotly.graph_objects.Figure
-        The generated figure object.
-    axes : Optional[matplotlib.axes.Axes], default=None
-        The main axes object for Matplotlib visualizations. Not applicable to Plotly.
-    engine : str
-        Plotting engine used ('matplotlib' or 'plotly').
-    width : Optional[int]
-        Figure width in pixels (for Plotly) or inches (for Matplotlib).
-    height : Optional[int]
-        Figure height in pixels (for Plotly) or inches (for Matplotlib).
-    title : Optional[str]
-        Figure title.
-    extra_info : dict, optional
-        Optional dictionary storing additional metadata about the visualization.
-        This can include information such as color palettes, zoom levels, legend
-        settings, or any other relevant details for downstream processing or
-        reproducibility.
-    
-    Examples
-    --------
-    >>> import explorica.visualizations as visualizations
-    >>> result = visualizations.mapbox(
-    ...     lat=[34.05, 40.71], lon=[-118.24, -74.00],
-    ...     title="Cities Map"
-    ... )
-    >>> result.fig # Access the Plotly figure
-    >>> result.axes # None for Plotly
-    >>> result.title 'Cities Map'
-    """
-    figure: Union[plt.Figure, PxFigure]
-    axes: Optional[plt.Axes] = None
-    engine: str = "matplotlib"
-    width: Optional[int] = None
-    height: Optional[int] = None
-    title: Optional[str] = None
-    extra_info: dict = None
+WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F = read_config("messages")[
+    "warns"]["DataVisualizer"]["categories_exceeds_palette_f"]
+WRN_MSG_EMPTY_DATA = read_config("messages")["warns"]["DataVisualizer"]["empty_data_f"]
+ERR_MSG_UNSUPPORTED_METHOD = read_config("messages")["errors"]["unsupported_method_f"]
+ERR_MSG_UNSUPPORTED_METHOD_F = read_config("messages")["errors"]["unsupported_method_f"]
+ERR_MSG_ARRAYS_LENS_MISMATCH = read_config(
+    "messages")["errors"]["arrays_lens_mismatch_f"]
+ERR_MSG_ARRAYS_LENS_MISMATCH_F = read_config("messages")["errors"][
+    "arrays_lens_mismatch_f"]
 
 def validate_file_format(ext: str, engine: str):
     """

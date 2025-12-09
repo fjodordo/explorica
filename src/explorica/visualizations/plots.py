@@ -1,39 +1,82 @@
 """
-This module contains the DataVisualizer class for visualizing different types of data.
-It includes methods for creating various types of plots such as distplots, boxplots,
-and more.
+High-level plotting utilities for Explorica visualizations.
 
-Modules:
-    - DataVisualizer: Class for visualizing data with methods like distplot,
-      heatmap, etc.
+This module provides a set of functions to generate common plots using Matplotlib,
+Seaborn, and Plotly. It standardizes plot outputs through the `VisualizationResult`
+dataclass and supports flexible styling, color palettes, and interactivity.
+
+Methods
+-------
+barchart(data, category, ascending=None, horizontal=False, **kwargs)
+    Plots a bar chart from categorical and numerical data. Supports vertical
+    or horizontal orientation, automatic sorting, and styling through Seaborn.
+piechart(data, category, autopct_method='value', **kwargs)
+    Draws a pie chart based on categorical and numerical data. Supports
+    value, percent, or combined display on each segment.
+mapbox(lat, lon, category=None, **kwargs)
+    Generates an interactive geographic scatter plot using Plotly Mapbox.
+    Supports categorical coloring, point scaling, hover labels, and Mapbox
+    styling.
+
+Notes
+-----
+- All plotting functions return a :class:`explorica.types.VisualizationResult`,
+  which provides a consistent interface for accessing the figure, axes (if applicable),
+  plotting engine, and additional metadata.
+- `plot_kws` allows passing keyword arguments directly to the underlying plotting
+  function used by the engine (Matplotlib, Seaborn, or Plotly). 
+      This provides fine-grained control over styling and behavior
+      specific to that function.
+
+Examples
+--------
+>>> import explorica.visualizations as vis
+
+# Basic vertical bar chart (Matplotlib)
+>>> data = [3, 7, 5]
+>>> categories = ['A', 'B', 'C']
+>>> result = vis.barchart(data, categories,
+                          plot_kws={'color':'skyblue', 'edgecolor':'black'})
+>>> result.figure.show()  # Opens static Matplotlib figure window
+>>> result.axes
+<matplotlib.axes._subplots.AxesSubplot object at 0x...>
+
+# Pie chart with percentages displayed
+>>> result = vis.piechart(data, categories, autopct_method='percent')
+>>> result.figure.show() # Opens static Matplotlib figure window
+>>> result.axes # Access primary Axes
+None
+>>> result.extra_info
+{'autopct_method': 'percent'}
+
+# Mapbox scatter plot with categorical coloring
+>>> lat = [34.05, 40.71, 37.77]
+>>> lon = [-118.24, -74.00, -122.42]
+>>> categories = ['City1', 'City2', 'City3']
+>>> result = vis.mapbox(lat, lon, category=categories)
+>>> result.figure.show() # Interactive map with hover labels
+>>> result.title
+>>> None
 """
+
 from typing import Optional, Sequence, Mapping, Any
 import warnings
 import logging
 
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 import plotly.express as px
 import pandas as pd
 
+from explorica.types import VisualizationResult
 from explorica._utils import (convert_series, handle_nan,
-                              read_config, validate_lengths_match,
+                              validate_lengths_match,
                               validate_string_flag)
 from ._utils import (temp_plot_theme, save_plot, get_empty_plot,
                      resolve_plotly_palette, DEFAULT_MPL_PLOT_PARAMS,
-                     VisualizationResult)
+                     WRN_MSG_EMPTY_DATA, ERR_MSG_ARRAYS_LENS_MISMATCH,
+                     ERR_MSG_UNSUPPORTED_METHOD, WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F)
 
 logger = logging.getLogger(__name__)
-
-WRN_MSG_EMPTY_DATA = read_config("messages")["warns"]["DataVisualizer"]["empty_data_f"]
-ERR_MSG_ARRAYS_LENS_MISMATCH = read_config(
-    "messages")["errors"]["arrays_lens_mismatch_f"]
-ERR_MSG_MULTIDIMENSIONAL_DATA = read_config(
-    "messages")["errors"]["multidimensional_data_f"]
-ERR_MSG_UNSUPPORTED_METHOD = read_config("messages")["errors"]["unsupported_method_f"]
-WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F = read_config("messages")[
-    "warns"]["DataVisualizer"]["categories_exceeds_palette_f"]
 
 
 def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
@@ -41,17 +84,23 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
              ascending: bool = None,
              horizontal: bool = False,
              **kwargs
-             ) -> tuple[Figure, Axes]:
+             ) -> VisualizationResult:
     """
     Plots a Bar Chart using categorical and numerical data series.
 
     This function creates a bar chart to visualize the relationship between 
     categorical labels and numerical values. It supports both vertical and 
     horizontal orientations, automatic sorting, and comprehensive styling 
-    options through integration with Seaborn's visualization system.    
+    options through integration with Seaborn's visualization system.
 
-    Parameters:
-    -----------
+    Under the hood, the function uses Matplotlib's `matplotlib.axes.Axes.bar` and
+    `matplotlib.axes.Axes.barh` functions and applies Seaborn styles for aesthetic
+    defaults. This allows passing additional kwargs directly to the underlying
+    Matplotlib calls via `plot_kws`. For complete parameter documentation and
+    advanced customization options, see urls below
+
+    Parameters
+    ----------
     data : Sequence[float] | Mapping[Any, Sequence[float]]
         A sequence containing numerical values (bar heights).
     category : Sequence[Any] | Mapping[Any, Sequence[Any]]
@@ -80,11 +129,13 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
         (e.g., 'whitegrid', 'darkgrid').
     plot_kws : dict, optional
         Dictionary of keyword arguments passed directly to the underlying matplotlib
-        functions (`plt.bar` & `plt.barh`). This allows overriding any default plotting
-        behavior. If not provided, the function internally constructs a dictionary
-        from its own relevant parameters. Keys provided in `plot_kws` take precedence
-        over internally generated defaults.
-    nan_policy : str | Literal['drop', 'raise'], default='drop'
+        functions (`matplotlib.axes.Axes.bar` & `matplotlib.axes.Axes.barh`). This
+        allows overriding any default plotting behavior. If not provided, the function
+        internally constructs a dictionary from its own relevant parameters. Keys
+        provided in `plot_kws` take precedence over internally generated defaults.
+        For complete parameter documentation and advanced customization options, see
+        urls below
+    nan_policy : {'drop', 'raise'}, default='drop'
             Policy for handling NaN values in input data:
             - 'raise' : raise ValueError if any NaNs are present in `data`.
             - 'drop'  : drop rows (axis=0) containing NaNs before computation. This
@@ -99,25 +150,8 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
     -------
     VisualizationResult
         A dataclass encapsulating the result of a visualization.
-        Contains the following attributes:
-            - figure : matplotlib.figure.Figure or plotly.graph_objects.Figure
-            The generated figure object ready for display or saving.
-            - axes : matplotlib.axes.Axes or None
-            For Matplotlib figures, the primary Axes object; None for Plotly figures.
-            - engine : str
-            The plotting engine used, either 'matplotlib' or 'plotly'.
-            - width : int or None
-            Figure width in pixels (Plotly) or inches (Matplotlib);
-            None if not specified.
-            - height : int or None
-            Figure height in pixels (Plotly) or inches (Matplotlib);
-            None if not specified.
-            - title : str or None
-            The title of the visualization, if specified.
-            - extra_info : dict or None
-            Optional dictionary storing additional metadata about the visualization,
-            such as color palettes, zoom levels, legend settings, or any other info
-            relevant to downstream processing or reproducibility.
+        See also :class:`explorica.types.VisualizationResult` for full attribute
+        details.
 
     Raises:
     -------
@@ -125,19 +159,33 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
         If the lengths of the 'data' and 'category' input series do not match.
         If the 'data' or 'category' input contains more than one column/dimension.
         If nan_policy='raise' and missing values (NaN/null) are found in the data.
+    
+    Warns
+    -----
+    UserWarning
+        Raised if the input data is empty. An empty plot with a warning message
+        will be returned in this case.
+
+    Notes
+    -----
+    This function uses matplotlib.axes.Axes.bar and matplotlib.axes.Axes.barh under the
+    hood. For complete parameter documentation and advanced customization options, see:
+        matplotlib bar:
+        https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.html
+        matplotlib barh:
+        https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.barh.html
+
 
     Examples
     --------
-    Simple vertical Bar Chart:
-
+    # Simple vertical Bar Chart
     >>> import numpy as np
     >>> values = [25, 40, 15, 60, 35]
     >>> labels = ['Apple', 'Banana', 'Cherry', 'Date', 'Elderberry']
     >>> plot = barchart(values, labels, title="Продажи фруктов")
     >>> # plot.figure.show()
 
-    Horizontal Bar Chart with descending sort:
-
+    # Horizontal Bar Chart with descending sort:
     >>> values_h = [150, 80, 220]
     >>> labels_h = ['Group A', 'Group B', 'Group C']
     >>> plot = barchart(values_h, labels_h, 
@@ -195,6 +243,7 @@ def barchart(data: Sequence[float] | Mapping[Any, Sequence[float]],
                                title=params["title"],
                                width=params["figsize"][0],
                                height=params["figsize"][1],
+                               extra_info={"horizontal": horizontal,}
                                )
 
 
@@ -202,7 +251,7 @@ def piechart(data: Sequence[float],
              category: Sequence[Any],
              autopct_method: str = "value",
              **kwargs
-             ) -> tuple[Figure, Axes]:
+             ) -> VisualizationResult:
     """
     Draws a pie chart based on categorical and corresponding numerical data.
 
@@ -210,6 +259,12 @@ def piechart(data: Sequence[float],
     from the input data. The size of each segment is proportional to the corresponding
     numerical value in `data`. The chart supports automatic display of percentages,
     raw values, or both on each segment.
+
+    Under the hood, the function uses Matplotlib's `matplotlib.axes.Axes.pie` function 
+    and applies Seaborn styles for aesthetic defaults. This allows passing 
+    additional kwargs directly to the underlying Matplotlib calls via `plot_kws`.
+    For complete parameter documentation and
+    advanced customization options, see urls below
 
     Parameters:
     -----------
@@ -220,6 +275,9 @@ def piechart(data: Sequence[float],
     autopct_method : str, default="value"
         Determines how the values are displayed on the pie chart.
         Supported options: "percent", "value", "both".
+
+    Other Parameters
+    ----------------
     title : str, optional
         Title of the pie chart.
     xlabel : str, optional
@@ -236,10 +294,11 @@ def piechart(data: Sequence[float],
         Figure size (width, height) in inches.
     plot_kws : dict, optional
         Dictionary of keyword arguments passed directly to the underlying matplotlib
-        functions (`plt.pie`). This allows overriding any default plotting
+        function (`matplotlib.Axes.ax.pie`). This allows overriding any default plotting
         behavior. If not provided, the function internally constructs a dictionary
         from its own relevant parameters. Keys provided in `plot_kws` take precedence
-        over internally generated defaults.
+        over internally generated defaults. For complete parameter documentation and
+        advanced customization options, see urls below
     directory : str, optional
         If provided, the plot will be saved to this directory.
     nan_policy : {"drop", "raise"}, default="drop"
@@ -251,50 +310,49 @@ def piechart(data: Sequence[float],
     -------
     VisualizationResult
         A dataclass encapsulating the result of a visualization.
-        Contains the following attributes:
-            - figure : matplotlib.figure.Figure or plotly.graph_objects.Figure
-            The generated figure object ready for display or saving.
-            - axes : matplotlib.axes.Axes or None
-            For Matplotlib figures, the primary Axes object; None for Plotly figures.
-            - engine : str
-            The plotting engine used, either 'matplotlib' or 'plotly'.
-            - width : int or None
-            Figure width in pixels (Plotly) or inches (Matplotlib);
-            None if not specified.
-            - height : int or None
-            Figure height in pixels (Plotly) or inches (Matplotlib);
-            None if not specified.
-            - title : str or None
-            The title of the visualization, if specified.
-            - extra_info : dict or None
-            Optional dictionary storing additional metadata about the visualization,
-            such as color palettes, zoom levels, legend settings, or any other info
-            relevant to downstream processing or reproducibility.
+        See also :class:`explorica.types.VisualizationResult` for full attribute
+        details.
 
     Raises:
     -------
     ValueError
         If input sizes mismatch.
         If invalid autopct method is provided.
+
+    Warns
+    -----
+    UserWarning
+        Raised if the input data is empty. An empty plot with a warning message
+        will be returned in this case.
     
+    Notes
+    -----
+    This function uses matplotlib.axes.Axes.pie under the hood. For complete parameter
+    documentation and advanced customization options, see:
+        matplotlib pie:
+        https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.pie.html
+
     Examples
     --------
-    >>> import explorica.visualizations as visualizations
-    >>> data = [10, 20, 30]
-    >>> categories = ["A", "B", "C"]
-    >>> result = visualizations.piechart(
-    ...     data,
-    ...     categories,
-    ...     autopct_method="both",
-    ...     title="Sample Pie Chart",
-    ...     show_legend=True
-    ... )
-    >>> result.figure.show()  # Show the pie chart
-    >>> result.axes  # <matplotlib.axes._subplots.AxesSubplot object at 0x...>
+    import explorica.visualizations as vis
+
+    # Simple pie chart displaying raw values
+    >>> data = [15, 30, 45, 10]
+    >>> categories = ["A", "B", "C", "D"]
+    >>> result = vis.piechart(data, categories, autopct_method="value", 
+    ...                       title="Simple Pie")
+    >>> result.figure.show() # Display the chart
     >>> result.title
-    'Sample Pie Chart'
-    >>> result.engine
-    'matplotlib'
+    'Simple Pie'
+
+    # Pie chart showing percentages on each segment
+    >>> data = [50, 25, 25]
+    >>> categories = ["Apples", "Bananas", "Cherries"]
+    >>> result = visualizations.piechart(data, categories,
+    ...     autopct_method="percent", show_legend=True)
+    >>> result.figure.show()
+    >>> result.extra_info["autopct_method"]
+    'percent'
     """
     params = {
         **DEFAULT_MPL_PLOT_PARAMS,
@@ -360,7 +418,8 @@ def piechart(data: Sequence[float],
                                engine="matplotlib",
                                width=params["figsize"][0],
                                height=params["figsize"][1],
-                               title=params["title"])
+                               title=params["title"],
+                               extra_info={"autopct_method": autopct_method})
 
 def _make_autopct(values: pd.Series, method: str):
     """
@@ -380,7 +439,7 @@ def _make_autopct(values: pd.Series, method: str):
 def mapbox(lat: Sequence[float],
            lon: Sequence[float],
            category: Optional[Sequence] = None,
-           **kwargs) -> None:
+           **kwargs) -> VisualizationResult:
     """
     Display an interactive geographic scatter plot (Mapbox) with optional
     category-based coloring, point scaling, and hover labels.
@@ -389,30 +448,36 @@ def mapbox(lat: Sequence[float],
     using latitude and longitude coordinates. It supports categorical coloring,
     dynamic point sizing, custom hover labels, and Plotly Mapbox styling.
 
+    Under the hood, the function uses Plotly's `plotly.express.scatter_map` function 
+    and applies plotly styles for aesthetic defaults. This allows passing 
+    additional kwargs directly to the underlying Plotly calls via `plot_kws`.
+    For complete parameter documentation and
+    advanced customization options, see urls below
+
     Parameters
     ----------
-    lat : Sequence of float
+    lat : Sequence[float]
         Latitude values for each point. Cannot contain null values.
-    lon : Sequence of float
+    lon : Sequence[float]
         Longitude values for each point. Must match the length of `lat` and
         cannot contain null values.
-    category : Sequence, optional
+    category : Sequence[Any], optional
         Categorical labels used to color the points. Must match the length of
         `lat` and `lon`, cannot contain nulls, and determines the number of
         discrete colors in the plot.
 
     Other Parameters
     ----------------
-    hover_name : Sequence, optional
+    hover_name : Sequence[Any], optional
         Labels to show on hover. Must match the length of `lat` and `lon`.
-    size : Sequence of float, optional
+    size : Sequence[float], optional
         Numerical values used to scale point sizes. Must match the length
         of `lat` and `lon`.
     title : str, optional
         Plot title.
     show_legend : bool, default=True
         Whether to display the legend. Relevant only if `category` is provided.
-    palette : Sequence of str, optional
+    palette : Sequence[str], optional
         List of colors (hex or named) for categories. If not provided, the default
         Plotly color sequence (px.colors.qualitative.Plotly) is used.
     opacity : float, default=0.7
@@ -431,7 +496,8 @@ def mapbox(lat: Sequence[float],
         function (`px.scatter_mapbox`). This allows overriding any default plotting
         behavior. If not provided, the function internally constructs a dictionary
         from its own relevant parameters. Keys provided in `plot_kws` take precedence
-        over internally generated defaults.
+        over internally generated defaults. For complete parameter documentation and
+        advanced customization options, see urls below
     nan_policy : str, default="drop"
         Policy for handling NaN values in input data. Supports 'drop' 
         (removes rows with NaNs) or 'raise' (raises an error).
@@ -444,37 +510,29 @@ def mapbox(lat: Sequence[float],
     -------
     VisualizationResult
         A dataclass encapsulating the result of a visualization.
-        Contains the following attributes:
-            - figure : matplotlib.figure.Figure or plotly.graph_objects.Figure
-            The generated figure object ready for display or saving.
-            - axes : matplotlib.axes.Axes or None
-            For Matplotlib figures, the primary Axes object; None for Plotly figures.
-            - engine : str
-            The plotting engine used, either 'matplotlib' or 'plotly'.
-            - width : int or None
-            Figure width in pixels (Plotly) or inches (Matplotlib);
-            None if not specified.
-            - height : int or None
-            Figure height in pixels (Plotly) or inches (Matplotlib);
-            None if not specified.
-            - title : str or None
-            The title of the visualization, if specified.
-            - extra_info : dict or None
-            Optional dictionary storing additional metadata about the visualization,
-            such as color palettes, zoom levels, legend settings, or any other info
-            relevant to downstream processing or reproducibility.
+        See also :class:`explorica.types.VisualizationResult` for full attribute
+        details.
 
     Raises
     ------
     ValueError
         If `lat`, `lon`, or any optional input contain nulls or mismatched
         lengths.
+    
+    Warns
+    -----
     UserWarning
-        If the number of unique categories exceeds the provided palette size.
-        If the input data becomes empty after applying `nan_policy`.
+        Raised if the input data is empty. An empty plot with a warning message
+        will be returned in this case.
 
     Notes
     -----
+    This function uses plotly.express.scatter_map under the hood. For complete
+    parameter documentation and advanced customization options, see:
+        plotly scatter map:
+        https://plotly.com/python-api-reference/
+        generated/plotly.express.scatter_map.html
+
     - The plot is saved as an interactive HTML file when `directory` is set.
     - Color resolution is handled internally using `resolve_plotly_palette`.
     - This function is intended for rapid map-based EDA rather than full
@@ -484,18 +542,35 @@ def mapbox(lat: Sequence[float],
 
     Examples
     --------
-    >>> import explorica.visualizations as visualizations
-    >>> latitude = [34.0522, 40.7128, 37.7749, 51.5074]
-    >>> longitude = [-118.2437, -74.0060, -122.4194, -0.1278]
-    >>> fig = visualizations.mapbox(
-    ...     latitude,
-    ...     longitude,
-    ...     title="Distribution of Cities",
-    ...     palette=sns.color_palette("tab10").as_hex()
-    ... )
-    >>> result.figure.show() # Display the interactive Plotly figure
-    >>> result.title # 'Distribution of Cities'
-    >>> result.extra_info # Optional metadata dictionary
+    # Basic Mapbox scatter plot usage
+    >>> import explorica.visualizations as vis
+    >>> lat = [34.05, 40.71, 37.77]
+    >>> lon = [-118.24, -74.00, -122.42]
+    >>> result = vis.mapbox(lat, lon, title="Major US Cities")
+    >>> result.figure.show()
+
+    # Mapbox scatter plot with categorical coloring usage
+    >>> lat = [34.05, 40.71, 37.77, 51.50]
+    >>> lon = [-118.24, -74.00, -122.42, -0.12]
+    >>> category = ["US", "US", "US", "UK"]
+    >>> result = vis.mapbox(lat, lon, category=category, title="USA vs UK Cities")
+    >>> result.figure.show()
+
+    # HTML saving example
+    >>> lat = [34.05, 40.71]
+    >>> lon = [-118.24, -74.00]
+    >>> result = vis.mapbox(
+    >>> ...     lat, lon,
+    >>> ...     plot_kws={"zoom": 4},
+    >>> ...     directory="./plots",
+    >>> ...     title="Saved Map"
+    >>> ... )
+    >>> result.figure.show()
+
+    # Check that the file actually created
+    >>> output = Path("./plots/Saved Map.html")
+    >>> output.exists()
+    True
     """
     params = {"hover_name": None,
               "size": None,
@@ -521,7 +596,7 @@ def mapbox(lat: Sequence[float],
         "template": params["template"],
         "color_discrete_sequence": params["palette"],
         "zoom": params["zoom"],
-        **(params["plot_kws"] or {})}
+        **params.get("plot_kws", {})}
 
     lat_series, lon_series, category_series = (
         convert_series(lat), convert_series(lon), convert_series(category))
