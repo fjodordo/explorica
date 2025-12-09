@@ -8,9 +8,10 @@ Features include:
 - Data visualization
 - Feature interaction analysis
 """
+
 import logging
 
-__version__ = "0.1.1"
+__version__ = "0.2.1"
 
 __all__ = []
 

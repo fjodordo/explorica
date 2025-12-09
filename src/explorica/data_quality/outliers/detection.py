@@ -79,6 +79,7 @@ class DetectionMethods:
     _warns = read_config("messages")["warns"]
     _errors = read_config("messages")["errors"]
 
+    @staticmethod
     def detect_iqr(
         data: (
             Union[Sequence[float] | Sequence[Sequence[float]]]

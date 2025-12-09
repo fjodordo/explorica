@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 
- **Current version:** 0.1.1 (pre-release)  
+ **Current version:** 0.2.1 (pre-release)  
 
 **explorica** is a modular and extensible Python framework for **exploratory data analysis (EDA)**.  
 It provides ready-to-use components for **data preprocessing, feature engineering, statistical analysis, and visualization**, allowing analysts and data scientists to focus on insights instead of boilerplate code.

@@ -22,7 +22,7 @@ NaturalNumber
 Notes
 -----
 - The types defined in this module are part of the public API. They are designed
-  to be stable, lightweight, and safe for direct user interaction.  
+  to be stable, lightweight, and safe for direct user interaction.
 - `NaturalNumber` is implemented via a metaclass and acts like a pseudo-type.
   It cannot be instantiated and carries no behavior beyond validation.
 - Additional pseudo-types and data descriptors may be added in future releases
@@ -75,6 +75,7 @@ class _NaturalNumberMeta(type):
     def __init__(cls, *_):
         cls.__name__ = "NaturalNumber"
 
+
 # pylint: disable=R0903
 class NaturalNumber(metaclass=_NaturalNumberMeta):
     """
@@ -125,16 +126,16 @@ class NaturalNumber(metaclass=_NaturalNumberMeta):
 @dataclass
 class VisualizationResult:
     """
-    Standardized container for the output of all Explorica visualization 
+    Standardized container for the output of all Explorica visualization
     functions.
 
-    This dataclass provides a unified structure for accessing the generated 
-    figure, axes, metadata, and rendering backend. All visualization functions 
-    across Explorica return a :class:`VisualizationResult`, ensuring that users 
+    This dataclass provides a unified structure for accessing the generated
+    figure, axes, metadata, and rendering backend. All visualization functions
+    across Explorica return a :class:`VisualizationResult`, ensuring that users
     always interact with plots through a consistent and predictable interface.
 
     The container is engine-agnostic and supports both Matplotlib and Plotly.
-    This allows downstream processing, inspection, chaining, or exporting of 
+    This allows downstream processing, inspection, chaining, or exporting of
     visualizations without needing to know which plotting backend produced them.
 
     Parameters
@@ -172,14 +173,14 @@ class VisualizationResult:
 
     Notes
     -----
-    The purpose of this class is to standardize the interface between 
+    The purpose of this class is to standardize the interface between
     visualization generators and downstream user code. For example:
 
     - Saving a plot to disk using ``result.figure`` works uniformly across engines.
     - Accessing axes-based methods (e.g., ``set_xlim``) is only valid for Matplotlib.
     - Tools that inspect plot metadata (e.g., model diagnostics, layout exporters)
-      can rely on ``extra_info`` instead of backend-specific properties.        
-    
+      can rely on ``extra_info`` instead of backend-specific properties.
+
     Notes
     -----
     `VisualizationResult` provides a unified interface for interacting with
@@ -239,6 +240,7 @@ class VisualizationResult:
     >>> result.extra_info
     {'palette': 'viridis'}
     """
+
     figure: Union[Figure]
     axes: Optional[Axes] = None
     engine: str = "matplotlib"
