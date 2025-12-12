@@ -122,7 +122,7 @@ alone                 0.0         0.0             2.0        0.0110
 """
 
 from .data_preprocessing import DataPreprocessing
-from .data_quality_handler import get_summary
+from .summary import get_summary
 from .feature_engineering import EncodeMethods
 from .information_metrics import get_entropy
 from .outliers import DetectionMethods, DistributionMetrics, HandlingMethods
