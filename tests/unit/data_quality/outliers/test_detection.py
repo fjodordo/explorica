@@ -1,12 +1,10 @@
-import json
-import warnings
-
 import pytest
 from unittest.mock import patch
 
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 import explorica.data_quality as data_quality
 from .constants import (DF_WITH_NAN, DATA_SEQUENCES)
 
@@ -26,7 +24,7 @@ def test_detect_outliers_warns_on_zero_variance(f):
 
 def test_detect_iqr_input_contains_nans():
     with pytest.raises(ValueError):
-        data_quality.detect_iqr(DF_WITH_NAN)
+        data_quality.detect_iqr(DF_WITH_NAN, nan_policy="raise")
 
 @pytest.mark.parametrize("data", DATA_SEQUENCES)
 def test_detect_iqr_different_sequences_and_dtypes(data):
@@ -44,10 +42,10 @@ def test_detect_iqr_deterministic():
 def test_detect_iqr_boxplot_call():
     data = [1, 2, 3, 4, 5, 100]
 
-    with patch.object(plt, "show") as mock_show:
-        data_quality.detect_iqr(data, show_boxplot=True)
-
-    mock_show.assert_called_once()
+    outliers, boxplot = data_quality.detect_iqr(data, get_boxplot=True)
+    assert isinstance(boxplot.axes, Axes)
+    assert isinstance(boxplot.figure, Figure)
+    plt.close(boxplot.figure)
 
 # tests for data_quality.detect_zscore()
 

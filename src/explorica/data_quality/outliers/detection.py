@@ -37,11 +37,13 @@ from typing import Any, Mapping, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from explorica.types import VisualizationResult
 from explorica.visualizations import boxplot
 from explorica._utils import (
     convert_dataframe,
     read_config,
     validate_array_not_contains_nan,
+    handle_nan,
 )
 
 
@@ -86,11 +88,23 @@ class DetectionMethods:
             | Mapping[str, Sequence[Any]]
         ),
         iqr_factor: float = 1.5,
-        show_boxplot: Optional[bool] = False,
-    ) -> pd.Series | pd.DataFrame:
+        get_boxplot: Optional[bool] = False,
+        nan_policy: str = "drop",
+        boxplot_kws: dict = None,
+    ) -> Union[
+        pd.Series,
+        pd.DataFrame,
+        tuple[Union[pd.Series, pd.DataFrame], VisualizationResult],
+    ]:
         """
-        Detects outliers in a numerical series using the Interquartile Range
-        (IQR) method.
+        Detects outliers in a numerical series using the Interquartile
+        Range (IQR) method.
+
+        This method identifies values that are significantly lower or higher
+        than the typical range of the data. For 1D input, returns a Series of outliers;
+        for 2D input, returns a DataFrame where non-outlier positions are NaN.
+        Optionally, a boxplot visualization can be generated for the first column
+        to visually inspect outliers.
 
         Parameters
         ----------
@@ -100,19 +114,25 @@ class DetectionMethods:
             is treated as a separate column.
         iqr_factor : float, default 1.5
             Multiplier for the Interquartile Range used to define outlier bounds.
-        show_boxplot : bool
-            If True, displays a boxplot to visualize the outliers. Currently supports
-            only the first column if the input is 2D. Default is False.
+        get_boxplot : bool, optional
+            If True, returns a tuple `(outliers, boxplot_figure)` where `boxplot_figure`
+            is a `VisualizationResult` for the first column only.
+        nan_policy : {"drop", "raise"}, default="drop"
+            How to handle NaN values.
+        boxplot_kws : dict, optional
+            Additional keyword arguments passed to `explorica.visualizations.boxplot`
+            (e.g., `color`, `figsize`, `title`). Only applied if `get_boxplot=True`.
 
         Returns
         -------
-        pd.Series or pd.DataFrame
-            - If the input contains a single feature (one column),
-              returns a pandas.Series with outlier values only;
-              the index is the original row index filtered to outlier positions.
-            - If the input is 2D (multiple features), returns a pandas.DataFrame
-              where cells contain outlier values at their original indices and
-              non-outlier cells are ``NaN``.
+        pd.Series or pd.DataFrame or tuple[pd.Series |
+        pd.DataFrame, VisualizationResult]
+            - Single column input: returns a pandas.Series with outlier values at
+              original indices.
+            - Multi-column input: returns a pandas.DataFrame with outlier values
+              and NaN elsewhere.
+            - If `get_boxplot=True`, returns a tuple with outliers and the boxplot
+              figure.
 
         Warns
         -----
@@ -123,33 +143,46 @@ class DetectionMethods:
         Raises
         ------
         ValueError
-            If the input contains any NaN values.
+            If nan_policy='raise' and missing values (NaN/null) are found in the data.
+            If `iqr_factor` is negative.
 
         Notes
         -----
-        - An outlier is defined as a value below
-          Q1 - iqr_factor * IQR or above Q3 + iqr_factor * IQR.
+        - An outlier is defined as a value below `Q1 - iqr_factor * IQR` or above
+        `Q3 + iqr_factor * IQR`.
         - For 2D inputs, each column is processed independently.
+        - The boxplot is always generated only for the first column if
+        `get_boxplot=True`.
 
         Examples
         --------
         >>> import pandas as pd
-        >>> import explorica.data_quality as data_quality
-        ...
+        >>> import explorica.data_quality as dq
         >>> s = pd.Series([1, 2, 2, 3, 13, 1, 100, 90])
-        >>> outliers = data_quality.detect_iqr(s, iqr_factor=1.5)
+        >>> outliers = dq.detect_iqr(s, iqr_factor=1.5)
         >>> print(outliers)
         6    100
         7     90
         dtype: int64
-        >>> # Returns a Series with outlier values and their original indices
+
+        >>> # Multi-column DataFrame
+        >>> df = pd.DataFrame({"A": [1, 2, 3, 50], "B": [5, 6, 7, 8]})
+        >>> outliers_df = dq.detect_iqr(df)
+        >>> print(outliers_df)
+            A    B
+        3  50.0  NaN
+
+        >>> # With boxplot and custom styling
+        >>> outliers, plot_result = dq.detect_iqr(s, get_boxplot=True,
+        ...     boxplot_kws={"style": "whitegrid", "figsize": (8, 4)})
+        >>> plot_result.figure.show()
         """
         df = convert_dataframe(data)
+        df = handle_nan(df, nan_policy, supported_policy=("drop", "raise"))
 
-        validate_array_not_contains_nan(
-            df, err_msg=DetectionMethods._errors["array_contains_nans_f"].format("data")
-        )
         DetectionMethods._validate_zero_variance(df)
+        if iqr_factor < 0:
+            raise ValueError("iqr_factor must be non negative number.")
 
         # Compute IQR bounds & detect outliers
         q1 = df.quantile(0.25)
@@ -160,13 +193,13 @@ class DetectionMethods:
         mask = (df < a) | (df > b)
         outliers = df[mask].dropna(how="all")
 
-        if show_boxplot:
-            boxplot(df.iloc[:, 0])
-
         # If input is 1D and only one column, optionally return Series
-        if outliers.shape[1] == 1:
-            return outliers.iloc[:, 0]
-        return outliers
+        if get_boxplot:
+            return (
+                outliers.squeeze(axis=1),
+                boxplot(df.iloc[:, 0], **(boxplot_kws or {})),
+            )
+        return outliers.squeeze(axis=1)
 
     @staticmethod
     def detect_zscore(
