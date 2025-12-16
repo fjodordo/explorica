@@ -1,6 +1,7 @@
 # Local configuration
 config.json
 test_template.py
+.venv/
 
 # Debug files
 debug*.ipynb
