@@ -20,7 +20,8 @@ dependencies = [
     "plotly",
     "scipy",
     "statsmodels",
-    "openpyxl"
+    "openpyxl",
+    "reportlab>=3.6,<5"
 ]
 keywords = ["eda", "data-analysis", "statistics", "visualization", "data-science"]
 classifiers = [
