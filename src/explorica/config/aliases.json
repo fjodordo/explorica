@@ -27,5 +27,9 @@
         "bin": ["bin", "binary", "1/0"],
         "bool": ["bool", "boolean"], 
         "const": ["const", "constant"]
+    },
+    "render_pdf": {
+        "bytes": ["bytes", "builded"],
+        "sequence": ["flowable", "sequence"]
     }
 }

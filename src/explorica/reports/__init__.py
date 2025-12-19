@@ -24,6 +24,9 @@ Block(block_config)
 BlockConfig
     Configuration dataclass defining the content of a `Block`, including
     textual metadata, metrics, and visualizations.
+Report
+    High-level container for aggregating multiple report blocks into a single
+    structured report, with utilities for composition and rendering.
 
 Functions
 ---------
@@ -72,13 +75,14 @@ Examples
 '<h2>Example Block</h2>'
 """
 
-from .core import Block, BlockConfig
+from .core import Block, BlockConfig, Report
 from .utils import normalize_visualization
 from .renderers import render_block_html, render_block_pdf, render_html, render_pdf
 
 __all__ = [
     "Block",
     "BlockConfig",
+    "Report",
     "normalize_visualization",
     "render_block_html",
     "render_block_pdf",

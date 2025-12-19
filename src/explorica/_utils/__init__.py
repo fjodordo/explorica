@@ -39,6 +39,15 @@ temp_log_level(logger, level)
     Temporarily sets the logging level of a logger within a context.
 read_config(name)
     Read and cache JSON configuration files.
+convert_filepath(path, default_filename)
+    Ensure a given path always points to a file,
+    appending a default filename if necessary.
+validate_path(path, overwrite_check=True, dir_exists_check=True,
+              have_permissions_check=True)
+    Validate a filesystem path with optional checks.
+enable_io_logs(logger)
+    Decorator for I/O functions to automatically log PermissionError, FileExistsError,
+    and other unexpected exceptions.
 
 Notes
 -----
@@ -58,6 +67,7 @@ from .conversion import (
 from .helpers import handle_nan, temp_log_level
 from .readers import read_config
 from .types import natural_number, NaturalNumber
+from .io import enable_io_logs, validate_path, convert_filepath
 from .validation import (
     validate_array_not_contains_nan,
     validate_at_least_one_exist,
@@ -83,4 +93,7 @@ __all__ = [
     "handle_nan",
     "temp_log_level",
     "read_config",
+    "enable_io_logs",
+    "validate_path",
+    "convert_filepath",
 ]

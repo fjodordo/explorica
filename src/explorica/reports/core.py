@@ -14,8 +14,8 @@ Block
     Main class for a report block. Initializes with a `BlockConfig` and provides
     rendering methods for HTML and PDF.
 Report
-    Placeholder class for future aggregation of multiple report blocks and
-    report construction utilities.
+    High-level container for aggregating multiple report blocks into a single
+    structured report, with utilities for composition and rendering.
 
 Examples
 --------
@@ -32,8 +32,9 @@ Examples
 >>> pdf_bytes = block.render_block("pdf")
 """
 
+from copy import deepcopy
 from typing import Any
-from dataclasses import dataclass, is_dataclass
+from dataclasses import dataclass, is_dataclass, field
 
 import plotly.graph_objects
 import matplotlib.figure
@@ -41,18 +42,6 @@ import matplotlib.figure
 from explorica.types import VisualizationResult
 from .utils import normalize_visualization
 from .renderers import render_pdf, render_html
-
-
-# pylint: disable=too-few-public-methods
-class Report:
-    """
-    Placeholder class for Explorica reports aggregation.
-
-    This class is intended to serve as a future container for multiple
-    report blocks (`Block` instances), providing utilities to compose,
-    manage, and render aggregated reports. Currently, it is an
-    architectural stub without implemented functionality.
-    """
 
 
 @dataclass
@@ -109,12 +98,12 @@ class BlockConfig:
     ... )
     """
 
-    title: str
-    description: str
-    metrics: list[dict[str, Any]]
+    title: str = ""
+    description: str = ""
+    metrics: list[dict[str, Any]] = field(default_factory=list)
     visualizations: list[
         plotly.graph_objects.Figure | matplotlib.figure.Figure | VisualizationResult
-    ]
+    ] = field(default_factory=list)
 
 
 class Block:
@@ -240,3 +229,433 @@ class Block:
         if output_format.lower() == "pdf":
             return render_pdf(self, path, report_name=report_name)
         raise ValueError("'output_format' must be 'html' or 'pdf'.")
+
+
+class Report:
+    """
+    Aggregates multiple report blocks into a single structured report.
+
+    The Report class serves as a container for `Block` instances, providing
+    utilities to compose, manage, and render aggregated reports in different
+    formats (HTML, PDF). It supports both in-place and functional operations
+    for adding, inserting, or removing blocks, as well as iteration and
+    length queries like a standard Python sequence.
+
+    Parameters
+    ----------
+    blocks : list[Block], optional
+        Initial list[Block] instances to include in the report. If None,
+        an empty report is created.
+    title : str, optional
+        Title of the report.
+    description : str, optional
+        Short description of the report.
+
+    Attributes
+    ----------
+    blocks : list[Block]
+        The list of `Block` instances in this report.
+    title : str or None
+        The title of the report.
+    description : str or None
+        Description of the report.
+
+    Methods
+    -------
+    render_html(path=None, report_name="report")
+        Render the report to HTML format.
+    render_pdf(path=None, doc_template_kws=None, report_name="report")
+        Render the report to PDF format.
+    insert_block(block, index=-1)
+        Insert a block at the specified index in the report.
+    remove_block(index)
+        Remove a block at the specified index.
+    typename
+        Property returning the class name as a string.
+    __iadd__(other)
+        Add a Block or list of Blocks to the report in-place using `+=`.
+    __add__(other)
+        Return a new Report with `other` block(s) appended.
+    __len__()
+        Return the number of blocks in the report.
+    __iter__()
+        Iterate over the blocks in the report.
+
+    Examples
+    --------
+    # Create a report with a single block:
+    >>> report = Report(
+    ...     blocks=[block1], title="My Report",
+    ...     description="Example report")
+    >>> len(report)
+    1
+
+    # Add another block in-place:
+    >>> report += block2
+    >>> len(report)
+    2
+
+    # Create a new report by combining reports/blocks:
+    >>> report2 = report + [block3, block4]
+    >>> len(report2)
+    4
+    >>> len(report)  # original report unchanged
+    2
+
+    # Iterate through blocks:
+    >>> for blk in report:
+    ...     print(blk.typename)
+
+    # Render report (HTML/PDF):
+    >>> report.render_report(output_format="html", path="output/")
+    >>> report.render_report(output_format="pdf")
+    """
+
+    def __init__(
+        self,
+        blocks: list[Block] = None,
+        title: str = None,
+        description: str = None,
+    ):
+        """
+        Initialize a Report instance and normalize its visualizations.
+
+        Notes
+        -----
+        - All blocks are deep-copied to avoid side-effects from external references.
+        - Visualizations inside each block are automatically normalized.
+        """
+        self.blocks = []
+        blocks_copy = deepcopy(blocks or [])
+        # Ensures, that all visualizations in blocks are VisualizationResult objs
+        for block in blocks_copy:
+            block.block_config.visualizations = [
+                normalize_visualization(vis)
+                for vis in block.block_config.visualizations
+            ]
+        self.blocks.extend(blocks_copy)
+        self.title = title
+        self.description = description
+
+    def __iadd__(self, other: Block | list[Block]):
+        """
+        Add a Block or a list of Blocks to the report in-place using `+=`.
+
+        This method modifies the current Report instance by appending one or
+        more blocks directly to its `blocks` list. The original Report object
+        is updated, unlike `__add__` which returns a new Report.
+
+        Parameters
+        ----------
+        other : Block or list[Block]
+            A single `Block` or a list of `Block` instances to add to the report.
+
+        Returns
+        -------
+        self : Report
+            The updated Report instance, allowing method chaining.
+
+        Raises
+        ------
+        TypeError
+            If `other` is neither a `Block` nor a list of `Block`.
+
+        Examples
+        --------
+        # Add a single block:
+        >>> report = Report(blocks = [block1])
+        >>> report += block2
+        >>> report.blocks
+        [<explorica.reports.core.Block,
+         <explorica.reports.core.Block]
+
+        # Add multiple blocks:
+        >>> report = Report(blocks = [block1])
+        >>> report += [block2, block3]
+        >>> report.blocks
+        [<explorica.reports.core.Block,
+         <explorica.reports.core.Block,
+         <explorica.reports.core.Block]
+        """
+        if isinstance(other, Block):
+            self.blocks.append(other)
+        elif isinstance(other, list) and all(isinstance(b, Block) for b in other):
+            self.blocks.extend(other)
+        else:
+            raise TypeError("Can only add a Block or a list of Blocks")
+        return self
+
+    def __add__(self, other: Block | list[Block]):
+        """
+        Return a new Report with `other` block(s) appended.
+
+        The original Report is not modified. a deep copy of the Report is created
+        and the new block(s) are added to it.
+
+        Parameters
+        ----------
+        other : Block or list[Block]
+            The block or list of blocks to add to the report.
+
+        Returns
+        -------
+        Report
+            A new Report instance containing the original blocks plus `other`.
+
+        Raises
+        ------
+        TypeError
+            If `other` is not a Block or list of Block.
+
+        Notes
+        -----
+        - The original report remains unchanged.
+        - Blocks are appended to the end of the new report's block list.
+
+        Examples
+        --------
+        >>> report1 = Report([block1])
+        >>> report2 = report1 + block2
+        >>> len(report2)
+        2
+        >>> len(report1)  # original report unchanged
+        1
+
+        >>> report3 = report1 + [block2, block3]
+        >>> len(report3)
+        3
+        """
+        new_report = deepcopy(self)
+        if isinstance(other, Block):
+            new_report.blocks.append(other)
+        elif isinstance(other, list) and all(isinstance(b, Block) for b in other):
+            new_report.blocks.extend(other)
+        else:
+            raise TypeError("Can only add a Block or a list of Blocks")
+        return new_report
+
+    def __len__(self):
+        """
+        Return the number of blocks in the report.
+
+        This allows using Python's built-in `len()` function on a Report instance.
+
+        Returns
+        -------
+        int
+            The number of `Block` instances contained in the report.
+
+        Examples
+        --------
+        >>> report = Report(blocks=[block1, block2])
+        >>> len(report)
+        2
+        """
+        return len(self.blocks)
+
+    def __iter__(self):
+        """
+        Return an iterator over the blocks in the report.
+
+        This allows iterating directly over a Report instance using a for-loop.
+
+        Returns
+        -------
+        iterator of Block
+            An iterator over the `Block` instances contained in the report.
+
+        Examples
+        --------
+        >>> report = Report(blocks=[block1, block2])
+        >>> for block in report:
+        ...     print(block.typename)
+        Block
+        Block
+        """
+        return iter(self.blocks)
+
+    @property
+    def typename(self):
+        """
+        Return the class name.
+
+        Returns
+        -------
+        str
+            The name of the class ('Report').
+
+        Examples
+        --------
+        >>> report = Report()
+        >>> report.typename
+        'Report'
+        """
+        return self.__class__.__name__
+
+    def insert_block(self, block, index=-1):
+        """
+        Insert a block at the specified position in the report.
+
+        If `index` is not provided or is -1, the block is appended to the end
+        of the report (equivalent to `append`).
+
+        Parameters
+        ----------
+        block : Block
+            The block to insert into the report.
+        index : int, optional
+            Position at which to insert the block. Supports negative indexing
+            (default is -1, which appends at the end).
+
+        Examples
+        --------
+        # Append a block to the end of the report:
+        >>> report = Report(blocks=[block1])
+        >>> report.insert_block(block2)
+        >>> len(report.blocks)
+        2
+
+        # Insert a block at the beginning:
+        >>> report.insert_block(block3, index=0)
+        >>> report.blocks[0] is block3
+        True
+        """
+        self.blocks.insert(index, block)
+
+    def remove_block(self, index: int):
+        """
+        Remove a block from the report at the specified index.
+
+        This method modifies the current Report instance by removing the block
+        at the given position. Supports negative indexing (like Python lists).
+
+        Parameters
+        ----------
+        index : int
+            Position of the block to remove. Negative values count from the end
+            (e.g., -1 removes the last block).
+
+        Raises
+        ------
+        IndexError
+            If the index is out of range.
+
+        Examples
+        --------
+        # Remove the first block:
+        >>> report = Report(blocks=[block1, block2])
+        >>> report.remove_block(0)
+        >>> len(report.blocks)
+        1
+
+        # Remove the last block using negative indexing:
+        >>> report.remove_block(-1)
+        >>> len(report.blocks)
+        0
+        """
+        try:
+            self.blocks.pop(index)
+        except IndexError as e:
+            raise IndexError(f"No block at index {index}") from e
+
+    def render_html(self, path: str = None, report_name: str = "report") -> str:
+        """
+        Render the report to HTML format.
+
+        This method provides full access to the current HTML rendering
+        functionality. It is a direct wrapper around the low-level
+        ``render_html`` function and supports all features currently
+        implemented for HTML output.
+
+        Parameters
+        ----------
+        path : str, optional
+            Directory path or full file path where the HTML report should be saved.
+            - If a directory is provided, the report is saved as
+            ``f"{report_name}.html"`` inside that directory.
+            - If a full file path ending with ``.html`` is provided, the report
+            is saved to that exact location.
+            If None, the rendered HTML is returned as a string without saving.
+        report_name : str, default="report"
+            Base name used for the output file when `path` is a directory.
+
+        Returns
+        -------
+        str
+            Rendered HTML content as a string.
+
+        Notes
+        -----
+        This method exposes the full capabilities of the HTML renderer.
+        Users can rely on this method to access all functionality currently
+        implemented in ``explorica.reports.renderers.render_html``.
+
+        Examples
+        --------
+        >>> html = report.render_html()
+        >>> report.render_html(path="output/")
+        >>> report.render_html(path="output/my_report.html")
+        """
+        return render_html(self, path, report_name=report_name)
+
+    def render_pdf(
+        self,
+        path: str = None,
+        font: str = "DejaVuSans",
+        doc_template_kws: dict = None,
+        **kwargs,
+    ) -> bytes:
+        """
+        Render the report to PDF format.
+
+        This method is a thin convenience wrapper around
+        :func:`explorica.reports.renderers.render_pdf` and exposes the same
+        rendering functionality directly on a ``Report`` instance.
+
+        All parameters are forwarded to the underlying renderer without
+        modification.
+
+        Parameters
+        ----------
+        path : str or None, optional
+            Directory path or full file path where the PDF report should be saved.
+            - If a directory is provided, the report is saved as
+            ``f"{report_name}.pdf"`` inside that directory.
+            - If a full file path ending with ``.pdf`` is provided, the report
+            is saved to that exact location.
+            If None, the rendered PDF is returned as bytes without saving.
+        doc_template_kws : dict, optional
+            Keyword arguments passed directly to
+            ``reportlab.platypus.SimpleDocTemplate`` to control PDF layout
+            (e.g., margins, page size). Provides full access to all currently supported
+            customization options.
+        report_name : str, default="report"
+            Base name used for the output file when `path` is a directory.
+
+        Returns
+        -------
+        bytes
+            Rendered PDF content as bytes.
+
+        Notes
+        -----
+        This method exposes the full capabilities of the PDF renderer.
+        Users can rely on this method to access all functionality currently
+        implemented in ``explorica.reports.renderers.render_pdf``.
+
+        Examples
+        --------
+        >>> pdf_bytes = report.render_pdf()
+        >>> report.render_pdf(path="output/")
+        >>> report.render_pdf(
+        ...     path="output/my_report.pdf",
+        ...     doc_template_kws={"pagesize": A3}
+        ... )
+        """
+        params = {
+            "path": path,
+            "font": font,
+            "doc_template_kws": doc_template_kws,
+            **kwargs,
+        }
+        return render_pdf(self, **params)
