@@ -1,35 +1,19 @@
 """
-Rendering utilities for Explorica reports.
+PDF renderers for Explorica reports.
 
-This module provides HTML and PDF rendering functionality for Explorica
-report objects. It defines high-level rendering entrypoints for end users,
-as well as lower-level helpers responsible for rendering individual report
-blocks.
-
-The rendering system is built around two core concepts:
-
-- **Block** — a single, self-contained report unit consisting of metadata,
-  metrics, and visualizations.
-- **Report** — a higher-level abstraction intended to aggregate multiple
-  blocks into a complete report (currently a placeholder).
-
-Two rendering formats are supported:
-
-- **HTML** — supports both static (Matplotlib) and interactive (Plotly)
-  visualizations.
-- **PDF** — supports static Matplotlib figures; Plotly figures are replaced
-  with standardized placeholders due to the lack of interactivity in PDF.
+This module provides functionality for converting `Block` and `Report`
+objects into PDF format using ReportLab as the underlying rendering engine.
+It exposes both high-level APIs for end-to-end rendering and lower-level
+utilities for working with individual blocks.
 
 Functions
 ---------
-render_html(data, path, report_name)
-    Render a Block or Report into an HTML representation.
-render_pdf(data, path, report_name)
-    Render a Block or Report into a PDF byte stream.
-render_block_html(block)
-    Render a single Block into an HTML fragment.
-render_block_pdf(block, doc_template_kws)
-    Render a single Block into a PDF byte streams.
+render_pdf(data, path, font, doc_template_kws, **kwargs)
+    Render a Block or Report into a PDF byte stream, optionally saving
+    to disk and supporting customization of fonts and page layout.
+render_block_pdf(block, mpl_fig_scale, plotly_fig_scale, reportlab_styles, block_name)
+    Render a single Block into a sequence of ReportLab Flowables, including
+    title, description, metrics, and visualizations.
 
 See Also
 --------
@@ -40,37 +24,53 @@ explorica.reports.utils.normalize_visualization
 
 Notes
 -----
-- Rendering entrypoints (`render_html`, `render_pdf`) are responsible for
-  dispatching based on object type (Block vs Report) and optionally saving
-  results to disk.
-- Block-level renderers (`render_block_html`, `render_block_pdf`) are lower-
-  level utilities and are not intended to be used as primary entrypoints,
-  though they remain part of the public API.
 - It is assumed that ``Block.block_config.visualizations`` contains
   visualizations normalized into ``VisualizationResult`` objects during
   ``Block`` initialization. If this invariant is violated (e.g. by manual
   mutation or mocking), rendering behavior is undefined.
-- PDF rendering is inherently static; interactive visualizations are not
-  preserved and are replaced with placeholders where necessary.
-
+- High-level function `render_pdf` handles both single blocks and full reports.
+- Visualizations that exceed the available page frame are automatically scaled
+  to fit while preserving aspect ratio.
+- Matplotlib figures are rendered directly; Plotly figures are replaced with
+  placeholders to maintain layout consistency.
+- `render_block_pdf` returns Flowables only; it does not build or save a PDF file.
+- End users should typically use `render_pdf` unless they need fine-grained
+  control over block-level Flowables.
 
 Examples
 --------
-# Render a single block to HTML:
->>> from explorica.reports import render_html
->>> html = render_html(block)
->>> html[:50]
-'<h2>My Block Title</h2>'
+>>> from explorica.reports.renderers import render_pdf, render_block_pdf
+>>> from explorica.reports.core import Block, BlockConfig
+>>> import matplotlib.pyplot as plt
 
-# Render a block and save it as a PDF:
->>> from explorica.reports import render_pdf
->>> pdf_bytes = render_pdf(block, path="./reports", report_name="example")
+# Block-level rendering
+>>> fig, ax = plt.subplots()
+>>> ax.plot([1, 2, 3], [4, 5, 6])
+>>> block_cfg = BlockConfig(
+...     title="Example Block",
+...     description="A simple block with one plot",
+...     metrics=[{"name": "sum", "value": 15}],
+...     visualizations=[fig]
+... )
+>>> block = Block(block_cfg)
+>>> flowables = render_block_pdf(block)
+>>> isinstance(flowables, list)
+True
+
+# End-to-end PDF rendering
+>>> pdf_bytes = render_pdf(block)
+>>> len(pdf_bytes) > 0
+True
+
+# Rendering a full report
+>>> blocks = [block, block, block]
+>>> report = Report(blocks, title="Example Report", description="Report description")
+>>> report_bytes = render_pdf(report, path="./reports")
 """
 
 from pathlib import Path
 from contextlib import nullcontext
 from io import BytesIO
-import base64
 import logging
 
 from reportlab.lib.pagesizes import A4
@@ -79,9 +79,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Image
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-import plotly.graph_objects
-import plotly.io as pio
-import matplotlib.figure
+
 
 from explorica._utils import (
     temp_log_level,
@@ -92,14 +90,21 @@ from explorica._utils import (
 )
 from explorica.visualizations._utils import get_empty_plot
 from explorica.types import VisualizationResult
+from ..utils import normalize_visualization
 
 logger = logging.getLogger(__name__)
 
 ERR_MSG_UNSUPPORTED_STRING_FLAG_F = read_config("messages")["errors"][
     "unsupported_method_f"
 ]
-TTF_SANS = Path(__file__).absolute().parent.parent / "assets/fonts/DejaVuSans.ttf"
-TTF_SERIF = Path(__file__).absolute().parent.parent / "assets/fonts/DejaVuSerif.ttf"
+
+
+TTF_SANS = (
+    Path(__file__).absolute().parent.parent.parent / "assets/fonts/DejaVuSans.ttf"
+)
+TTF_SERIF = (
+    Path(__file__).absolute().parent.parent.parent / "assets/fonts/DejaVuSerif.ttf"
+)
 
 pdfmetrics.registerFont(TTFont("DejaVuSans", TTF_SANS))
 pdfmetrics.registerFont(TTFont("DejaVuSerif", TTF_SERIF))
@@ -242,7 +247,7 @@ def render_pdf(
         "debug": kwargs.get("debug", False),
     }
     if not (hasattr(data, "typename") and data.typename in {"Block", "Report"}):
-        raise TypeError("'data' must be Block or Report")
+        raise TypeError(f"Expected Block or Report, got {type(data).__name__}")
     # Optionally enable temp log context
     if params["debug"]:
         context = temp_log_level(logger, logging.DEBUG)
@@ -251,9 +256,9 @@ def render_pdf(
     else:
         context = nullcontext()
     with context:
-        logger.info("Rendering '%s'", params["report_name"])
+        logger.info("Rendering '%s' in pdf", params["report_name"])
         font, reportlab_styles = _preprocess_font(font)
-        # Render pipeline for single Block
+        # Render pipeline for a single Block
         if data.typename == "Block":
             block_base_name = f"{params['report_name']}_block"
             story = render_block_pdf(
@@ -273,7 +278,7 @@ def render_pdf(
             if data.description:
                 story.append(Paragraph(data.description, reportlab_styles["BodyText"]))
                 story.append(Spacer(1, 24))
-            # Make the report body
+            # Make a report body
             for i, block in enumerate(data.blocks):
                 block_base_name = f"{params['report_name']}_block{i}"
                 story.extend(
@@ -292,6 +297,10 @@ def render_pdf(
                         "pdf",
                         reportlab_styles=reportlab_styles,
                     )
+                )
+                logger.warning(
+                    "Report '%s' has no blocks; inserting placeholder",
+                    params["report_name"],
                 )
         pdf_bytes = _get_build_pdf(story, doc_template_kws=doc_template_kws)
         if path is not None:
@@ -544,6 +553,9 @@ def _render_block_pdf_build_visualizations(
     - Matplotlib figures are added as images to the Flowables.
     - Plotly figures are substituted with a Matplotlib placeholder since
       PDF rendering does not support Plotly directly.
+    - If a Plotly visualization is dimensionless (i.e. `width` or `height`
+      is not defined), the placeholder size is derived from the placeholder
+      figure's intrinsic size in inches and multiplied by `mpl_fig_scale`.
     - The function logs debug information for each figure added.
 
     Raises
@@ -560,13 +572,16 @@ def _render_block_pdf_build_visualizations(
     """
     story = []
     log_counter = 0
-    placeholder_plotly = get_empty_plot(
-        message=(
-            "Unsupported figure type for PDF."
-            "Plotly figures are only supported in HTML render."
-        ),
-        engine="matplotlib",
-    )[0]
+    placeholder_plotly = normalize_visualization(
+        get_empty_plot(
+            message=(
+                "Unsupported figure type for PDF."
+                "Plotly figures are only supported in HTML render."
+            ),
+            engine="matplotlib",
+        )[0]
+    )
+
     for vis_result in visualizations:
         img_buffer = BytesIO()
         if vis_result.engine == "matplotlib":
@@ -574,26 +589,33 @@ def _render_block_pdf_build_visualizations(
             w, h = vis_result.width * mpl_fig_scale, vis_result.height * mpl_fig_scale
 
         elif vis_result.engine == "plotly":
-            placeholder_plotly.savefig(img_buffer, format="png", bbox_inches="tight")
-            w, h = (
-                vis_result.width * plotly_fig_scale,
-                vis_result.height * plotly_fig_scale,
+            placeholder_plotly.figure.savefig(
+                img_buffer, format="png", bbox_inches="tight"
             )
+            if vis_result.width is not None and vis_result.height is not None:
+                w, h = (
+                    vis_result.width * plotly_fig_scale,
+                    vis_result.height * plotly_fig_scale,
+                )
+            else:
+                w, h = (
+                    placeholder_plotly.width * mpl_fig_scale,
+                    placeholder_plotly.height * mpl_fig_scale,
+                )
         else:
             raise ValueError(
                 f"Unsupported engine '{vis_result.engine}'"
                 "in provided Block's visualizations."
             )
         img_buffer.seek(0)
-
         story.append(Image(img_buffer, width=w, height=h, kind="proportional"))
-        story.append(Spacer(1, 12))
         logger.debug(
             "%s figure added with size %.2f x %.2f",
             vis_result.engine.capitalize(),
             w,
             h,
         )
+        story.append(Spacer(1, 12))
         log_counter += 1
     if log_counter > 0:
         logger.debug("Added %d visualizations to '%s'", log_counter, block_name)
@@ -655,231 +677,6 @@ def _save_pdf(
 
     with open(path, "wb") as f:
         f.write(pdf_bytes)
-
-
-def render_html(data, path: str = None, report_name: str = "report"):
-    """
-    Render a Block or Report object into HTML format.
-
-    This function generates an HTML representation of a single `Block` or
-    a `Report`. Both `Block` and `Report` instances are now supported.
-    For `Report` objects, all contained blocks are rendered sequentially.
-    If the `Report` has no blocks, a placeholder message is inserted.
-    The report's `title` and `description` (if provided) are rendered as
-    a header at the top of the HTML output.
-
-    Parameters
-    ----------
-    data : Block or Report
-        The object to render. Can be an instance of `Block` or `Report`.
-    path : str, optional
-        If provided, the HTML string will also be saved to the specified location.
-        Can be either a directory (the file will be saved as "{report_name}.html")
-        or a full file path ending with ".html".
-    report_name : str, default='report'
-        The base name to use when saving the HTML file if `path` is a directory.
-
-    Returns
-    -------
-    str
-        HTML content as a string.
-
-    Raises
-    ------
-    TypeError
-        If `data` is not an instance of `Block` or `Report`.
-    NotImplementedError
-        If `data` is a `Report` object.
-
-    Notes
-    -----
-    - Plotly figures are fully supported in HTML output; interactive elements
-      are preserved.
-    - It is assumed that `Block().block_config.visualizations` contains a list
-      of figures wrapped as `VisualizationResult` instances. During `Block`
-      initialization, all figures are automatically normalized into
-      `VisualizationResult` objects, so downstream rendering or processing
-      functions can safely rely on a uniform interface.
-
-    Examples
-    --------
-    >>> from explorica import Block, BlockConfig
-    >>> from explorica.reports import render_html
-    >>> import matplotlib.pyplot as plt
-
-    # Minimal Block with Matplotlib visualization
-    >>> fig, ax = plt.subplots()
-    >>> ax.plot([1, 2, 3], [4, 5, 6])
-    >>> block_config = BlockConfig(
-    ...     title="Sample Block",
-    ...     description="A minimal example block",
-    ...     metrics=[{"name": "Metric 1", "value": 42}],
-    ...     visualizations=[fig]
-    ... )
-    # Single block
-    >>> html_output = render_html(block)
-    >>> print(html_output[:100])
-
-    # Report with multiple blocks
-    >>> report = Report(blocks=[block], title="My Report", description="Example report")
-    >>> html_output = render_html(report)
-    >>> print(html_output[:100])
-
-    # Optionally save to disk
-    >>> render_html(block, path="./reports", report_name="my_block")
-    """
-    if data.typename == "Block":
-        report = render_block_html(data)
-        if path is not None:
-            _save_html(report, path, report_name=report_name)
-        return report
-    if data.typename == "Report":
-        rendered_blocks = []
-        for block in data.blocks:
-            rendered_blocks.append(render_block_html(block))
-        if not rendered_blocks:
-            rendered_blocks = [_get_placeholder_html()]
-        header_html = ""
-        if data.title:
-            header_html += f"<h1>{data.title}</h1>\n"
-        if data.description:
-            header_html += f"<p>{data.description}</p>\n"
-        report = header_html + "\n".join(rendered_blocks)
-        if path is not None:
-            _save_html(report, path, report_name=report_name)
-        return report
-    raise TypeError("'data' must be Block or Report")
-
-
-def render_block_html(block) -> str:
-    """
-    Render a single Block object into an HTML string.
-
-    This function generates an HTML representation of a `Block` including
-    its title, description, metrics, and visualizations. Both Matplotlib and
-    Plotly figures are supported. Matplotlib figures are embedded as
-    base64-encoded PNG images, while Plotly figures preserve interactivity.
-
-    Parameters
-    ----------
-    block : Block
-        The block to render.
-    Returns
-    -------
-    str
-        HTML content as a string.
-
-    Notes
-    -----
-    - Plotly figures are rendered as interactive HTML components.
-    - Matplotlib figures are rasterized as PNG images and embedded inline
-      using base64 encoding.
-    - It is assumed that `block.block_config.visualizations` contains a list
-      of figures wrapped as `VisualizationResult` instances. During `Block`
-      initialization, all figures are automatically normalized into
-      `VisualizationResult` objects, so downstream rendering or processing
-      functions can safely rely on a uniform interface.
-
-    Examples
-    --------
-    >>> from explorica.core import Block, BlockConfig
-    >>> from explorica.reports.renderers import render_block_html
-    >>> import matplotlib.pyplot as plt
-    >>> import plotly.graph_objects as go
-
-    # Matplotlib example
-    >>> fig, ax = plt.subplots()
-    >>> ax.plot([1, 2, 3], [4, 5, 6])
-    >>> block_config = BlockConfig(
-    ...     title="Matplotlib Block",
-    ...     description="Block with a Matplotlib figure",
-    ...     metrics=[{"name": "Metric 1", "value": 42}],
-    ...     visualizations=[fig]
-    ... )
-    >>> block = Block(block_config)
-    >>> html_output = render_block_html(block)
-    >>> print(html_output[:100])  # Preview first 100 characters
-
-    # Plotly example
-    >>> fig = go.Figure(data=go.Bar(y=[2, 3, 1]))
-    >>> block_config = BlockConfig(
-    ...     title="Plotly Block",
-    ...     description="Block with a Plotly figure",
-    ...     metrics=[],
-    ...     visualizations=[fig]
-    ... )
-    >>> block = Block(block_config)
-    >>> html_output = render_block_html(block)
-    >>> print(html_output[:100])
-    """
-    html_parts = [f"<h2>{block.block_config.title}</h2>"]
-    html_parts.append(f"<p>{block.block_config.description}</p>")
-    # metrics
-    if block.block_config.metrics:
-        html_parts.append("<ul>")
-        for metric in block.block_config.metrics:
-            name = metric.get("name", "")
-            value = metric.get("value", "")
-            desc = metric.get("description", "")
-            html_parts.append(f"<li><b>{name}</b>: {value} <i>{desc}</i></li>")
-        html_parts.append("</ul>")
-
-    for fig in block.block_config.visualizations:
-        if isinstance(fig, plotly.graph_objects.Figure):
-            html_parts.append(pio.to_html(fig, include_plotlyjs="cdn", full_html=False))
-        if isinstance(fig, matplotlib.figure.Figure):
-            buf = BytesIO()
-            fig.savefig(buf, format="png", bbox_inches="tight")
-            buf.seek(0)
-            img_b64 = base64.b64encode(buf.read()).decode("utf-8")
-            html_parts.append(f'<img src="data:image/png;base64,{img_b64}"/>')
-            buf.close()
-    html_str = "\n".join(html_parts)
-    return html_str
-
-
-@enable_io_logs(logger)
-def _save_html(report, path, report_name="report"):
-    """
-    Save an HTML report to disk.
-
-    This is a low-level helper function responsible for writing an HTML
-    string to a file. It is primarily used internally by HTML renderers
-    and is not intended to be a public entry point.
-
-    Parameters
-    ----------
-    report : str
-        HTML content to save.
-    path : str or Path
-        Target directory or full path where the HTML file will be written.
-        - If a directory is provided, the file will be saved as
-          ``f"{report_name}.html"``.
-        - If a file path is provided, it must end with ``.html``.
-    report_name : str, default='report'
-        Base name to use for the output file when `path` is a directory.
-        This parameter is typically used for naming reports consistently
-        in logs, error messages.
-    """
-    path = Path(path)
-
-    if path.suffix == "":
-        path /= f"{report_name}.html"
-    elif path.suffix != ".html":
-        raise ValueError(
-            "'path' must contain a directory (a folder without ext) or have .html ext"
-        )
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(report)
-
-
-def _get_placeholder_html(
-    message: str = ("There are no render blocks in this report."),
-    reportlab_styles=None,
-):
-    if reportlab_styles is None:
-        reportlab_styles = getSampleStyleSheet()
-    return f"<p>{message}</p>"
 
 
 def _get_placeholder_pdf(

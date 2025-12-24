@@ -50,8 +50,6 @@ Notes
 - Interactive Plotly figures are supported only in HTML output.
   For PDF rendering, Plotly figures are replaced with standardized
   placeholders.
-- The `Report` abstraction is currently a placeholder and will be extended
-  to support aggregation and layout of multiple blocks.
 
 Examples
 --------

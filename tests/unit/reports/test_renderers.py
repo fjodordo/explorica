@@ -5,21 +5,215 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from reportlab.platypus import Image, Paragraph
 
-from explorica.reports.renderers import _save_pdf, _get_build_pdf, _preprocess_font
-from explorica.reports import render_block_pdf, BlockConfig, Block, render_pdf, Report
+from explorica.reports.renderers.pdf import (
+    _save_pdf,
+    _get_build_pdf,
+    _preprocess_font,
+    render_pdf)
+from explorica.reports.renderers.html import (
+    _save_html,
+    render_block_html,
+    _render_block_html_build_visualizations,
+    render_html)
+from explorica.reports import render_block_pdf, BlockConfig, Block, Report
 from explorica.types import VisualizationResult
 
-import pytest
+# -------------------------------
+# Consts and fixtures
+# -------------------------------
 
 @pytest.fixture
 def simple_block():
-    cfg = BlockConfig(title="Test Block")
-    return Block(cfg)
+    fig, ax = plt.subplots()
+    ax.plot([1, 2, 3], [4, 5, 6])
+
+    # Plotly figure
+    plotly_fig = go.Figure(data=go.Bar(y=[2, 3, 1]))
+
+    block_config = BlockConfig(
+        title="Test Block",
+        description="Block with Matplotlib and Plotly figures",
+        metrics=[{"name": "Metric A", "value": 42}],
+        visualizations=[fig, plotly_fig]
+    )
+
+    yield Block(block_config)
+    plt.close("all")
 
 @pytest.fixture
 def simple_report(simple_block):
     blocks = [simple_block, simple_block]
     return Report(blocks, title="Report Title", description="Report Desc")
+
+@pytest.fixture
+def empty_report():
+    return Report([], title="Report Title", description="Report without blocks")
+
+
+# -------------------------------
+# Tests for render_html
+# -------------------------------
+
+def test_render_html_invalid_type():
+    with pytest.raises(TypeError):
+        render_html(data=object())
+
+def test_render_html_empty_report_inserts_placeholder(empty_report):
+    html = render_html(empty_report)
+    assert "There are no render blocks in this report." in html
+
+# -------------------------------
+# Tests for render_block_html
+# -------------------------------
+
+def test_render_block_html_font_family(simple_block):
+    html_output = render_block_html(
+        simple_block,
+        add_css_style=True,
+        font=["Arial", "sans-serif"]
+    )
+    assert "font-family: Arial, sans-serif" in html_output
+
+def test_render_block_html_without_visualizations():
+    block_config = BlockConfig(
+        title="No Vis",
+        description="Block without visualizations",
+        metrics=[]
+    )
+    block = Block(block_config)
+
+    html_output = render_block_html(block)
+
+    assert '<div class="visualizations">' not in html_output
+
+def test_render_block_html_plotly_without_dimensions(simple_block):
+    # Plotly figure without explicit width/height
+    plotly_fig = go.Figure(data=go.Bar(y=[1, 2, 3]))
+
+    block_config = BlockConfig(
+        title="Plotly No Size",
+        description="Plotly without dimensions",
+        visualizations=[plotly_fig]
+    )
+    block = Block(block_config)
+
+    html_output = render_block_html(block)
+
+    assert isinstance(html_output, str)
+    assert "Plotly.newPlot" in html_output
+
+def test_render_block_html_mpl_scaling(simple_block):
+    html_small = render_block_html(simple_block, mpl_fig_scale=50.0)
+    html_large = render_block_html(simple_block, mpl_fig_scale=200.0)
+
+    # width/height must mismatch
+    assert html_small != html_large
+
+def test_render_block_html_contains_plotly_html(simple_block):
+    html_output = render_block_html(simple_block)
+    # Plotly always injects a script
+    assert "plotly.js" in html_output or "Plotly.newPlot" in html_output
+
+def test_render_block_html_contains_matplotlib_image(simple_block):
+    html_output = render_block_html(simple_block)
+    assert '<img src="data:image/png;base64,' in html_output
+    assert 'width="' in html_output
+    assert 'height="' in html_output
+
+def test_render_block_html_custom_css_names(simple_block):
+    html_output = render_block_html(
+        simple_block,
+        add_css_style=True,
+        block_name="custom-block",
+        vis_name_css="custom-vis"
+    )
+
+    assert '<div class=\'custom-block\'>' in html_output
+    assert '<div class="custom-vis">' in html_output
+
+    # CSS uses the same names
+    assert ".custom-block {" in html_output
+    assert ".custom-vis {" in html_output
+
+def test_render_block_html_without_css(simple_block):
+    html_output = render_block_html(simple_block, add_css_style=False)
+    assert "<style>" not in html_output
+    assert "</style>" not in html_output
+
+def test_render_block_html_smoke(simple_block):
+    html_output = render_block_html(simple_block, add_css_style=True)
+    # Check, that returned type is string
+    assert isinstance(html_output, str)
+    # Check, that header and description are enabled
+    assert "<h2>Test Block</h2>" in html_output
+    assert "<p>Block with Matplotlib and Plotly figures</p>" in html_output
+    # Check availability of visualiasations
+    assert '<div class="visualizations">' in html_output
+    # Check CSS wrap
+    assert "<style>" in html_output and "</style>" in html_output
+
+# -------------------------------
+# Tests for _render_block_html_build_visualizations
+# -------------------------------
+
+def test_render_visualizations_smoke(simple_block):
+    html_snippets = _render_block_html_build_visualizations(
+        simple_block, mpl_fig_scale=80.0, plotly_fig_scale=1.0, name_css="visualizations"
+    )
+    assert isinstance(html_snippets, list)
+    assert any('<div class="visualizations">' in s for s in html_snippets) or html_snippets[0].startswith('<div class="visualizations">')
+    joined_html = "\n".join(html_snippets)
+    assert "<img" in joined_html or "<iframe" in joined_html
+
+# -------------------------------
+# Tests for _save_html
+# -------------------------------
+
+def test_save_html_to_directory(tmp_path):
+    html_content = "<html><body><h1>Test</h1></body></html>"
+    _save_html(html_content, tmp_path, report_name="my_report")
+
+
+    # Check that file created with the correct filename
+    expected_file = tmp_path / "my_report.html"
+    assert expected_file.exists()
+
+    # Check content
+    content = expected_file.read_text(encoding="utf-8")
+    assert "<h1>Test</h1>" in content
+
+def test_save_html_to_file(tmp_path):
+    html_content = "<html><body><h1>File Test</h1></body></html>"
+    file_path = tmp_path / "custom.html"
+    _save_html(html_content, file_path)
+
+    assert file_path.exists()
+    content = file_path.read_text(encoding="utf-8")
+    assert "<h1>File Test</h1>" in content
+
+def test_save_html_overwrite(tmp_path):
+    html_content = "<html><body>Original</body></html>"
+    file_path = tmp_path / "overwrite.html"
+    file_path.write_text("<html>Old</html>", encoding="utf-8")
+
+    # If overwrite=True, overwriting will occur
+    _save_html(html_content, file_path, overwrite=True)
+    assert "Original" in file_path.read_text(encoding="utf-8")
+
+def test_save_html_no_overwrite(tmp_path):
+    html_content = "<html><body>New</body></html>"
+    file_path = tmp_path / "no_overwrite.html"
+    file_path.write_text("<html>Existing</html>", encoding="utf-8")
+
+    with pytest.raises(FileExistsError):
+        _save_html(html_content, file_path, overwrite=False)
+
+def test_save_html_invalid_extension(tmp_path):
+    html_content = "<html></html>"
+    bad_path = tmp_path / "not_html.txt"
+
+    with pytest.raises(ValueError):
+        _save_html(html_content, bad_path)
 
 # -------------------------------
 # Tests for render_pdf
@@ -33,13 +227,13 @@ def test_render_pdf_invalid_type(simple_block, simple_report):
 
 def test_render_pdf_block_calls(simple_block, mocker):
     # Mock helpers
-    mock_preprocess = mocker.patch("explorica.reports.renderers._preprocess_font",
+    mock_preprocess = mocker.patch("explorica.reports.renderers.pdf._preprocess_font",
                                    return_value=("DejaVuSans", {"Normal": None, "Heading1": None, "BodyText": None}))
-    mock_render_block = mocker.patch("explorica.reports.renderers.render_block_pdf",
+    mock_render_block = mocker.patch("explorica.reports.renderers.pdf.render_block_pdf",
                                      return_value=["mock_story"])
-    mock_get_pdf = mocker.patch("explorica.reports.renderers._get_build_pdf",
+    mock_get_pdf = mocker.patch("explorica.reports.renderers.pdf._get_build_pdf",
                                 return_value=b"pdf_bytes")
-    mock_save_pdf = mocker.patch("explorica.reports.renderers._save_pdf")
+    mock_save_pdf = mocker.patch("explorica.reports.renderers.pdf._save_pdf")
     pdf_bytes = render_pdf(simple_block,
                            path=None,
                            font="DejaVuSans", report_name="my_block")
@@ -54,11 +248,11 @@ def test_render_pdf_block_calls(simple_block, mocker):
     assert pdf_bytes == b"pdf_bytes"
 
 def test_render_pdf_report_params(simple_report, mocker):
-    mock_preprocess = mocker.patch("explorica.reports.renderers._preprocess_font",
+    mock_preprocess = mocker.patch("explorica.reports.renderers.pdf._preprocess_font",
                                    return_value=("DejaVuSans", {"Normal": None, "Heading1": None, "BodyText": None}))
-    mock_render_block = mocker.patch("explorica.reports.renderers.render_block_pdf",
+    mock_render_block = mocker.patch("explorica.reports.renderers.pdf.render_block_pdf",
                                      return_value=["block_story"])
-    mock_get_pdf = mocker.patch("explorica.reports.renderers._get_build_pdf",
+    mock_get_pdf = mocker.patch("explorica.reports.renderers.pdf._get_build_pdf",
                                 return_value=b"pdf_bytes")
 
     pdf_bytes = render_pdf(simple_report,
@@ -84,11 +278,11 @@ def test_render_pdf_report_params(simple_report, mocker):
     assert pdf_bytes == b"pdf_bytes"
 
 def test_render_pdf_logging(simple_block, mocker, caplog):
-    mocker.patch("explorica.reports.renderers._preprocess_font",
+    mocker.patch("explorica.reports.renderers.pdf._preprocess_font",
                                    return_value=("DejaVuSans", {"Normal": None, "Heading1": None, "BodyText": None}))
-    mocker.patch("explorica.reports.renderers.render_block_pdf",
+    mocker.patch("explorica.reports.renderers.pdf.render_block_pdf",
                                      return_value=["mock_story"])
-    mocker.patch("explorica.reports.renderers._get_build_pdf",
+    mocker.patch("explorica.reports.renderers.pdf._get_build_pdf",
                                 return_value=b"pdf_bytes")
 
     with caplog.at_level("INFO"):
@@ -158,8 +352,8 @@ def test_render_block_basic_metrics_and_description():
 
 def test_render_block_with_matplotlib_fig():
     """Matplotlib figure is converted to Flowable."""
+    fig, ax = plt.subplots()
     try:
-        fig, ax = plt.subplots()
         ax.plot([1, 2], [3, 4])
         vis = VisualizationResult(engine="matplotlib", figure=fig, width=6, height=4)
         
@@ -190,23 +384,26 @@ def test_render_block_with_plotly_fig_placeholder(monkeypatch):
 
 def test_render_block_mpl_figure_size():
     fig, ax = plt.subplots(figsize=(2, 1))  # 2x1 inches
-    vis = VisualizationResult(engine="matplotlib", figure=fig, width=2, height=1)
+    try:
+        vis = VisualizationResult(engine="matplotlib", figure=fig, width=2, height=1)
 
-    block_cfg = BlockConfig(
-        title="MPL Block",
-        description="Test MPL figure size",
-        metrics=[],
-        visualizations=[vis]
-    )
-    block = Block(block_cfg)
-    flowables = render_block_pdf(block, mpl_fig_scale=100.0)  # scale = 100
+        block_cfg = BlockConfig(
+            title="MPL Block",
+            description="Test MPL figure size",
+            metrics=[],
+            visualizations=[vis]
+        )
+        block = Block(block_cfg)
+        flowables = render_block_pdf(block, mpl_fig_scale=100.0)  # scale = 100
 
-    # Check that Image with the correct size exists
-    images = [f for f in flowables if isinstance(f, Image)]
-    assert len(images) == 1
-    img = images[0]
-    assert img._width == pytest.approx(200.0)  # 2 * 100
-    assert img._height == pytest.approx(100.0) # 1 * 100
+        # Check that Image with the correct size exists
+        images = [f for f in flowables if isinstance(f, Image)]
+        assert len(images) == 1
+        img = images[0]
+        assert img._width == pytest.approx(200.0)  # 2 * 100
+        assert img._height == pytest.approx(100.0) # 1 * 100
+    finally:
+        plt.close(fig)
 
 def test_render_block_plotly_figure_placeholder_size():
     fig = go.Figure(data=go.Bar(y=[1, 2, 3]))

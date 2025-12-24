@@ -4,12 +4,13 @@ from io import BytesIO
 
 from pypdf import PdfReader
 import pytest
+from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.figure
 
-from explorica.reports import BlockConfig, Block, Report, render_pdf
+from explorica.reports import BlockConfig, Block, Report, render_pdf, render_html
 
 
 # -------------------------------
@@ -92,6 +93,81 @@ def close_report_figures(report: Report):
                 plt.close(vis.figure)
 
 # -------------------------------
+# Tests for render_html
+# -------------------------------
+
+def test_render_html_example_based(tmp_path):
+    df = make_sample_dataframe()
+
+    blocks = [
+        Block(make_data_quality_block(df)),
+        Block(make_distribution_block(df)),
+        Block(make_variance_block(df)),
+    ]
+    report = Report(
+        blocks=blocks,
+        title="Customer Dataset EDA",
+        description="Exploratory data analysis for internal review."
+    )
+    try:
+        html_page = render_html(report, path=str(tmp_path), report_name="eda_report")
+
+        assert isinstance(html_page, str)
+        assert (tmp_path/"eda_report.html").exists()
+
+        # parse html
+        soup = BeautifulSoup(html_page, "html.parser")
+
+        # check report container
+        report_div = soup.find("div", class_="eda_report")
+        assert report_div is not None
+
+        # check header
+        h1 = report_div.find("h1")
+        assert h1.text == "Customer Dataset EDA"
+
+        # check description
+        p_desc = report_div.find("p")
+        assert "Exploratory data analysis" in p_desc.text
+
+        # check blocks
+        blocks_divs = report_div.find_all("div", class_=lambda c: c and "eda_report_block" in c)
+        assert len(blocks_divs) == 3
+
+        # check block titles and descriptions
+        expected_titles = ["Data Quality Overview", "Feature Distributions", "Variance Analysis"]
+        expected_descs = [
+            "High-level overview of dataset completeness.",
+            "Key numerical feature distributions.",
+            "Spread and stability of key metrics."
+        ]
+        for bdiv, title, desc in zip(blocks_divs, expected_titles, expected_descs):
+            h2 = bdiv.find("h2")
+            assert h2.text == title
+            p = bdiv.find("p")
+            assert desc in p.text
+
+        # check metrics
+        metrics_texts = ["Rows: 500", "Columns: 4", "Avg missing rate: 0.034",
+                        "Avg age: 41.0", "Median income: 78661.0",
+                        "Age std: 13.48", "Income std: 20857.46"]
+        full_text = soup.get_text()
+        for metric in metrics_texts:
+            assert metric in full_text
+
+        # check inline styles / font-family
+        style_tag = soup.find("style")
+        assert style_tag is not None
+        assert "font-family" in style_tag.text
+        assert "Arial" in style_tag.text  # default font_family
+
+        # check images/iframes
+        images = report_div.find_all(["img", "iframe"])
+        assert len(images) >= 3  # one visualization by Block (3 Blocks)
+    finally:
+        close_report_figures(report)
+
+# -------------------------------
 # Tests for render_pdf
 # -------------------------------
 
@@ -110,62 +186,62 @@ def test_render_pdf_example_based(tmp_path):
         title="Customer Dataset EDA",
         description="Exploratory data analysis for internal review."
     )
+    try:
+        pdf_bytes = render_pdf(report, path=str(tmp_path), report_name="eda_report")
 
-    pdf_bytes = render_pdf(report, path=Path(tmp_path), report_name="eda_report", mpl_fig_scale=50)
+        assert isinstance(pdf_bytes, bytes)
+        assert len(pdf_bytes) > 10_000
+        assert (tmp_path / "eda_report.pdf").exists()
 
-    assert isinstance(pdf_bytes, bytes)
-    assert len(pdf_bytes) > 10_000
-    assert (tmp_path / "eda_report.pdf").exists()
+        # Parse bytes build
 
-    # Parse bytes build
+        reader = PdfReader(BytesIO(pdf_bytes))
+        assert len(reader.pages) > 0  # pages exists
 
-    reader = PdfReader(BytesIO(pdf_bytes))
-    assert len(reader.pages) > 0  # pages exists
+        text_content = "\n".join([reader.pages[i].extract_text() for i in range(len(reader.pages))])
+        
+        # assert page width/height ratio (~1/sqrt(2) for A4)
 
-    text_content = "\n".join([reader.pages[i].extract_text() for i in range(len(reader.pages))])
-    
-    # assert page width/height ratio (~1/sqrt(2) for A4)
-
-    pagesizes = [page.mediabox for page in reader.pages]
-    for psize in pagesizes:
-        assert np.isclose(float(psize.width) / float(psize.height), 0.7070706878738762, atol=0.001)
+        pagesizes = [page.mediabox for page in reader.pages]
+        for psize in pagesizes:
+            assert np.isclose(float(psize.width) / float(psize.height), 0.7070706878738762, atol=0.001)
 
 
-    # assert headers
-    headers = ["Customer Dataset EDA",
-               "Data Quality Overview",
-               "Feature Distributions",
-               "Variance Analysis"]
-    for header in headers:
-        assert header in text_content
-    
-    # assert descriptions
-    descs = ["Exploratory data analysis for internal review",
-             "High-level overview of dataset completeness.",
-             "Key numerical feature distributions.",
-             "Spread and stability of key metrics."]
-    for desc in descs:
-        assert desc in text_content
+        # assert headers
+        headers = ["Customer Dataset EDA",
+                "Data Quality Overview",
+                "Feature Distributions",
+                "Variance Analysis"]
+        for header in headers:
+            assert header in text_content
+        
+        # assert descriptions
+        descs = ["Exploratory data analysis for internal review",
+                "High-level overview of dataset completeness.",
+                "Key numerical feature distributions.",
+                "Spread and stability of key metrics."]
+        for desc in descs:
+            assert desc in text_content
 
-    # assert metrics
-    metrics = ["Rows: 500",
-               "Columns: 4",
-               "Avg missing rate: 0.034",
-               "Avg age: 41.0",
-               "Median income: 78661.0",
-               "Age std: 13.48",
-               "Income std: 20857.46",]
-    for metric in metrics:
-        assert metric  in text_content
+        # assert metrics
+        metrics = ["Rows: 500",
+                "Columns: 4",
+                "Avg missing rate: 0.034",
+                "Avg age: 41.0",
+                "Median income: 78661.0",
+                "Age std: 13.48",
+                "Income std: 20857.46",]
+        for metric in metrics:
+            assert metric  in text_content
 
-    # assert images count
-    images = []
+        # assert images count
+        images = []
 
-    for page in reader.pages:
-        xobjects = page["/Resources"].get("/XObject", {})
-        for obj in xobjects.values():
-            if obj.get("/Subtype") == "/Image":
-                images.append(obj)
-    assert len(images) == 3
-
-    close_report_figures(report)
+        for page in reader.pages:
+            xobjects = page["/Resources"].get("/XObject", {})
+            for obj in xobjects.values():
+                if obj.get("/Subtype") == "/Image":
+                    images.append(obj)
+        assert len(images) == 3
+    finally:
+        close_report_figures(report)
