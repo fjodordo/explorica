@@ -33,7 +33,7 @@ Examples
 """
 
 from copy import deepcopy
-from typing import Any
+from typing import Any, Sequence
 from dataclasses import dataclass, is_dataclass, field
 
 import plotly.graph_objects
@@ -558,45 +558,76 @@ class Report:
         except IndexError as e:
             raise IndexError(f"No block at index {index}") from e
 
-    def render_html(self, path: str = None, report_name: str = "report") -> str:
+    def render_html(
+        self,
+        path: str = None,
+        font: str | Sequence[str] = (
+            "Arial",
+            "DejaVu Serif",
+            "DejaVu Sans",
+            "sans-serif",
+        ),
+        **kwargs,
+    ) -> str:
         """
         Render the report to HTML format.
 
-        This method provides full access to the current HTML rendering
-        functionality. It is a direct wrapper around the low-level
-        ``render_html`` function and supports all features currently
-        implemented for HTML output.
+        This method is a thin convenience wrapper around
+        :func:`explorica.reports.renderers.html.render_html` and exposes the same
+        rendering functionality directly on a ``Report`` instance.
+
+        All parameters are forwarded to the underlying renderer without
+        modification.
 
         Parameters
         ----------
         path : str, optional
-            Directory path or full file path where the HTML report should be saved.
-            - If a directory is provided, the report is saved as
-            ``f"{report_name}.html"`` inside that directory.
-            - If a full file path ending with ``.html`` is provided, the report
-            is saved to that exact location.
-            If None, the rendered HTML is returned as a string without saving.
-        report_name : str, default="report"
-            Base name used for the output file when `path` is a directory.
+            If provided, the HTML content will be saved to this location.
+            Can be a directory (in which case the file will be saved as
+            ``"{report_name}.html"``) or a full file path ending with ``.html``.
+        font : str or Sequence[str], optional
+            Font family or sequence of font families to be applied to textual
+            elements (title, description, metrics) in the report.
+            If a sequence is provided, the first available font installed on
+            the system will be used. Defaults to
+            ``("Arial", "DejaVu Serif", "DejaVu Sans", "sans-serif")``.
+        **kwargs : dict
+            Additional parameters passed through to the underlying
+            :func:`render_html` function. This includes, for example, `report_name`,
+            `max_width`, `mpl_fig_scale`, `plotly_fig_scale`, `verbose`, `debug`, etc.
 
         Returns
         -------
         str
-            Rendered HTML content as a string.
+            HTML content as a string.
 
         Notes
         -----
-        This method exposes the full capabilities of the HTML renderer.
-        Users can rely on this method to access all functionality currently
-        implemented in ``explorica.reports.renderers.render_html``.
+        - CSS is automatically applied for the report container and its blocks.
+        - Font-family is determined from the `font` argument and propagated to all
+        textual elements.
+        - Visualizations (Matplotlib and Plotly) are rendered according to the
+        scaling factors provided via `kwargs`.
+        - This method does not modify the underlying Report instance.
 
         Examples
         --------
-        >>> html = report.render_html()
-        >>> report.render_html(path="output/")
-        >>> report.render_html(path="output/my_report.html")
+        # Render HTML without saving
+        >>> report = Report(blocks=[block1, block2], title="My Report")
+        >>> html_content = report.render_html()
+
+        # Render and save to a directory (file name derived from `report_name`)
+        >>> report.render_html(path="./output", report_name="customer_report")
+
+        # Render and save to a full file path
+        >>> report.render_html(path="./output/my_report.html")
         """
-        return render_html(self, path, report_name=report_name)
+        params = {
+            "path": path,
+            "font": font,
+            **kwargs,
+        }
+        return render_html(self, **params)
 
     def render_pdf(
         self,
@@ -609,7 +640,7 @@ class Report:
         Render the report to PDF format.
 
         This method is a thin convenience wrapper around
-        :func:`explorica.reports.renderers.render_pdf` and exposes the same
+        :func:`explorica.reports.renderers.pdf.render_pdf` and exposes the same
         rendering functionality directly on a ``Report`` instance.
 
         All parameters are forwarded to the underlying renderer without
