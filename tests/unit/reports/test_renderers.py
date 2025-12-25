@@ -38,16 +38,20 @@ def simple_block():
     )
 
     yield Block(block_config)
-    plt.close("all")
+    plt.close(fig)
 
 @pytest.fixture
 def simple_report(simple_block):
     blocks = [simple_block, simple_block]
-    return Report(blocks, title="Report Title", description="Report Desc")
+    report = Report(blocks, title="Report Title", description="Report Desc")
+    yield report
+    report.close_figures()
 
 @pytest.fixture
 def empty_report():
-    return Report([], title="Report Title", description="Report without blocks")
+    report = Report([], title="Report Title", description="Report without blocks")
+    yield report
+    report.close_figures()
 
 
 # -------------------------------
