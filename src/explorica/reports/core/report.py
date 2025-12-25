@@ -1,234 +1,95 @@
 """
-Core module for Explorica reports.
+Report module of Explorica Reports
 
-This module contains the foundational classes for constructing and rendering
-report blocks (`Block`), managing block configuration (`BlockConfig`), and
-a placeholder for aggregated reports (`Report`).
+This module contains the `Report` class, which aggregates multiple
+`Block` instances into a single structured report and provides
+utilities for rendering, managing, and iterating over blocks.
 
 Classes
 -------
-BlockConfig
-    Dataclass for storing configuration of a report block, including title,
-    description, metrics, and visualizations.
-Block
-    Main class for a report block. Initializes with a `BlockConfig` and provides
-    rendering methods for HTML and PDF.
-Report
-    High-level container for aggregating multiple report blocks into a single
-    structured report, with utilities for composition and rendering.
+Report(blocks=None, title=None, description=None)
+    Aggregates multiple report blocks into a structured report,
+    supports rendering to HTML/PDF, block management, iteration,
+    and safe figure handling.
+
+Notes
+-----
+- Matplotlib figures contained in blocks are not automatically closed.
+  To free memory after processing or rendering, call `Report.close_figures()`.
+- Blocks passed to `Report` are deep-copied to ensure safety and avoid
+  unintended side-effects on external references.
+- For consistent behavior, ensure that all blocks contain properly
+  normalized visualizations (`VisualizationResult` instances).
 
 Examples
 --------
 >>> from explorica.reports import Block, BlockConfig
+>>> from explorica.reports.core import Report
+>>> import matplotlib.pyplot as plt
+>>> import plotly.graph_objects as go
 
->>> config = BlockConfig(
-...     title="Sample Block",
-...     description="Example block for demonstration",
-...     metrics=[{"name": "accuracy", "value": 0.95}],
-...     visualizations=[]
+# Create some figures
+>>> fig1, ax1 = plt.subplots()
+>>> ax1.plot([1, 2, 3], [4, 5, 6])
+>>> fig2, ax2 = plt.subplots()
+>>> ax2.plot([10, 20, 30], [3, 6, 9])
+>>> figly = go.Figure(data=go.Bar(y=[2, 3, 1]))
+
+# Initialize blocks with metrics and visualizations
+>>> block1_cfg = BlockConfig(
+...     title="Block 1",
+...     description="First block",
+...     metrics=[{"name": "Mean", "value": 5.0}],
+...     visualizations=[fig1, figly]
 ... )
->>> block = Block(config)
->>> html = block.render_block("html")
->>> pdf_bytes = block.render_block("pdf")
+>>> block2_cfg = BlockConfig(
+...     title="Block 2",
+...     description="Second block",
+...     metrics=[{"name": "Std", "value": 1.2}],
+...     visualizations=[fig2]
+... )
+>>> block1 = Block(block1_cfg)
+>>> block2 = Block(block2_cfg)
+
+# Create a report with initial block
+>>> report = Report(blocks=[block1], title="My Report", description="Example report")
+>>> len(report)
+1
+
+# Add another block in-place
+>>> report += block2
+>>> len(report)
+2
+
+# Insert a new metric into block1
+>>> block1.add_metric("Max", 10.0)
+
+# Iterate through blocks
+>>> for blk in report:
+...     print(blk.typename)
+Block
+Block
+
+# Render report (HTML/PDF)
+>>> report.render_html(path=None)
+>>> report.render_pdf(path=None)
+
+# Close Matplotlib figures safely
+>>> report.close_figures()
+>>> plt.close(fig)
+>>> plt.get_fignums()  # all report figures are closed
+[]
 """
 
 from copy import deepcopy
-from typing import Any, Sequence
-from dataclasses import dataclass, is_dataclass, field
+from typing import Sequence
 
-import plotly.graph_objects
+import matplotlib.pyplot as plt
 import matplotlib.figure
 
-from explorica.types import VisualizationResult
-from .utils import normalize_visualization
-from .renderers import render_pdf, render_html
-
-
-@dataclass
-class BlockConfig:
-    """
-    Configuration container for a single report block in Explorica.
-
-    This dataclass stores all information necessary to render a block in
-    a report. It includes metadata, metrics, and visualizations.
-
-    Attributes
-    ----------
-    title : str
-        The title of the block, displayed prominently in the report.
-    description : str
-        A textual description of the block, providing context or
-        explanation for the included metrics and visualizations.
-    metrics : list of dict
-        A list of metric dictionaries to display in the block. Each dictionary
-        can include keys such as:
-        - ``name`` : str, required — name of the metric
-        - ``value`` : Any, required — value of the metric
-        - ``description`` : str, optional — additional context
-    visualizations : list of Matplotlib or Plotly figures, or VisualizationResult
-        A list of visualizations associated with the block. Each element can be:
-        - ``matplotlib.figure.Figure`` — a Matplotlib figure
-        - ``plotly.graph_objects.Figure`` — a Plotly figure
-        - ``VisualizationResult`` — a pre-normalized visualization object
-        Figures provided as Matplotlib or Plotly objects are automatically
-        normalized into ``VisualizationResult`` when a `Block` instance
-        is created. Users may provide raw figures or already normalized
-        visualizations.
-
-    Notes
-    -----
-    - This class is primarily used internally by the `Block` class.
-    - The normalization of figures into `VisualizationResult` occurs
-      automatically during `Block` initialization; this ensures that
-      all visualizations are consistently formatted for rendering.
-
-    Examples
-    --------
-    >>> from matplotlib import pyplot as plt
-    >>> from plotly import graph_objects as go
-    >>> from explorica.reports import BlockConfig
-    >>> fig_mpl, ax = plt.subplots()
-    >>> fig_mpl.plot([1, 2, 3], [4, 5, 6])
-    >>> fig_plotly = go.Figure(data=go.Bar(y=[1, 2, 3]))
-    >>> config = BlockConfig(
-    ...     title="Example Block",
-    ...     description="This block shows example metrics and figures.",
-    ...     metrics=[{"name": "Mean", "value": 5.0}],
-    ...     visualizations=[fig_mpl, fig_plotly]
-    ... )
-    """
-
-    title: str = ""
-    description: str = ""
-    metrics: list[dict[str, Any]] = field(default_factory=list)
-    visualizations: list[
-        plotly.graph_objects.Figure | matplotlib.figure.Figure | VisualizationResult
-    ] = field(default_factory=list)
-
-
-class Block:
-    """
-    A container for a report block in Explorica.
-
-    This class wraps a `BlockConfig` dataclass and provides utilities
-    for rendering the block into HTML or PDF. During initialization,
-    all figures in `block_config.visualizations` are normalized into
-    `VisualizationResult` objects for uniform downstream processing.
-
-    Parameters
-    ----------
-    block_config : dict or BlockConfig
-        The configuration of the block. If a dictionary is provided,
-        it will be converted into a `BlockConfig` instance.
-
-    Attributes
-    ----------
-    block_config : BlockConfig
-        The configuration of the block including title, description,
-        metrics, and visualizations (normalized to `VisualizationResult`).
-    typename : str
-        The name of the class, always 'Block'. Useful for type-checking
-        without direct imports.
-
-    Methods
-    -------
-    render_block(format, path=None, report_name="report_block")
-        Render the block into the specified format ('html' or 'pdf').
-
-    Examples
-    --------
-    # Simple usage
-    >>> from explorica.reports import Block, BlockConfig
-    >>> import matplotlib.pyplot as plt
-    >>> import plotly.graph_objects as go
-
-    >>> # Get matplotlib figure
-    >>> fig, ax = plt.subplots()
-    >>> ax.plot([1, 2, 3], [4, 5, 6])
-
-    >>> # Get plotly figure
-    >>> figly = go.Figure(data=go.Bar(y=[2, 3, 1]))
-
-    >>> # Block config
-    >>> block_cfg = BlockConfig(
-    ...     title="Example Block",
-    ...     description="A minimal example of Block usage.",
-    ...     metrics=[{"name": "Mean", "value": 5.0}],
-    ...     visualizations=[fig, figly]
-    ... )
-
-    >>> # Block init
-    >>> block = Block(block_cfg)
-
-    >>> # Block render tp HTML
-    >>> html_output = block.render_block(format="html")
-    >>> print(type(html_output))
-    <class 'str'>
-
-    >>> # Block render to PDF (oprtional)
-    >>> # pdf_bytes = block.render_block(format="pdf")
-    >>> # print(type(pdf_bytes))
-    <class 'bytes'>
-    """
-
-    def __init__(self, block_config):
-        """
-        Initialize a Block instance and normalize its visualizations.
-        """
-        if isinstance(block_config, dict):
-            self.block_config = BlockConfig(**block_config)
-        elif is_dataclass(block_config):
-            self.block_config = block_config
-        else:
-            raise ValueError("'block_config' must be a dict or dataclass")
-
-        # Normalize visualizations
-        self.block_config.visualizations = [
-            normalize_visualization(vis) for vis in self.block_config.visualizations
-        ]
-
-    @property
-    def typename(self):
-        """
-        Return the class name.
-
-        Returns
-        -------
-        str
-            The name of the class ('Block').
-        """
-        return self.__class__.__name__
-
-    def render_block(
-        self, output_format: str, path: str = None, report_name="report_block"
-    ):
-        """
-        Render the block into HTML or PDF.
-
-        Parameters
-        ----------
-        output_format : str
-            The format to render. Must be 'html' or 'pdf'.
-        path : str, optional
-            Path to save the rendered output. If None, the output is returned.
-        report_name : str, default='report_block'
-            Name to use for the saved file (without extension).
-
-        Returns
-        -------
-        str or bytes
-            HTML string if `output_format='html'` or PDF bytes if `output_format='pdf'`.
-
-        Raises
-        ------
-        ValueError
-            If `output_format` is not 'html' or 'pdf'.
-        """
-        if output_format.lower() == "html":
-            return render_html(self, path, report_name=report_name)
-        if output_format.lower() == "pdf":
-            return render_pdf(self, path, report_name=report_name)
-        raise ValueError("'output_format' must be 'html' or 'pdf'.")
+from ..utils import normalize_visualization
+from ..renderers import render_pdf, render_html
+from .block import Block
 
 
 class Report:
@@ -266,7 +127,9 @@ class Report:
         Render the report to HTML format.
     render_pdf(path=None, doc_template_kws=None, report_name="report")
         Render the report to PDF format.
-    insert_block(block, index=-1)
+    close_figures()
+        Close all active Matplotlib figures stored in this report's blocks.
+    insert_block(block, index)
         Insert a block at the specified index in the report.
     remove_block(index)
         Remove a block at the specified index.
@@ -281,34 +144,79 @@ class Report:
     __iter__()
         Iterate over the blocks in the report.
 
+    Notes
+    -----
+    - All blocks passed to the constructor are deep-copied, ensuring that
+    modifications to blocks within the report do not affect external
+    references.
+    - Visualizations in each block are automatically normalized into
+    `VisualizationResult` objects.
+    - Matplotlib figures are not automatically closed. To free memory,
+    use `Report.close_figures()` or ensure that `Block` provides a method
+    to close its visualizations.
+
     Examples
     --------
-    # Create a report with a single block:
+    >>> from explorica.reports import Block, BlockConfig
+    >>> from explorica.reports.core import Report
+    >>> import matplotlib.pyplot as plt
+    >>> import plotly.graph_objects as go
+
+    # Create some figures
+    >>> fig1, ax1 = plt.subplots()
+    >>> ax1.plot([1, 2, 3], [4, 5, 6])
+
+    >>> fig2, ax2 = plt.subplots()
+    >>> ax2.plot([10, 20, 30], [3, 6, 9])
+
+    >>> figly = go.Figure(data=go.Bar(y=[2, 3, 1]))
+
+    # Initialize blocks with metrics and visualizations
+    >>> block1_cfg = BlockConfig(
+    ...     title="Block 1",
+    ...     description="First block",
+    ...     metrics=[{"name": "Mean", "value": 5.0}],
+    ...     visualizations=[fig1, figly]
+    ... )
+    >>> block2_cfg = BlockConfig(
+    ...     title="Block 2",
+    ...     description="Second block",
+    ...     metrics=[{"name": "Std", "value": 1.2}],
+    ...     visualizations=[fig2]
+    ... )
+
+    >>> block1 = Block(block1_cfg)
+    >>> block2 = Block(block2_cfg)
+
+    # Create a report with initial block
     >>> report = Report(
-    ...     blocks=[block1], title="My Report",
-    ...     description="Example report")
+    ...     blocks=[block1], title="My Report", description="Example report")
     >>> len(report)
     1
 
-    # Add another block in-place:
+    # Add another block in-place
     >>> report += block2
     >>> len(report)
     2
 
-    # Create a new report by combining reports/blocks:
-    >>> report2 = report + [block3, block4]
-    >>> len(report2)
-    4
-    >>> len(report)  # original report unchanged
-    2
+    # Insert a new metric into block1
+    >>> block1.add_metric("Max", 10.0)
 
-    # Iterate through blocks:
+    # Iterate through blocks
     >>> for blk in report:
     ...     print(blk.typename)
+    Block
+    Block
 
-    # Render report (HTML/PDF):
-    >>> report.render_report(output_format="html", path="output/")
-    >>> report.render_report(output_format="pdf")
+    # Render report (HTML/PDF)
+    >>> report.render_html(path=None)
+    >>> report.render_pdf(path=None)
+
+    # Close Matplotlib figures safely
+    >>> report.close_figures()
+    >>> plt.close(fig)
+    >>> plt.get_fignums()  # all report figures are closed
+    []
     """
 
     def __init__(
@@ -324,6 +232,9 @@ class Report:
         -----
         - All blocks are deep-copied to avoid side-effects from external references.
         - Visualizations inside each block are automatically normalized.
+        - Matplotlib figures are not automatically closed. To free memory,
+          use `Report.close_figures()` or ensure that `Block` provides a method
+          to close its visualizations.
         """
         self.blocks = []
         blocks_copy = deepcopy(blocks or [])
@@ -492,7 +403,7 @@ class Report:
         """
         return self.__class__.__name__
 
-    def insert_block(self, block, index=-1):
+    def insert_block(self, block: Block, index: int):
         """
         Insert a block at the specified position in the report.
 
@@ -504,25 +415,24 @@ class Report:
         block : Block
             The block to insert into the report.
         index : int, optional
-            Position at which to insert the block. Supports negative indexing
-            (default is -1, which appends at the end).
+            Position at which to insert the block. Supports negative indexing.
 
         Examples
         --------
-        # Append a block to the end of the report:
-        >>> report = Report(blocks=[block1])
-        >>> report.insert_block(block2)
-        >>> len(report.blocks)
-        2
-
         # Insert a block at the beginning:
-        >>> report.insert_block(block3, index=0)
-        >>> report.blocks[0] is block3
+        >>> report = Report(blocks=[block1])
+        >>> report.insert_block(block2, index=0)
+        >>> report.blocks[0] is block2
+        True
+
+        # Insert a block at the end (using len(report.blocks) as index):
+        >>> report.insert_block(block3, index=len(report.blocks))
+        >>> report.blocks[-1] is block3
         True
         """
         self.blocks.insert(index, block)
 
-    def remove_block(self, index: int):
+    def remove_block(self, index: int) -> Block:
         """
         Remove a block from the report at the specified index.
 
@@ -534,6 +444,11 @@ class Report:
         index : int
             Position of the block to remove. Negative values count from the end
             (e.g., -1 removes the last block).
+
+        Returns
+        -------
+        Block
+            The removed block instance.
 
         Raises
         ------
@@ -554,7 +469,7 @@ class Report:
         0
         """
         try:
-            self.blocks.pop(index)
+            return self.blocks.pop(index)
         except IndexError as e:
             raise IndexError(f"No block at index {index}") from e
 
@@ -600,6 +515,12 @@ class Report:
         -------
         str
             HTML content as a string.
+
+        See also
+        --------
+        explorica.reports.renderers.html.render_html
+            Entrypoint to render a `Block` or `Report`
+            object into an HTML representation.
 
         Notes
         -----
@@ -668,6 +589,12 @@ class Report:
         bytes
             Rendered PDF content as bytes.
 
+        See also
+        --------
+        explorica.reports.renderers.pdf.render_pdf
+            Entrypoint to render a `Block` or `Report`
+            object into an PDF representation.
+
         Notes
         -----
         This method exposes the full capabilities of the PDF renderer.
@@ -684,9 +611,36 @@ class Report:
         ... )
         """
         params = {
-            "path": path,
             "font": font,
+            "path": path,
             "doc_template_kws": doc_template_kws,
             **kwargs,
         }
         return render_pdf(self, **params)
+
+    def close_figures(self):
+        """
+        Close all active Matplotlib figures stored in this report's blocks.
+
+        This method iterates over all visualizations in all `Block` instances
+        contained within the report and closes any Matplotlib figures to free
+        up memory and resources.
+
+        Notes
+        -----
+        - Only Matplotlib figures are affected; Plotly figures or other visualization
+        objects are ignored.
+        - It is recommended to call this method once all processing or rendering
+        with the `Report` instance is finished, to avoid memory leaks from
+        lingering figure objects.
+
+        Examples
+        --------
+        >>> report = Report(blocks=[block1, block2])
+        >>> # ... generate visualizations and render report ...
+        >>> report.close_figures()  # safely close all Matplotlib figures
+        """
+        for block in self.blocks:
+            for vis in block.block_config.visualizations:
+                if isinstance(vis.figure, matplotlib.figure.Figure):
+                    plt.close(vis.figure)

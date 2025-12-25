@@ -86,11 +86,6 @@ def make_variance_block(df: pd.DataFrame) -> BlockConfig:
         visualizations=[fig],
     )
 
-def close_report_figures(report: Report):
-    for block in report:
-        for vis in block.block_config.visualizations:
-            if isinstance(vis.figure, matplotlib.figure.Figure):
-                plt.close(vis.figure)
 
 # -------------------------------
 # Tests for render_html
@@ -165,7 +160,7 @@ def test_render_html_example_based(tmp_path):
         images = report_div.find_all(["img", "iframe"])
         assert len(images) >= 3  # one visualization by Block (3 Blocks)
     finally:
-        close_report_figures(report)
+        report.close_figures()
 
 # -------------------------------
 # Tests for render_pdf
@@ -244,4 +239,4 @@ def test_render_pdf_example_based(tmp_path):
                     images.append(obj)
         assert len(images) == 3
     finally:
-        close_report_figures(report)
+        report.close_figures()
