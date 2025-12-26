@@ -18,6 +18,9 @@ NaturalNumber
     Type descriptor enabling `isinstance(x, NaturalNumber)` checks for
     positive integers (natural numbers). Used in parameter validation across
     plotting and preprocessing utilities.
+TableResult
+    Standardized container for tabular results in Explorica.
+
 
 Notes
 -----
@@ -54,8 +57,10 @@ False
 """
 
 from numbers import Number
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Union
+
+import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
@@ -248,3 +253,64 @@ class VisualizationResult:
     height: Optional[int] = None
     title: Optional[str] = None
     extra_info: dict = None
+
+
+@dataclass
+class TableResult:
+    """
+    Standardized container for tabular results in Explorica.
+
+    This class represents a structured tabular artifact produced during
+    exploratory data analysis (EDA), such as summary statistics, quality
+    diagnostics, or interaction analysis results.
+
+    At the current stage, `TableResult` serves as a lightweight wrapper
+    around a pandas DataFrame.
+
+    Parameters
+    ----------
+    table : pandas.DataFrame
+        Tabular data. The DataFrame is expected to use a flat structure:
+        no MultiIndex on rows and no MultiIndex on columns.
+    title : str, optional
+        Short human-readable title describing the table contents.
+    description : str, optional
+        Longer description providing context or interpretation
+        guidelines for the table.
+    render_extra : dict, optional
+        Optional dictionary controlling rendering behavior for this table.
+        Keys may include:
+        - ``show_index`` : bool, default True - whether to display the row index
+          in rendered output (HTML or PDF).
+        - ``show_header`` : bool, default True - whether to display column names.
+        - Any additional rendering hints may be added in the future.
+
+    Notes
+    -----
+    - `TableResult` is a passive data container and does not implement
+      analytical logic or rendering behavior.
+    - This class may be extended in the future to include additional
+      metadata (e.g., per-column annotations or semantic roles).
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from explorica.reports import TableResult
+
+    >>> df = pd.DataFrame({
+    ...     "feature": ["age", "income"],
+    ...     "mean": [35.2, 52000],
+    ...     "std": [8.1, 12000],
+    ... })
+
+    >>> table = TableResult(
+    ...     table=df,
+    ...     title="Feature Summary Statistics",
+    ...     description="Basic central tendency and dispersion measures."
+    ... )
+    """
+
+    table: pd.DataFrame
+    title: Optional[str] = None
+    description: Optional[str] = None
+    render_extra: Optional[dict] = field(default_factory=dict)

@@ -10,6 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.figure
 
+from explorica.types import TableResult
 from explorica.reports import BlockConfig, Block, Report, render_pdf, render_html
 
 
@@ -33,6 +34,35 @@ def make_sample_dataframe(n=500, seed=42):
 
     return df
 
+def make_data_overview_block(df: pd.DataFrame) -> BlockConfig:
+    # Prepare summary tables
+    central_tendency = df.describe().loc[["mean", "50%", "std"]].rename(index={"50%": "median"})
+    central_tendency_table = TableResult(
+        table=central_tendency,
+        title="Central Tendency",
+        description="Mean, median, and standard deviation per numerical feature."
+    )
+
+    value_ranges = df.describe().loc[["min", "max"]]
+    value_ranges_table = TableResult(
+        table=value_ranges,
+        title="Feature Ranges",
+        description="Minimum and maximum values per numerical feature."
+    )
+
+    block_cfg = BlockConfig(
+        title="Data Overview",
+        description="Summary tables of central tendency and ranges.",
+        tables=[central_tendency_table, value_ranges_table],
+        metrics=[
+            {"name": "Numeric features", "value": len(df.select_dtypes("number").columns)},
+            {"name": "Categorical features", "value": len(df.select_dtypes("object").columns)}
+        ],
+        visualizations=[]
+    )
+    return block_cfg
+
+
 def make_data_quality_block(df: pd.DataFrame) -> BlockConfig:
     missing_rate = df.isna().mean()
 
@@ -42,7 +72,7 @@ def make_data_quality_block(df: pd.DataFrame) -> BlockConfig:
     ax.set_ylabel("Share")
 
     return BlockConfig(
-        title="Data Quality Overview",
+        title="Data Quality",
         description="High-level overview of dataset completeness.",
         metrics=[
             {"name": "Rows", "value": len(df)},
@@ -95,6 +125,7 @@ def test_render_html_example_based(tmp_path):
     df = make_sample_dataframe()
 
     blocks = [
+        Block(make_data_overview_block(df)),
         Block(make_data_quality_block(df)),
         Block(make_distribution_block(df)),
         Block(make_variance_block(df)),
@@ -127,11 +158,12 @@ def test_render_html_example_based(tmp_path):
 
         # check blocks
         blocks_divs = report_div.find_all("div", class_=lambda c: c and "eda_report_block" in c)
-        assert len(blocks_divs) == 3
+        assert len(blocks_divs) == 4
 
         # check block titles and descriptions
-        expected_titles = ["Data Quality Overview", "Feature Distributions", "Variance Analysis"]
+        expected_titles = ["Data Overview", "Data Quality", "Feature Distributions", "Variance Analysis"]
         expected_descs = [
+            "Summary tables of central tendency and ranges.",
             "High-level overview of dataset completeness.",
             "Key numerical feature distributions.",
             "Spread and stability of key metrics."
@@ -158,7 +190,60 @@ def test_render_html_example_based(tmp_path):
 
         # check images/iframes
         images = report_div.find_all(["img", "iframe"])
-        assert len(images) >= 3  # one visualization by Block (3 Blocks)
+        assert len(images) >= 3
+
+       # check tables in Data Overview block
+        tables = blocks_divs[0].find_all("table", class_="explorica-dataframe")
+        assert len(tables) == 2  # 2 tables: Central Tendency и Feature Ranges
+
+        # table 1: Central Tendency
+        
+        # check columns
+        table1 = tables[0]
+        columns = [col.get_text(strip=True) for col in table1.find('thead').find_all('tr')[-1].find_all("th")]
+        expected_columns = ["age", "income", "tenure_months"]
+        for c in columns:
+            assert c in expected_columns or c == ""
+        
+        # check indices
+        rows1 = table1.find_all("tr")
+        expected_indices = ["", "mean", "median", "std"]
+
+        for ind, exp_ind in zip([row.find("th").get_text(strip=True) for row in rows1], expected_indices):
+            assert ind == exp_ind
+
+        # check rows
+        expected_rows1 = [["41.012658", "78676.672694", "59.214000"],
+                         ["41.000000", "78660.936542", "58.500000"],
+                         ["13.482110", "20857.456077", "34.597662"]]
+        for row, expected_row in zip(rows1[1:], expected_rows1):
+            cells = [td.text for td in row.find_all("td")]
+            for cell, exp in zip(cells, expected_row):
+                assert cell == exp
+
+        # table 2: Feature Ranges
+
+        # check columns
+        table2 = tables[1]
+        columns = [col.get_text(strip=True) for col in table2.find('thead').find_all('tr')[-1].find_all("th")]
+        expected_columns = ["age", "income", "tenure_months"]
+        for c in columns:
+            assert c in expected_columns or c == ""
+
+        # check indices
+        rows2 = table2.find_all("tr")
+        expected_indices = ["", "min", "max"]
+
+        for ind, exp_ind in zip([row.find("th").get_text(strip=True) for row in rows2], expected_indices):
+            assert ind == exp_ind
+        
+        # check rows
+        expected_rows2 = [["18.0", "20709.423243", "1.0"],
+                          ["64.0", "138101.343385", "119.0"]]
+        for row, expected_row in zip(rows2[1:], expected_rows2):
+            cells = [td.text for td in row.find_all("td")]
+            for cell, exp in zip(cells, expected_row):
+                assert cell == exp
     finally:
         report.close_figures()
 
@@ -171,6 +256,7 @@ def test_render_pdf_example_based(tmp_path):
     df = make_sample_dataframe()
 
     blocks = [
+        Block(make_data_overview_block(df)),
         Block(make_data_quality_block(df)),
         Block(make_distribution_block(df)),
         Block(make_variance_block(df)),
@@ -204,7 +290,7 @@ def test_render_pdf_example_based(tmp_path):
 
         # assert headers
         headers = ["Customer Dataset EDA",
-                "Data Quality Overview",
+                "Data Quality",
                 "Feature Distributions",
                 "Variance Analysis"]
         for header in headers:
@@ -238,5 +324,18 @@ def test_render_pdf_example_based(tmp_path):
                 if obj.get("/Subtype") == "/Image":
                     images.append(obj)
         assert len(images) == 3
+
+        # assert first block tables (Data Overview)
+        expected_table_texts = [
+            # Central Tendency
+            "mean\n41.0126582278481\n78676.67269442741\n59.214",
+            "median\n41.0\n78660.93654203598\n58.5",
+            "std\n13.482109675083448\n20857.456076924787\n34.59766177649585",
+            # Feature Ranges
+            "min\n18.0\n20709.423243166973\n1.0",
+            "max\n64.0\n138101.34338480813\n119.0"
+        ]
+        for txt in expected_table_texts:
+            assert txt in text_content
     finally:
         report.close_figures()

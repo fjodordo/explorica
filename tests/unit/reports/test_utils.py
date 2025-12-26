@@ -1,9 +1,13 @@
 import pytest
+import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-from explorica.reports import normalize_visualization
-from explorica.types import VisualizationResult
+from explorica.reports.utils import normalize_visualization, normalize_table
+from explorica.types import VisualizationResult, TableResult
 
+# -------------------------------
+# Tests for normalize_visualization
+# -------------------------------
 
 def test_normalize_matplotlib_figure():
     fig, ax = plt.subplots()
@@ -51,3 +55,45 @@ def test_result_attributes_exist():
             assert hasattr(result, attr)
     finally:
         plt.close(fig)
+
+# -------------------------------
+# Tests for normalize_table
+# -------------------------------
+
+def test_normalize_table_from_dict():
+    data = {"a": [1, 2], "b": [3, 4]}
+    result = normalize_table(data)
+    assert isinstance(result, TableResult)
+    assert isinstance(result.table, pd.DataFrame)
+    assert list(result.table.columns) == ["a", "b"]
+    assert result.table.shape == (2, 2)
+
+def test_normalize_table_from_list_of_lists():
+    data = [[1, 2], [3, 4]]
+    result = normalize_table(data)
+    assert isinstance(result, TableResult)
+    assert isinstance(result.table, pd.DataFrame)
+    assert result.table.shape == (2, 2)
+
+def test_normalize_table_from_1d_list():
+    data = [1, 2, 3]
+    result = normalize_table(data)
+    assert isinstance(result, TableResult)
+    assert isinstance(result.table, pd.DataFrame)
+    assert result.table.shape == (3, 1)
+
+def test_normalize_table_raises_on_multiindex_rows():
+    # Create a DataFrame with MultiIndex rows
+    index = pd.MultiIndex.from_tuples([("A", 1), ("B", 2)])
+    df = pd.DataFrame({"col1": [10, 20]}, index=index)
+
+    with pytest.raises(ValueError, match="MultiIndex in rows is not supported"):
+        normalize_table(df)
+
+def test_normalize_table_raises_on_multiindex_columns():
+    # Create a DataFrame with MultiIndex columns
+    columns = pd.MultiIndex.from_tuples([("A", "x"), ("B", "y")])
+    df = pd.DataFrame([[1, 2]], columns=columns)
+
+    with pytest.raises(ValueError, match="MultiIndex in columns is not supported"):
+        normalize_table(df)

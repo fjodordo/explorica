@@ -9,9 +9,11 @@ or further processing.
 
 Functions
 ---------
-normalize_visualization
+normalize_visualization(figure)
     Convert a Matplotlib or Plotly figure into a standardized
     `VisualizationResult` dataclass with extracted metadata.
+normalize_table(data)
+    Normalize tabular data into a standardized TableResult object.
 
 Examples
 --------
@@ -37,12 +39,14 @@ Examples
 (800, 600)  # default if not specified in layout
 """
 
-from typing import Union
+from typing import Union, Sequence, Any, Mapping
 
+import pandas as pd
 import matplotlib.figure
 import plotly.graph_objects
 
-from explorica.types import VisualizationResult
+from .._utils import convert_dataframe
+from ..types import VisualizationResult, TableResult
 
 
 def normalize_visualization(
@@ -137,3 +141,56 @@ def normalize_visualization(
             f"'plotly.graph_objects.Figure', or 'VisualizationResult'."
         )
     return vis_result
+
+
+def normalize_table(
+    data: (
+        Sequence[float]
+        | Sequence[Sequence[float]]
+        | Mapping[str, Sequence[Any]]
+        | TableResult
+    ),
+) -> TableResult:
+    """
+    Normalize tabular data into a standardized TableResult object.
+
+    This function converts input data of various formats (1D/2D sequences, mappings
+    or `TableResult`) into a `TableResult` instance containing a Pandas DataFrame.
+    This ensures consistent handling of tabular results across Explorica reports.
+
+    Parameters
+    ----------
+    data : Sequence, Mapping or TableResult
+        Tabular data to normalize. Supported types include:
+        - 1D or 2D sequences (e.g., list, tuple of lists)
+        - Mapping[str, Sequence] (e.g., dict of column_name -> values)
+        MultiIndex rows or columns are not supported.
+
+    Returns
+    -------
+    TableResult
+        A standardized container wrapping a Pandas DataFrame.
+
+    Raises
+    ------
+    ValueError
+        If the input DataFrame has a MultiIndex in rows or columns.
+
+    Examples
+    --------
+    >>> data = {"col1": [1, 2, 3], "col2": [4, 5, 6]}
+    >>> table_result = normalize_table(data)
+    >>> isinstance(table_result, TableResult)
+    True
+    >>> table_result.table.shape
+    (3, 2)
+    """
+    if isinstance(data, TableResult):
+        return data
+    df = convert_dataframe(data)
+    if isinstance(df.index, pd.MultiIndex):
+        raise ValueError("MultiIndex in rows is not supported in normalize_table.")
+    if isinstance(df.columns, pd.MultiIndex):
+        raise ValueError("MultiIndex in columns is not supported in normalize_table.")
+
+    return TableResult(table=df)

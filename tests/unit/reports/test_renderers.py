@@ -1,9 +1,10 @@
 import pytest
 from pathlib import Path
 
+import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-from reportlab.platypus import Image, Paragraph
+from reportlab.platypus import Image, Paragraph, Table
 
 from explorica.reports.renderers.pdf import (
     _save_pdf,
@@ -14,9 +15,41 @@ from explorica.reports.renderers.html import (
     _save_html,
     render_block_html,
     _render_block_html_build_visualizations,
+    _render_block_html_build_tables,
     render_html)
 from explorica.reports import render_block_pdf, BlockConfig, Block, Report
-from explorica.types import VisualizationResult
+from explorica.types import VisualizationResult, TableResult
+
+
+# -------------------------------
+# Helpers
+# -------------------------------
+
+def make_block_with_tables() -> Block:
+    df1 = pd.DataFrame({
+        "age": [41.0, 41.0, 13.48],
+        "income": [78661.0, 78661.0, 20857.46],
+        "tenure_months": [59, 58.5, 34.6]
+    })
+    df2 = pd.DataFrame({
+        "feature": ["age", "income"],
+        "mean": [35.2, 52000],
+        "std": [8.1, 12000]
+    })
+
+    table1 = TableResult(table=df1, title="Central Tendency", description="Summary stats")
+    table2 = TableResult(table=df2, title="Feature Ranges", description="Ranges per feature")
+
+    block_cfg = BlockConfig(
+        title="Block with Tables",
+        description="Block description",
+        metrics=[],
+        visualizations=[],
+        tables=[table1, table2]
+    )
+
+    return Block(block_cfg)
+
 
 # -------------------------------
 # Consts and fixtures
@@ -129,7 +162,7 @@ def test_render_block_html_custom_css_names(simple_block):
         simple_block,
         add_css_style=True,
         block_name="custom-block",
-        vis_name_css="custom-vis"
+        vis_container_class="custom-vis"
     )
 
     assert '<div class=\'custom-block\'>' in html_output
@@ -152,9 +185,42 @@ def test_render_block_html_smoke(simple_block):
     assert "<h2>Test Block</h2>" in html_output
     assert "<p>Block with Matplotlib and Plotly figures</p>" in html_output
     # Check availability of visualiasations
-    assert '<div class="visualizations">' in html_output
+    assert '<div class="explorica-visualizations">' in html_output
     # Check CSS wrap
     assert "<style>" in html_output and "</style>" in html_output
+
+def test_render_block_html_tables(simple_block):
+    tr = TableResult(table=pd.DataFrame({"A_column": [1, 2, 3], "B_column": [2, 4, 6]}), title="Table title",
+                     description="Table description")
+    simple_block.add_table(tr)
+    html_output = render_block_html(simple_block)
+    assert "<div class='explorica-tables'>" in html_output
+    for table in simple_block.block_config.tables:
+        if table.title:
+            assert table.title in html_output
+        if table.description:
+            assert table.description in html_output
+        # Check that df content also included in the HTML
+        for col in table.table.columns:
+            assert str(col) in html_output
+    
+def test_table_render_extra_flags_affect_html():
+
+    # Make block with one table
+    df = pd.DataFrame({"A_column": [1, 2], "B_column": [3, 4]}, index=["my_index_1", "my_index_2"])
+    block = Block()
+    block.add_table(df, title="Test Table")
+
+    # Change params of table rendering
+    tr = block.block_config.tables[0]
+    tr.render_extra = {"show_index": False, "show_columns": True}
+
+    # Render block to HTML
+    html_str = render_block_html(block)
+
+    assert "my_index_1" not in html_str and "my_index_2" not in html_str
+    assert "A_column" in html_str and "B_column" in html_str
+    assert "Test Table" in html_str
 
 # -------------------------------
 # Tests for _render_block_html_build_visualizations
@@ -168,6 +234,30 @@ def test_render_visualizations_smoke(simple_block):
     assert any('<div class="visualizations">' in s for s in html_snippets) or html_snippets[0].startswith('<div class="visualizations">')
     joined_html = "\n".join(html_snippets)
     assert "<img" in joined_html or "<iframe" in joined_html
+
+# -------------------------------
+# Tests for _render_block_html_build_tables
+# -------------------------------
+
+def test_render_tables_smoke(simple_block):
+    """
+    Smoke test for _render_block_html_build_tables.
+    Ensures that HTML fragments are generated and basic tags are present.
+    """
+    tr = TableResult(table=pd.DataFrame({"A_column": [1, 2, 3], "B_column": [2, 4, 6]}), title="Table title",
+                     description="Table description")
+    simple_block.add_table(tr)
+    html_snippets = _render_block_html_build_tables(
+        simple_block, container_class="explorica-tables"
+    )
+    assert isinstance(html_snippets, list)
+    # Check that the container div is present
+    assert any('<div class="explorica-tables">' in s for s in html_snippets) or html_snippets[0].startswith("<div class='explorica-tables'>")
+    # Check that the DataFrame HTML table is present
+    joined_html = "\n".join(html_snippets)
+    assert "<table" in joined_html
+    # Check for title or description tags
+    assert "<h4>" in joined_html or '<i class="explorica-table-description">' in joined_html
 
 # -------------------------------
 # Tests for _save_html
@@ -420,7 +510,7 @@ def test_render_block_plotly_figure_placeholder_size():
         visualizations=[vis]
     )
     block = Block(block_cfg)
-    flowables = render_block_pdf(block, plotly_fig_scale=10.0)  # тестовый scale
+    flowables = render_block_pdf(block, plotly_fig_scale=10.0)  # test scale
 
     images = [f for f in flowables if isinstance(f, Image)]
     assert len(images) == 1
@@ -428,6 +518,55 @@ def test_render_block_plotly_figure_placeholder_size():
     # Check, that size match scale
     assert img._width == pytest.approx(50.0)  # 5 * 10
     assert img._height == pytest.approx(30.0) # 3 * 10
+
+
+def test_render_block_pdf_returns_flowables_with_tables():
+    block = make_block_with_tables()
+    flowables = render_block_pdf(block)
+
+    # Check that a list Flowables is returned
+    assert isinstance(flowables, list)
+    assert all(hasattr(f, "__class__") for f in flowables)
+
+    # Check that block header has a Paragraph
+    assert any(isinstance(f, Paragraph) and "Block with Tables" in f.getPlainText() for f in flowables)
+
+    table_flowables = [f for f in flowables if isinstance(f, Table)]
+    assert len(table_flowables) == 2
+
+    # Check that table headers are inserted as Paragraph in front of tables
+    paragraph_texts = [f.getPlainText() for f in flowables if isinstance(f, Paragraph)]
+    assert "Central Tendency" in paragraph_texts
+    assert "Feature Ranges" in paragraph_texts
+
+
+def test_render_block_pdf_tables_respect_render_extra_flags():
+    df = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
+    table = TableResult(table=df, title="Test Table", render_extra={"show_index": False, "show_columns": True})
+
+    block_cfg = BlockConfig(
+        title="Block with Flags",
+        tables=[table]
+    )
+    block = Block(block_cfg)
+    flowables = render_block_pdf(block)
+
+    # Find Table Flowable
+    table_flowables = [f for f in flowables if isinstance(f, Table)]
+    assert len(table_flowables) == 1
+    rl_table = table_flowables[0]
+
+    # Header must not include index
+    data = rl_table._cellvalues  # acces to table cells
+    header_row = data[0]
+    # First element must not be empty, because show_index=False
+    assert header_row[0] == "A"
+    assert header_row[1] == "B"
+
+    # Table body
+    assert data[1] == ["1", "3"]
+    assert data[2] == ["2", "4"]
+
 
 # -------------------------------
 # Tests for _save_pdf
