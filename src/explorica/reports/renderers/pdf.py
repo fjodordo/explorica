@@ -74,11 +74,19 @@ from io import BytesIO
 import logging
 
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Flowable
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Flowable,
+    Table,
+    TableStyle,
+)
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Image
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib import colors
 
 
 from explorica._utils import (
@@ -89,7 +97,7 @@ from explorica._utils import (
     convert_filepath,
 )
 from explorica.visualizations._utils import get_empty_plot
-from explorica.types import VisualizationResult
+from ...types import VisualizationResult, TableResult
 from ..utils import normalize_visualization
 
 logger = logging.getLogger(__name__)
@@ -403,6 +411,8 @@ def _preprocess_font(font: str):
     reportlab_styles["Heading1"].fontName = font
     reportlab_styles["Heading2"].fontName = font
     reportlab_styles["Heading3"].fontName = font
+    reportlab_styles["Heading4"].fontName = font
+    reportlab_styles["Italic"].fontName = font
     return font, reportlab_styles
 
 
@@ -480,8 +490,9 @@ def render_block_pdf(
     story = []
 
     # title
-    story.append(Paragraph(block.block_config.title, reportlab_styles["Heading2"]))
-    story.append(Spacer(1, 12))
+    if block.block_config.title is not None:
+        story.append(Paragraph(block.block_config.title, reportlab_styles["Heading2"]))
+        story.append(Spacer(1, 12))
 
     # description
     if block.block_config.description:
@@ -506,6 +517,16 @@ def render_block_pdf(
 
     if log_counter > 0:
         logger.debug("Added %d metrics to '%s'.", log_counter, block_name)
+
+    # tables
+    story.extend(
+        _render_block_pdf_build_tables(
+            block.block_config.tables,
+            reportlab_styles=reportlab_styles,
+            block_name=block_name,
+        )
+    )
+
     # visualizations
     story.extend(
         _render_block_pdf_build_visualizations(
@@ -515,6 +536,110 @@ def render_block_pdf(
             block_name=block_name,
         )
     )
+    return story
+
+
+def _render_block_pdf_build_tables(
+    tables: list[TableResult],
+    reportlab_styles=None,
+    block_name: str = "block",
+) -> list[Flowable]:
+    """
+    Convert TableResult objects into ReportLab Flowables.
+
+    Parameters
+    ----------
+    tables : list[TableResult]
+        List of tables to render.
+    reportlab_styles : dict or None, optional
+        Predefined ReportLab styles to use for rendering. If None, default
+        styles from `getSampleStyleSheet()` are used.
+    block_name : str, default='block'
+        Block identifier used for logging.
+
+    Returns
+    -------
+    list[Flowable]
+        List of Platypus Flowables representing tables.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from reportlab.platypus import SimpleDocTemplate
+    >>> df = pd.DataFrame(
+    ...     {"age": [41.0, 42.0], "income": [78000.0, 82000.0]},
+    ...     index=["mean", "median"],
+    ... )
+    >>> tr = TableResult(
+    ...     table=df,
+    ...     title="Central Tendency",
+    ...     description="Summary statistics for numeric features.",
+    ...     render_extra={"show_index": True, "show_columns": True},
+    ... )
+    >>> story = _render_block_pdf_build_tables([tr])
+    >>> doc = SimpleDocTemplate("example.pdf")
+    >>> doc.build(story)
+    """
+    story: list[Flowable] = []
+
+    if reportlab_styles is None:
+        reportlab_styles = getSampleStyleSheet()
+    log_counter = 0
+
+    for tr in tables:
+        # --- title ---
+        if tr.title:
+            story.append(Paragraph(tr.title, reportlab_styles["Heading4"]))
+            story.append(Spacer(1, 6))
+
+        # --- description ---
+        if tr.description:
+            story.append(Paragraph(tr.description, reportlab_styles["Italic"]))
+            story.append(Spacer(1, 6))
+
+        df = tr.table
+        show_index = (tr.render_extra or {}).get("show_index", True)
+        show_columns = (tr.render_extra or {}).get("show_columns", True)
+
+        table_data = []
+
+        # --- header row ---
+        if show_columns:
+            indeces = []
+            if show_index:
+                indeces.append("")  # top-left empty cell
+            indeces.extend(map(str, df.columns))
+            table_data.append(indeces)
+
+        # --- body ---
+        for idx, row in df.iterrows():
+            indeces = []
+            if show_index:
+                indeces.append(str(idx))
+            indeces.extend(map(str, row.values))
+            table_data.append(indeces)
+
+        rl_table = Table(table_data, repeatRows=(1 if show_columns else 0))
+        styles = [
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("ALIGN", ((1 if show_index else 0), 1), (-1, -1), "RIGHT"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ]
+        if show_columns:
+            styles.append(("BACKGROUND", (0, 0), (-1, 0), colors.whitesmoke))
+            styles.append(
+                ("TOPPADDING", (0, 0), (-1, 0), 6),
+            )
+            styles.append(("BOTTOMPADDING", (0, 0), (-1, 0), 6))
+        rl_table.setStyle(TableStyle(styles))
+
+        story.append(rl_table)
+        story.append(Spacer(1, 12))
+        log_counter += 1
+
+    if log_counter:
+        logger.debug("Added %d tables to '%s'", log_counter, block_name)
+
     return story
 
 

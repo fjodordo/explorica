@@ -73,14 +73,14 @@ Examples
 <class 'bytes'>
 """
 
-from typing import Any, Sequence, Hashable
+from typing import Any, Sequence, Hashable, Mapping
 from dataclasses import dataclass, field
 
 import plotly.graph_objects
 import matplotlib.figure
 
-from explorica.types import VisualizationResult
-from ..utils import normalize_visualization
+from ...types import VisualizationResult, TableResult
+from ..utils import normalize_visualization, normalize_table
 from ..renderers import render_pdf, render_html
 
 
@@ -114,13 +114,29 @@ class BlockConfig:
         normalized into ``VisualizationResult`` when a `Block` instance
         is created. Users may provide raw figures or already normalized
         visualizations.
+    tables : list of array-like, mapping, or TableResult
+        A list of tabular results associated with the block. Each element can be:
+        - a 1D or 2D sequence (e.g., list of lists, tuple of tuples)
+        - a mapping (e.g., dict-like structure)
+        - ``TableResult`` - a pre-normalized tabular container
+
+        Array-like or mapping inputs are automatically normalized into
+        ``TableResult`` when a `Block` instance is created. Users may provide
+        raw tabular data or already normalized table objects.
+
+        If a ``TableResult`` is provided, its ``title`` and ``description``
+        attributes are used during rendering to label and describe the table
+        in the report output.
 
     Notes
     -----
     - This class is primarily used internally by the `Block` class.
-    - The normalization of figures into `VisualizationResult` occurs
-      automatically during `Block` initialization; this ensures that
-      all visualizations are consistently formatted for rendering.
+    - Normalization of figures into ``VisualizationResult`` and tabular data
+      into ``TableResult`` occurs automatically during `Block` initialization.
+      This ensures that all visual and tabular content is consistently
+      formatted for rendering.
+    - ``BlockConfig`` itself does not perform validation or normalization;
+      this responsibility belongs to the `Block` class.
 
     Examples
     --------
@@ -143,6 +159,9 @@ class BlockConfig:
     metrics: list[dict[str, Any]] = field(default_factory=list)
     visualizations: list[
         plotly.graph_objects.Figure | matplotlib.figure.Figure | VisualizationResult
+    ] = field(default_factory=list)
+    tables: list[
+        Sequence[Sequence[Any]] | Mapping[str, Sequence[Any]] | TableResult
     ] = field(default_factory=list)
 
 
@@ -185,6 +204,12 @@ class Block:
         Insert a scalar metric into the block at a given position.
     remove_metric(index)
         Remove a metric from the block at a given index.
+    add_table(table, title = None, description = None)
+        Add a table to the block.
+    insert_table(index, table, title = None, description = None)
+        Insert a table into the block at a given position.
+    remove_table(index)
+        Remove and return a table from the block by index.
     render_pdf(path = None, font = "DejaVuSans", doc_template_kws = None, **kwargs)
         Render the block to PDF format.
     render_html(
@@ -200,11 +225,13 @@ class Block:
     Notes
     -----
     - During initialization, all figures in `block_config.visualizations`
-    are normalized into `VisualizationResult` objects via
-    `normalize_visualization`. This ensures consistent handling
-    for rendering in HTML or PDF.
-    - `block_config.visualizations` can be empty or None; in that case,
-    it is initialized as an empty list.
+    are normalized into `VisualizationResult` objects via `normalize_visualization`.
+    - All tables in `block_config.tables` are normalized into `TableResult`
+    objects via `normalize_table`.
+    - This ensures consistent handling for rendering in HTML or PDF and
+    standardized table representation.
+    - `block_config.visualizations` and `block_config.tables` can be empty or None;
+    in that case, they are initialized as empty lists.
 
     Examples
     --------
@@ -275,6 +302,11 @@ class Block:
         self.block_config.visualizations = [
             normalize_visualization(vis)
             for vis in self.block_config.visualizations or []
+        ]
+
+        # Normalize tables
+        self.block_config.tables = [
+            normalize_table(table) for table in self.block_config.tables or []
         ]
 
     @property
@@ -475,10 +507,6 @@ class Block:
                 f"got {type(metric['description']).__name__}"
             )
         # Value validation
-        if isinstance(metric["value"], Sequence) and not isinstance(
-            metric["value"], (str, bytes)
-        ):
-            raise NotImplementedError("Number sequences are not supported yet")
         if not isinstance(metric["value"], Hashable):
             raise TypeError(
                 "Expected `value` to be hashable or None,"
@@ -504,8 +532,7 @@ class Block:
             (e.g. ``str``, ``int``, ``Enum``).
         value : Number
             Metric value. Can be any hashable scalar or sequence of hashable
-            scalars. Non-hashable types are not supported. Sequences must be
-            explicitly supported in the future.
+            scalars. Non-hashable types are not supported.
         description : Hashable, optional
             Optional metric description. Must be hashable and renderable
             as text if provided.
@@ -514,15 +541,11 @@ class Block:
         ------
         TypeError
             If ``name``, ``description`` or ``value`` are not hashable.
-        NotImplementedError
-            If ``value`` is a sequence (currently not supported).
 
         Notes
         -----
         - Metrics are stored internally as dictionaries with keys
         ``name``, ``value`` and ``description``.
-        - Support for vector or distribution-based metrics may be added
-        in future releases.
 
         Examples
         --------
@@ -557,7 +580,7 @@ class Block:
             (e.g. ``str``, ``int``, ``Enum``).
         value : Hashable or Sequence[Hashable]
             Metric value. Can be any hashable scalar or sequence of hashable
-            scalars. Sequences must be explicitly supported in the future.
+            scalars.
         description : Hashable, optional
             Optional metric description. Must be hashable and renderable
             as text if provided.
@@ -566,8 +589,6 @@ class Block:
         ------
         TypeError
             If ``name``, ``description`` or ``value`` are not hashable.
-        NotImplementedError
-            If ``value`` is a sequence (currently not supported).
 
         Notes
         -----
@@ -622,6 +643,133 @@ class Block:
         """
         try:
             return self.block_config.metrics.pop(index)
+        except IndexError as e:
+            raise IndexError(f"No metric at index {index}") from e
+
+    def add_table(
+        self,
+        table: Sequence[Any] | Mapping[str, Sequence],
+        title: str = None,
+        description: str = None,
+    ):
+        """
+        Add a table to the block.
+
+        The provided table data is normalized into a :class:`TableResult`
+        instance during insertion. Supported inputs include 1D/2D sequences
+        and mapping-like objects (e.g. dictionaries), which are internally
+        converted to a pandas DataFrame.
+
+        Parameters
+        ----------
+        table : Sequence[Any] or Mapping[str, Sequence]
+            Tabular data to add. Can be a 1D or 2D sequence, or a mapping of sequences.
+        title : str, optional
+            Optional table title. If `table` is already a `TableResult`,
+            this value will overwrite its existing `title`. Used during rendering.
+        description : str, optional
+            Optional table description. If `table` is already a `TableResult`,
+            this value will overwrite its existing `description`.
+            Used during rendering.
+
+        Notes
+        -----
+        - The input data is normalized and wrapped
+        into a :class:`TableResult`.
+        - MultiIndex or multi-column DataFrames are not supported and may
+        raise an error during normalization.
+
+        Examples
+        --------
+        >>> block.add_table(
+        ...     {"mean": [1.2], "std": [0.3]},
+        ...     title="Summary statistics"
+        ... )
+        """
+        tr = normalize_table(table)
+        if title is not None:
+            tr.title = title
+        if description is not None:
+            tr.description = description
+        self.block_config.tables.append(tr)
+
+    def insert_table(
+        self,
+        index: int,
+        table: Sequence[Any] | Mapping[str, Sequence],
+        title: str = None,
+        description: str = None,
+    ):
+        """
+        Insert a table into the block at a given position.
+
+        This method behaves like :meth:`add_table`, but allows explicit
+        control over the insertion index. Index handling follows standard
+        Python ``list.insert`` semantics.
+
+        Parameters
+        ----------
+        index : int
+            Position at which the table should be inserted.
+            Supports negative indices.
+        table : Sequence[Any] or Mapping[str, Sequence]
+            Tabular data to insert.
+            Can be a 1D or 2D sequence, or a mapping of sequences.
+        title : str, optional
+            Optional table title. If `table` is already a `TableResult`,
+            this value will overwrite its existing `title`. Used during rendering.
+        description : str, optional
+            Optional table description. If `table` is already a `TableResult`,
+            this value will overwrite its existing `description`.
+            Used during rendering.
+
+        Notes
+        -----
+        - The table is normalized into a :class:`TableResult` before insertion.
+        - Negative indices follow standard Python list behavior.
+
+        Examples
+        --------
+        >>> block.insert_table(
+        ...     0,
+        ...     [[1, 2], [3, 4]],
+        ...     title="Raw values"
+        ... )
+        """
+        tr = normalize_table(table)
+        if title is not None:
+            tr.title = title
+        if description is not None:
+            tr.description = description
+        self.block_config.tables.insert(index, tr)
+
+    def remove_table(self, index: int) -> TableResult:
+        """
+        Remove and return a table from the block by index.
+
+        Parameters
+        ----------
+        index : int
+            Position of the table to remove. Supports negative indexing.
+
+        Returns
+        -------
+        TableResult
+            The removed table.
+
+        Raises
+        ------
+        IndexError
+            If no table exists at the given index.
+
+        Examples
+        --------
+        >>> removed = block.remove_table(0)
+        >>> removed.title
+        'Summary statistics'
+        """
+        try:
+            return self.block_config.tables.pop(index)
         except IndexError as e:
             raise IndexError(f"No metric at index {index}") from e
 

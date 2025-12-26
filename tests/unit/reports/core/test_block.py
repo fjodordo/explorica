@@ -1,8 +1,9 @@
 import pytest
+import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from explorica.reports.core.block import Block, BlockConfig
-from explorica.types import VisualizationResult
+from explorica.types import VisualizationResult, TableResult
 
 
 # -------------------------------
@@ -51,6 +52,31 @@ def test_init_invalid_type_raises():
     with pytest.raises(ValueError):
         Block(block_config="string")  # str is invalid type
 
+def test_block_normalizes_visualizations_and_tables():
+    fig_mpl, ax = plt.subplots()
+    try:
+        ax.plot([1, 2, 3], [4, 5, 6])
+        fig_plotly = go.Figure(data=go.Bar(y=[1, 2, 3]))
+
+        table1 = [[1, 2], [3, 4]]
+        table2 = {"col1": [10, 20], "col2": [30, 40]}
+
+        block_cfg = BlockConfig(
+            title="Test Block",
+            visualizations=[fig_mpl, fig_plotly],
+            tables=[table1, table2],
+            metrics=[]
+        )
+
+        block = Block(block_cfg)
+
+        for vis in block.block_config.visualizations:
+            assert isinstance(vis, VisualizationResult)
+
+        for tbl in block.block_config.tables:
+            assert isinstance(tbl, TableResult)
+    finally:
+        plt.close(fig_mpl)
 
 # -------------------------------
 # Tests for Block.add_visualization
@@ -260,7 +286,7 @@ def test_insert_metric_inserts_at_index():
 def test_insert_metric_raises_for_invalid_value():
     block = Block()
 
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(TypeError):
         block.insert_metric(0, "bad", [1, 2, 3])
 
 # -------------------------------
@@ -294,6 +320,88 @@ def test_remove_metric_raises_index_error():
     block = Block()
     with pytest.raises(IndexError):
         block.remove_metric(0)
+
+# -------------------------------
+# Tests for Block.add_table
+# -------------------------------
+
+def test_block_add_table_normalizes_to_tableresult():
+    block = Block(BlockConfig())
+
+    data = {
+        "a": [1, 2, 3],
+        "b": [4, 5, 6],
+    }
+
+    block.add_table(
+        table=data,
+        title="Test table",
+        description="Some description",
+    )
+
+    assert len(block.block_config.tables) == 1
+
+    table = block.block_config.tables[0]
+    assert isinstance(table, TableResult)
+    assert isinstance(table.table, pd.DataFrame)
+
+    assert table.title == "Test table"
+    assert table.description == "Some description"
+
+    pd.testing.assert_frame_equal(
+        table.table,
+        pd.DataFrame(data),
+    )
+
+# -------------------------------
+# Tests for Block.insert_table
+# -------------------------------
+
+def test_block_insert_table_at_index():
+    block = Block(BlockConfig(tables=[{"x": [1, 2]}, {"y": [3, 4]}]))
+
+    insert_data = {"z": [10, 20]}
+
+    block.insert_table(
+        index=1,
+        table=insert_data,
+        title="Inserted",
+    )
+
+    assert len(block.block_config.tables) == 3
+
+    inserted = block.block_config.tables[1]
+    assert isinstance(inserted, TableResult)
+    assert inserted.title == "Inserted"
+
+    pd.testing.assert_frame_equal(
+        inserted.table,
+        pd.DataFrame(insert_data),
+    )
+
+# -------------------------------
+# Tests for Block.remove_table
+# -------------------------------
+
+def test_block_remove_table_by_index():
+    block = Block(BlockConfig(tables=[{"a": [1]}, {"b": [2]}]))
+
+    removed = block.remove_table(0)
+
+    assert isinstance(removed, TableResult)
+    assert len(block.block_config.tables) == 1
+
+    remaining = block.block_config.tables[0]
+    pd.testing.assert_frame_equal(
+        remaining.table,
+        pd.DataFrame({"b": [2]}),
+    )
+
+def test_block_remove_table_invalid_index_raises():
+    block = Block(BlockConfig())
+
+    with pytest.raises(IndexError, match="No metric at index"):
+        block.remove_table(0)
 
 # -------------------------------
 # Tests for Block.render_html

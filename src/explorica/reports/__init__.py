@@ -41,6 +41,8 @@ render_block_pdf(block, doc_template_kws)
 normalize_visualization(figure)
     Normalize Matplotlib and Plotly figures into a unified
     `VisualizationResult` representation.
+normalize_table(data)
+    Normalize tabular data into a standardized TableResult object.
 
 Notes
 -----
@@ -74,7 +76,7 @@ Examples
 """
 
 from .core import Block, BlockConfig, Report
-from .utils import normalize_visualization
+from .utils import normalize_visualization, normalize_table
 from .renderers import render_block_html, render_block_pdf, render_html, render_pdf
 
 __all__ = [
@@ -82,6 +84,7 @@ __all__ = [
     "BlockConfig",
     "Report",
     "normalize_visualization",
+    "normalize_table",
     "render_block_html",
     "render_block_pdf",
     "render_html",

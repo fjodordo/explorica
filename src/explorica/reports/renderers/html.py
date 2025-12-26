@@ -139,14 +139,14 @@ def render_html(
     overwrite : bool, default=True
         Controls whether an existing file at the target path can be overwritten.
         If False and the target file already exists, a `FileExistsError` is raised.
-    max_width : int, optional, default=800
+    max_width : int, default=800
         Maximum width of the outer container in pixels. Applied via the
         `max-width` CSS property.
-    mpl_fig_scale : float, optional, default=80.0
+    mpl_fig_scale : float, default=80.0
         Scaling factor for Matplotlib figures. The figure size in inches
         (`figure.width` and `figure.height`) is multiplied by this factor
         to determine pixel dimensions for the embedded PNG.
-    plotly_fig_scale : float, optional, default=1.0
+    plotly_fig_scale : float, default=1.0
         Scaling factor for Plotly figures. The figure size in pixels
         (`figure.layout.width` and `figure.layout.height`) is multiplied
         by this factor **only if both width and height are explicitly defined**.
@@ -156,10 +156,16 @@ def render_html(
     debug : bool, default=False
         Enables debug-level logging during the function execution.
         Takes precedence over the 'verbose' parameter.
-    vis_name_css : str, optional, default='visualizations'
+    vis_container_class : str, default='visualizations'
         CSS class name for the div wrapping the visualizations. This
         allows external CSS or higher-level wrappers to style all
         visualizations consistently.
+    tables_container_class : str, default='explorica-tables'
+        CSS class name applied to the <div> wrapping all tables in a block
+        or report. This allows users to apply consistent styling to tables,
+        for example scrollable containers, max-height constraints, or
+        custom CSS rules for all tables. Passed down to internal block
+        rendering functions.
     report_name : str, default='report'
         Base name used:
         - as the CSS class for the report container, and
@@ -222,7 +228,12 @@ def render_html(
     params = {
         "max_width": kwargs.get("max_width", 800),
         "report_name": kwargs.get("report_name", "report"),
-        "vis_name_css": kwargs.get("vis_name_css", "visualizations"),
+        "vis_container_class": kwargs.get(
+            "vis_container_class", "explorica-visualizations"
+        ),
+        "tables_container_class": kwargs.get(
+            "tables_container_class", "explorica-tables"
+        ),
         "mpl_fig_scale": kwargs.get("mpl_fig_scale", 100),
         "plotly_fig_scale": kwargs.get("plotly_fig_scale", 1),
         "debug": kwargs.get("debug", False),
@@ -241,14 +252,15 @@ def render_html(
         logger.info("Rendering '%s' in html", params["report_name"])
         # Render pipeline for a single Block
         if data.typename == "Block":
-            block_base_name = f"{params['report_name']}_block"
+            block_base_name = f"explorica-{params['report_name']}_block"
             report = render_block_html(
                 data,
                 add_css_style=True,
                 font=font_family,
                 block_name=block_base_name,
                 max_width=params["max_width"],
-                vis_name_css=params["vis_name_css"],
+                vis_container_class=params["vis_container_class"],
+                tables_container_class=params["tables_container_class"],
                 mpl_fig_scale=params["mpl_fig_scale"],
                 plotly_fig_scale=params["plotly_fig_scale"],
             )
@@ -257,7 +269,7 @@ def render_html(
             rendered_blocks = []
             # Make a report body
             for i, block in enumerate(data.blocks):
-                block_base_name = f"{params['report_name']}_block{i}"
+                block_base_name = f"explorica-{params['report_name']}_block-num{i}"
                 rendered_blocks.append(
                     render_block_html(
                         block,
@@ -265,7 +277,8 @@ def render_html(
                         font=font_family,
                         block_name=block_base_name,
                         max_width=params["max_width"],
-                        vis_name_css=params["vis_name_css"],
+                        vis_container_class=params["vis_container_class"],
+                        tables_container_class=params["tables_container_class"],
                         mpl_fig_scale=params["mpl_fig_scale"],
                         plotly_fig_scale=params["plotly_fig_scale"],
                     )
@@ -290,7 +303,8 @@ def render_html(
                 0,
                 _get_css_style(
                     report_class_name=params["report_name"],
-                    vis_class_name=params["vis_name_css"],
+                    vis_class_name=params["vis_container_class"],
+                    tables_class_name=params["tables_container_class"],
                     max_width=params["max_width"],
                     font_family=font_family,
                 ),
@@ -350,10 +364,14 @@ def render_block_html(
         CSS class name for the outer wrapper div of the block. Used both
         for styling and for logging purposes to identify the block in logs
         or debug output.
-    vis_name_css : str, optional, default='visualizations'
+    vis_container_class : str, optional, default='explorica-visualizations'
         CSS class name for the div wrapping the visualizations. This
         allows external CSS or higher-level wrappers to style all
         visualizations consistently.
+    tables_container_class : str, optional, default='explorica-tables'
+        CSS class name for the div wrapping all tables in the block. This
+        allows external CSS to style all tables consistently. It is passed
+        to the internal `_render_block_html_build_tables` function.
     mpl_fig_scale : float, optional, default=80.0
         Scaling factor for Matplotlib figures. The figure size in inches
         (`figure.width` and `figure.height`) is multiplied by this factor
@@ -374,7 +392,7 @@ def render_block_html(
     - Plotly figures retain interactivity; scaling is applied only if width and
       height are explicitly set.
     - Matplotlib figures are rasterized as PNG images and embedded inline.
-    - The visualization div uses the `vis_name_css` class, allowing external
+    - The visualization div uses the `vis_container_class` class, allowing external
       styling when multiple blocks are rendered together.
     - Images and iframes are styled with `object-fit: contain` to maintain
       aspect ratio while scaling.
@@ -400,14 +418,18 @@ def render_block_html(
     """
     params = {
         "max_width": 800,
-        "block_name": "block",
-        "vis_name_css": "visualizations",
+        "block_name": "explorica-block",
+        "vis_container_class": "explorica-visualizations",
+        "tables_container_class": "explorica-tables",
         "mpl_fig_scale": 80.0,
         "plotly_fig_scale": 1.0,
         **kwargs,
     }
-    html_parts = [f"<h2>{block.block_config.title}</h2>"]
-    html_parts.append(f"<p>{block.block_config.description}</p>")
+    html_parts = []
+    if block.block_config.title is not None:
+        html_parts.append(f"<h2>{block.block_config.title}</h2>")
+    if block.block_config.description is not None:
+        html_parts.append(f"<p>{block.block_config.description}</p>")
     # metrics
     if block.block_config.metrics:
         html_parts.append("<ul>")
@@ -418,13 +440,20 @@ def render_block_html(
             html_parts.append(f"<li><b>{name}</b>: {value} <i>{desc}</i></li>")
         html_parts.append("</ul>")
 
+    # tables
+    html_parts.extend(
+        _render_block_html_build_tables(
+            block, container_class=params["tables_container_class"]
+        )
+    )
+
     # visualizations
     html_parts.extend(
         _render_block_html_build_visualizations(
             block,
             mpl_fig_scale=params["mpl_fig_scale"],
             plotly_fig_scale=params["plotly_fig_scale"],
-            name_css=params["vis_name_css"],
+            name_css=params["vis_container_class"],
         )
     )
 
@@ -438,7 +467,8 @@ def render_block_html(
             0,
             _get_css_style(
                 report_class_name=params["block_name"],
-                vis_class_name=params["vis_name_css"],
+                vis_class_name=params["vis_container_class"],
+                tables_class_name=params["tables_container_class"],
                 max_width=params["max_width"],
                 font_family=font_family,
             ),
@@ -446,6 +476,77 @@ def render_block_html(
 
     html_str = "\n".join(html_parts)
     return html_str
+
+
+def _render_block_html_build_tables(
+    block, container_class: str = "explorica-tables"
+) -> list[str]:
+    """
+    Generate HTML fragments for all tables in a report block.
+
+    This function iterates over `TableResult` objects in `block.block_config.tables`
+    and converts each table into an HTML string, optionally including its title and
+    description. The resulting HTML fragments can then be inserted into the block's
+    overall HTML structure.
+
+    Parameters
+    ----------
+    block : Block
+        The report block containing tables to render.
+    container_class : str, default='explorica-tables'
+        CSS class to apply to the outer <div> wrapping all tables
+
+    Returns
+    -------
+    list[str]
+        A list of HTML string fragments representing the tables, titles,
+        and descriptions. Can be concatenated to form the full block content.
+
+    Notes
+    -----
+    - Each table is rendered using Pandas' `DataFrame.to_html()` method.
+    - `TableResult.render_extra` can contain optional rendering settings:
+        - `show_index` : bool, default True — whether to display the index column.
+        - `show_columns` : bool, default True — whether to display column headers.
+    - Titles and descriptions of tables are included as <h4> and <i> elements.
+
+    Examples
+    --------
+    >>> html_fragments = _render_block_html_build_tables(
+    ...     block, container_class="my-tables")
+    >>> for frag in html_fragments:
+    ...     print(frag)  # or join fragments into a full HTML string
+    """
+    tables = block.block_config.tables
+    if not tables:
+        return []
+
+    html_parts = []
+    html_parts.append(f"<div class='{container_class}'>")
+    for table_result in tables:
+        if table_result.title:
+            html_parts.append(f"<h4>{table_result.title}</h4>")
+
+        if table_result.description:
+            html_parts.append(
+                f'<i class="explorica-table-description">'
+                f"{table_result.description}"
+                f"</i>"
+            )
+        i, h = (
+            table_result.render_extra.get("show_index", True),
+            table_result.render_extra.get("show_columns", True),
+        )
+        html_parts.append(
+            table_result.table.to_html(
+                classes="explorica-dataframe",
+                index=i,
+                header=h,
+                border=0,
+            )
+        )
+    html_parts.append("</div>")
+    return html_parts
 
 
 def _render_block_html_build_visualizations(
@@ -553,7 +654,11 @@ def _render_block_html_build_visualizations(
 
 
 def _get_css_style(
-    report_class_name: str, vis_class_name: str, max_width: int, font_family: str
+    report_class_name: str,
+    vis_class_name: str,
+    tables_class_name: str,
+    max_width: int,
+    font_family: str,
 ) -> str:
     """
     Generate an embedded CSS <style> block for HTML reports.
@@ -576,6 +681,11 @@ def _get_css_style(
     vis_class_name : str
         CSS class name used to wrap visualization elements (images, iframes).
         Allows consistent styling of all visualizations within the report.
+    tables_class_name : str
+        CSS class name used to wrap table elements (e.g., tables generated
+        from TableResult). This class allows tables to have consistent
+        styling, such as scrollable container, max-height, or other table-specific
+        CSS rules.
     max_width : int
         Maximum width (in pixels) applied to the report container via the
         `max-width` CSS property.
@@ -632,7 +742,11 @@ def _get_css_style(
                        max-height: 600px;
                        object-fit: contain;
                    }}
-                   </style>"""
+                   .{tables_class_name} {{
+                        max-height: 400px;
+                        overflow: auto;
+                        }}
+                        </style>"""
 
 
 @enable_io_logs(logger)
