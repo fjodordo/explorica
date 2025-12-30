@@ -48,7 +48,7 @@ from explorica._utils import (
 def get_entropy(
     data: Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[Any]],
     method: str = "shannon",
-    nan_policy: Literal["drop", "raise", "include", "drop_columns"] = "drop",
+    nan_policy: Literal["drop", "raise", "include"] = "drop",
 ) -> float | pd.Series:
     """
     Computes the Shannon entropy of the input data.
@@ -73,6 +73,12 @@ def get_entropy(
             H(x) = - sum(w_i * log_2(w_i))
 
         where w_i is the relative frequency of each unique element of the sample x.
+    nan_policy : {'drop', 'raise', 'include'}, default='drop'
+        Policy for handling NaN values in input data:
+        - 'raise' : raise ValueError if any NaNs are present in `data`.
+        - 'drop'  : drop rows (axis=0) containing NaNs before computation. This
+                    does not drop entire columns.
+        - 'include' : treat NaN as a valid value and include them in computations.
 
     Returns
     -------
