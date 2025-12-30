@@ -15,6 +15,15 @@ get_data_shape_block(data, nan_policy='drop')
 get_data_quality_overview_block(data, round_digits=4)
     Build a `Block` instance containing metrics and a table summarizing
     duplicated rows and NaN counts/ratios.
+get_outliers_block(data, iqr_factor=1.5, zscore_factor=3.0, nan_policy="drop")
+    Build a `Block` instance containing a table summarizing
+    outliers detected by different methods.
+get_distributions_block(data, threshold_skewness=0.25, threshold_kurtosis=0.25,
+    round_digits=4, nan_policy="drop"
+)
+    Build a Block instance summarizing feature distributions in a dataset.
+get_cardinality_block(data, round_digits=4, nan_policy="drop")
+    Build a Block instance summarizing feature cardinality and constancy metrics.
 
 Notes
 -----
@@ -40,9 +49,15 @@ Examples
 from .ctm import get_ctm_block
 from .data_shape import get_data_shape_block
 from .data_quality_overview import get_data_quality_overview_block
+from .outliers import get_outliers_block
+from .distributions import get_distributions_block
+from .cardinality import get_cardinality_block
 
 __all__ = [
     "get_ctm_block",
     "get_data_shape_block",
     "get_data_quality_overview_block",
+    "get_outliers_block",
+    "get_distributions_block",
+    "get_cardinality_block",
 ]

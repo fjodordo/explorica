@@ -7,9 +7,187 @@ import pytest
 from explorica.reports.presets.blocks import (
     get_ctm_block,
     get_data_shape_block,
-    get_data_quality_overview_block)
+    get_data_quality_overview_block,
+    get_outliers_block,
+    get_distributions_block,
+    get_cardinality_block)
 from explorica.types import TableResult
 from explorica.reports.core.block import Block
+
+# -------------------------------
+# Tests for get_cardinality_block
+# -------------------------------
+
+def test_cardinality_empty_dataframe():
+    df = pd.DataFrame(columns=["a", "b"])
+    block = get_cardinality_block(df)
+    table = block.block_config.tables[0].table
+    assert table["n_unique"].sum() == 0
+    assert table["is_unique"].isna().all()
+    assert table["is_constant"].isna().all()
+
+def test_cardinality_constant_feature():
+    df = pd.DataFrame({"const": [5, 5, 5, 5]})
+    block = get_cardinality_block(df)
+    table = block.block_config.tables[0].table
+    assert table.loc["const", "is_constant"]
+    assert not table.loc["const", "is_unique"]
+    assert table.loc["const", "n_unique"] == 1
+    assert pd.isna(table.loc["const", "entropy (normalized)"])
+
+def test_cardinality_unique_feature():
+    df = pd.DataFrame({"unique": [1, 2, 3, 4]})
+    block = get_cardinality_block(df)
+    table = block.block_config.tables[0].table
+    assert table.loc["unique", "is_unique"]
+    assert not table.loc["unique", "is_constant"]
+    assert table.loc["unique", "n_unique"] == 4
+    assert table.loc["unique", "entropy (normalized)"] == 1.0
+
+def test_cardinality_mixed_features():
+    df = pd.DataFrame({
+        "const": [1, 1, 1, 1],
+        "semi": [1, 1, 2, 2],
+        "unique": [1, 2, 3, 4]
+    })
+    block = get_cardinality_block(df)
+    table = block.block_config.tables[0].table
+    # const
+    assert table.loc["const", "is_constant"]
+    # quasi-const
+    assert 0 < table.loc["semi", "top_value_ratio"] < 1
+    # unique
+    assert table.loc["unique", "is_unique"]
+
+def test_cardinality_nan_inclusion():
+    df = pd.DataFrame({
+        "a": [1, 2, np.nan, 2],
+        "b": [np.nan, np.nan, np.nan, np.nan]
+    })
+    block = get_cardinality_block(df, nan_policy="include")
+    table = block.block_config.tables[0].table
+    # NaN defines as an additional category
+    assert table.loc["a", "n_unique"] == 3
+    assert table.loc["b", "n_unique"] == 1
+
+# -------------------------------
+# Tests for get_distributions_block
+# -------------------------------
+
+def test_distributions_block_basic():
+    df = pd.DataFrame({
+        "normal": np.random.normal(loc=0, scale=1, size=100),
+        "skewed": np.random.exponential(scale=1, size=100),
+    })
+
+    block = get_distributions_block(df)
+
+    # Check block type
+    assert block is not None
+    assert hasattr(block, "block_config")
+
+    # Check table
+    table = block.block_config.tables[0].table
+    assert set(table.columns).issuperset({"skewness", "kurtosis", "is_normal", "desc"})
+    assert set(table.index) == {"normal", "skewed"}
+
+    # Check that is_normal is bool
+    assert table.loc["normal", "is_normal"] in [True, False]
+    assert table.loc["skewed", "is_normal"] in [True, False]
+
+    # Check that visualizations added
+    assert len(block.block_config.visualizations) >= 4  # boxplots + distplots for every column
+
+def test_distributions_block_nan_policy_drop():
+    df = pd.DataFrame({
+        "x": [1, 2, np.nan, 4]
+    })
+    block = get_distributions_block(df, nan_policy="drop")
+    table = block.block_config.tables[0].table
+    # The table is calculated based on 3 elements
+    assert table.loc["x", "skewness"] == table.loc["x", "skewness"]  # not NaN
+
+def test_distributions_block_nan_policy_raise():
+    df = pd.DataFrame({
+        "x": [1, 2, np.nan, 4]
+    })
+    import pytest
+    with pytest.raises(ValueError):
+        get_distributions_block(df, nan_policy="raise")
+
+
+# -------------------------------
+# Tests for get_outliers_block
+# -------------------------------
+
+def test_get_outliers_block_basic():
+    df = pd.DataFrame({
+        "a": [1, 2, 3, 100],
+        "b": [10, 11, 12, 13],
+    })
+
+    block = get_outliers_block(df)
+
+    assert isinstance(block, Block)
+    assert len(block.block_config.tables) == 1
+
+    table = block.block_config.tables[0].table
+
+    assert set(table.columns) == {"IQR (1.5)", "Z-Score (3.0σ)"}
+    assert set(table.index) == {"a", "b"} or set(table.index) == {0, "a", "b"}
+
+    # sanity checks
+    assert table.loc["a", "IQR (1.5)"] >= 0
+    assert table.loc["a", "Z-Score (3.0σ)"] >= 0
+
+def test_get_outliers_block_single_column():
+    df = pd.DataFrame({
+        "x": [1, 2, 3, 100]
+    })
+
+    block = get_outliers_block(df)
+    table = block.block_config.tables[0].table
+
+    
+    assert set(table.index) == {"x"} or set(table.index) == {0, "x"}
+    assert table.shape == (1, 2)
+
+def test_get_outliers_block_zero_variance_feature():
+    df = pd.DataFrame({
+        "const": [5, 5, 5, 5, 5]
+    })
+
+    block = get_outliers_block(df)
+    table = block.block_config.tables[0].table
+
+    # No outliers should be detected for a constant feature
+    assert table.loc["const", "IQR (1.5)"] == 0
+    assert table.loc["const", "Z-Score (3.0σ)"] == 0
+
+    # Second table: zero / near-zero variance features
+    assert len(block.block_config.tables) == 2
+
+    variance_table = block.block_config.tables[1].table
+
+    # Table should list the constant feature
+    assert "feature_name" in variance_table.columns
+    assert variance_table["feature_name"].tolist() == ["const"]
+
+def test_get_outliers_block_with_nans_drop():
+    df = pd.DataFrame({
+        "x": [1, 2, np.nan, 4],
+        "y": [10, 10, 99, 10],
+    })
+
+    block = get_outliers_block(df, nan_policy="drop")
+    table = block.block_config.tables[0].table
+
+    assert set(table.index) == {"x", "y"}
+
+    # 'y' column becomes constant after drop
+    assert table.loc["y", "IQR (1.5)"] == 0
+    assert table.loc["y", "Z-Score (3.0σ)"] == 0
+
 
 # -------------------------------
 # Tests for get_data_quality_overview_block

@@ -11,6 +11,10 @@ get_data_overview_blocks(data, round_digits=4)
     Build blocks for a short data overview.
 get_data_overview_report(data, round_digits=4)
     Generate a short data overview report.
+get_data_overview_blocks(data, round_digits=4)
+    Build blocks for a detailed data quality analysis.
+get_data_overview_report(data, round_digits=4)
+    Generate a detailed data quality analysis report.
 get_ctm_block(data, nan_policy='drop', round_digits=4)
     Build a `Block` instance containing tables of basic statistics for the dataset.
 get_data_shape_block(data, nan_policy='drop')
@@ -18,6 +22,15 @@ get_data_shape_block(data, nan_policy='drop')
 get_data_quality_overview_block(data, round_digits=4)
     Build a `Block` instance containing metrics and a table summarizing
     duplicated rows and NaN counts/ratios.
+get_outliers_block(data, iqr_factor=1.5, zscore_factor=3.0, nan_policy="drop")
+    Build a `Block` instance containing a table summarizing
+    outliers detected by different methods.
+get_distributions_block(data, threshold_skewness=0.25, threshold_kurtosis=0.25,
+    round_digits=4, nan_policy="drop"
+)
+    Build a Block instance summarizing feature distributions in a dataset.
+get_cardinality_block(data, round_digits=4, nan_policy="drop")
+    Build a Block instance summarizing feature cardinality and constancy metrics.
 
 Notes
 -----
@@ -43,15 +56,27 @@ Examples
 >>> report.title
 """
 
-from .blocks.ctm import get_ctm_block
-from .blocks.data_quality_overview import get_data_quality_overview_block
-from .blocks.data_shape import get_data_shape_block
+from .blocks import (
+    get_ctm_block,
+    get_data_quality_overview_block,
+    get_data_shape_block,
+    get_outliers_block,
+    get_distributions_block,
+    get_cardinality_block,
+)
+
 from .data_overview import get_data_overview_blocks, get_data_overview_report
+from .data_quality import get_data_quality_blocks, get_data_quality_report
 
 __all__ = [
     "get_data_overview_blocks",
     "get_data_overview_report",
+    "get_data_quality_blocks",
+    "get_data_quality_report",
     "get_ctm_block",
     "get_data_quality_overview_block",
     "get_data_shape_block",
+    "get_outliers_block",
+    "get_distributions_block",
+    "get_cardinality_block",
 ]

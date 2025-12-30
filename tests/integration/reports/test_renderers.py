@@ -246,6 +246,10 @@ def test_render_html_example_based(tmp_path):
                 assert cell == exp
     finally:
         report.close_figures()
+        for block in blocks:
+            for vr in block.block_config.visualizations:
+                if vr.engine == "matplotlib":
+                    plt.close(vr.figure)
 
 # -------------------------------
 # Tests for render_pdf
@@ -339,3 +343,7 @@ def test_render_pdf_example_based(tmp_path):
             assert txt in text_content
     finally:
         report.close_figures()
+        for block in blocks:
+            for vr in block.block_config.visualizations:
+                if vr.engine == "matplotlib":
+                    plt.close(vr.figure)

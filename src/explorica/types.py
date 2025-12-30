@@ -282,7 +282,7 @@ class TableResult:
         Keys may include:
         - ``show_index`` : bool, default True - whether to display the row index
           in rendered output (HTML or PDF).
-        - ``show_header`` : bool, default True - whether to display column names.
+        - ``show_columns`` : bool, default True - whether to display column names.
         - Any additional rendering hints may be added in the future.
 
     Notes

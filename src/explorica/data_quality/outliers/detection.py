@@ -297,7 +297,7 @@ class DetectionMethods:
             if near_zero.shape[0] == 1:
                 cols = data.columns[near_zero]
             else:
-                cols = ", ".join(data.columns[near_zero])
+                cols = ", ".join(data.columns[near_zero].astype("str"))
             wrn_msg = DetectionMethods._warns["data_quality"][
                 "outliers_on_zero_variance_f"
             ].format(cols)
