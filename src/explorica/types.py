@@ -14,13 +14,14 @@ VisualizationResult
     Container object returned by all visualization functions. Stores the
     generated figure, axes (if applicable), engine metadata, sizing
     information, and arbitrary additional details.
+TableResult
+    Standardized container for tabular results in Explorica.
 NaturalNumber
     Type descriptor enabling `isinstance(x, NaturalNumber)` checks for
     positive integers (natural numbers). Used in parameter validation across
     plotting and preprocessing utilities.
-TableResult
-    Standardized container for tabular results in Explorica.
-
+FeatureAssignment
+    Container for explicit assignment of feature types in a dataset.
 
 Notes
 -----
@@ -314,3 +315,35 @@ class TableResult:
     title: Optional[str] = None
     description: Optional[str] = None
     render_extra: Optional[dict] = field(default_factory=dict)
+
+
+@dataclass
+class FeatureAssignment:
+    """
+    Container for explicit assignment of feature types in a dataset.
+
+    This dataclass allows the user to specify which columns correspond to
+    numerical features, categorical features, and potential target variables
+    (numerical or categorical). It is primarily used by Explorica orchestrators
+    to extract and process features appropriately during report generation.
+
+    Attributes
+    ----------
+    numerical_features : list of str, default=[]
+        List of column names in the dataset representing numerical features.
+    categorical_features : list of str, default=[]
+        List of column names in the dataset representing categorical features.
+    numerical_target : str, optional
+        Name of the numerical target variable column.
+    categorical_target : str, optional
+        Name of the categorical target variable column.
+
+    Notes
+    -----
+    - Either a numerical target or a categorical target can be specified, not both.
+    """
+
+    numerical_features: list[str] = field(default_factory=list)
+    categorical_features: list[str] = field(default_factory=list)
+    numerical_target: str = None
+    categorical_target: str = None

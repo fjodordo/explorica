@@ -3,6 +3,7 @@ import pdb
 import numpy as np
 import pandas as pd
 import pytest
+import matplotlib.pyplot as plt
 
 from explorica.reports.presets.blocks import (
     get_ctm_block,
@@ -10,9 +11,284 @@ from explorica.reports.presets.blocks import (
     get_data_quality_overview_block,
     get_outliers_block,
     get_distributions_block,
-    get_cardinality_block)
-from explorica.types import TableResult
+    get_cardinality_block,
+    get_linear_relations_block,
+    get_nonlinear_relations_block,)
+from explorica.types import TableResult, VisualizationResult
 from explorica.reports.core.block import Block
+
+# -------------------------------
+# Helper functions & fixtures
+# -------------------------------
+
+@pytest.fixture
+def small_linear_data():
+    df = pd.DataFrame({
+        "x1": np.arange(100),
+        "x2": np.arange(100) * 2,
+        "x3": np.random.randn(100),
+    })
+    y = pd.Series(np.arange(100), name="target")
+    return df, y
+
+@pytest.fixture
+def large_linear_data():
+    n = 10_000
+    df = pd.DataFrame({
+        "x1": np.arange(n),
+        "x2": np.arange(n) * 2,
+        "x3": np.random.randn(n),
+    })
+    y = pd.Series(np.arange(n), name="target")
+    return df, y
+
+def close_visualizations(block: Block):
+    for vr in block.block_config.visualizations:
+        if vr.engine == "matplotlib":
+            plt.close(vr.figure)
+
+# -------------------------------
+# Tests for get_nonlinear_relations_block
+# -------------------------------
+
+def test_get_nonlinear_relations_block_with_all_data():
+    df_num = pd.DataFrame({'x1': [1,2,3], 'x2': [4,5,6]})
+    df_cat = pd.DataFrame({'c1': ['a','b','a'], 'c2': ['x','y','x']})
+    target = pd.Series(['a','b','a'], name='target')
+    
+    block = get_nonlinear_relations_block(df_num, df_cat, categorical_target=target)
+    try:    
+        assert isinstance(block, Block)
+        # Check that block contains visualizations and table
+        assert len(block.block_config.visualizations) == 2
+        assert len(block.block_config.tables) == 1
+    finally:
+        close_visualizations(block)
+
+def test_get_nonlinear_relations_block_without_categorical_target():
+    df_num = pd.DataFrame({'x1': [1,2,3], 'x2': [4,5,6]})
+    df_cat = pd.DataFrame({'c1': ['a','b','a'], 'c2': ['x','y','x']})
+    
+    block = get_nonlinear_relations_block(df_num, df_cat)
+    try:
+        # Block should be not empty, but table should be missing
+        assert isinstance(block, Block)
+        assert len(block.block_config.visualizations) == 2  # heatmaps
+        assert len(block.block_config.tables) == 0
+    finally:
+        close_visualizations(block)
+
+def test_get_nonlinear_relations_block_empty_data():
+    df_num = pd.DataFrame()
+    df_cat = pd.DataFrame()
+    
+    block = get_nonlinear_relations_block(df_num, df_cat)
+    try:
+        # Empty block are expected
+        assert isinstance(block, Block)
+        assert len(block.block_config.visualizations) == 0
+        assert len(block.block_config.tables) == 0
+    finally:
+        close_visualizations(block)
+
+def test_get_nonlinear_relations_block_with_numerical_target_only():
+    df_num = pd.DataFrame({'x1': [1,2,3], 'x2': [4,5,6]})
+    df_cat = pd.DataFrame({'c1': ['a','b','a'], 'c2': ['x','y','x']})
+    num_target = pd.Series([0,1,0], name='target_num')
+    
+    block = get_nonlinear_relations_block(df_num, df_cat, numerical_target=num_target)
+    try:
+        assert isinstance(block, Block)
+        # The table should not be built, visualizations are still here
+        assert len(block.block_config.visualizations) == 2
+        assert len(block.block_config.tables) == 0
+    finally:
+        close_visualizations(block)
+
+# -------------------------------
+# Tests for get_linear_relations_block
+# -------------------------------
+
+def test_get_linear_relations_block_smoke():
+    df = pd.DataFrame({
+        "x1": [1, 2, 3, 4],
+        "x2": [2, 4, 6, 8],
+        "x3": [4, 3, 2, 1],
+    })
+    y = pd.Series([1, 0, 1, 0], name="target")
+
+    block = get_linear_relations_block(df, y)
+    try:
+        assert isinstance(block, Block)
+        assert block.block_config.title == "Linear relations"
+
+        # 3 scatterplots + 2 corr matrices
+        assert len(block.block_config.visualizations) == 5
+        # 2 multicoll tables + 1 highest corr table
+        assert len(block.block_config.tables) == 3
+    finally:
+        close_visualizations(block)
+
+def test_get_linear_relations_block_visualizations_smoke():
+    df = pd.DataFrame({
+        "a": [1, 2, 3, 4],
+        "b": [4, 3, 2, 1],
+    })
+    y = pd.Series([0, 1, 0, 1], name="y")
+
+    block = get_linear_relations_block(df, y)
+    try:
+        visualizations = block.block_config.visualizations
+
+        assert len(visualizations) == 4
+        assert all(isinstance(v, VisualizationResult) for v in visualizations)
+
+        # Optional but safe
+        assert all(v.engine == "matplotlib" for v in visualizations)
+    finally:
+        close_visualizations(block)
+    
+def test_get_linear_relations_block_pairs_table_structure():
+    df = pd.DataFrame({
+        "x1": [1, 2, 3, 4],
+        "x2": [1, 2, 3, 4],
+        "x3": [4, 3, 2, 1],
+    })
+    y = pd.Series([1, 2, 3, 4], name="target")
+
+    block = get_linear_relations_block(df, y)
+    try:
+        table = block.block_config.tables[0].table
+
+        assert "coef" in table.columns
+        assert table.shape[0] <= 5
+    finally:
+        close_visualizations(block)
+
+def test_get_linear_relations_block_ignores_non_numeric_features():
+    df = pd.DataFrame({
+        "num": [1, 2, 3, 4],
+        "cat": ["a", "b", "c", "d"],
+    })
+    y = pd.Series([0, 1, 0, 1], name="target")
+
+    block = get_linear_relations_block(df, y)
+    try:
+        table = block.block_config.tables[0].table
+        # 'cat' should be ignored
+        assert "cat" not in table["X"].values
+    finally:
+        close_visualizations(block)
+
+@pytest.mark.parametrize("nan_policy", ["drop", "raise"])
+def test_get_linear_relations_block_nan_policy(nan_policy):
+    df = pd.DataFrame({
+        "x": [1, 2, np.nan, 4],
+    })
+    y = pd.Series([1, 0, 1, 0], name="y")
+
+    if nan_policy == "raise":
+        with pytest.raises(ValueError):
+            get_linear_relations_block(df, y, nan_policy=nan_policy)
+    else:
+        block = get_linear_relations_block(df, y, nan_policy=nan_policy)
+        try:
+            assert block.block_config.title == "Linear relations"
+        finally:
+            close_visualizations(block)
+
+def test_linear_relations_adds_multicollinearity_tables(small_linear_data):
+    df, y = small_linear_data
+
+    block = get_linear_relations_block(df, y)
+    try:
+
+        tables = block.block_config.tables
+        titles = [t.title for t in tables]
+
+        assert "Multicollinearity diagnostic (VIF)" in titles
+        assert "Multicollinearity diagnostic (highest correlation)" in titles
+    finally:
+        close_visualizations(block)
+
+def test_multicollinearity_tables_have_expected_columns(small_linear_data):
+    df, y = small_linear_data
+
+    block = get_linear_relations_block(df, y)
+    try:
+        tables = block.block_config.tables
+
+        vif_table = next(
+            t for t in tables if "VIF" in t.title
+        ).table
+
+        corr_table = next(
+            t for t in tables if "diagnostic (highest correlation)" in t.title.lower()
+        ).table
+
+        assert "is_multicollinearity" in vif_table.columns
+        assert "VIF" in vif_table.columns
+
+        assert "is_multicollinearity" in corr_table.columns
+        assert "highest_correlation" in corr_table.columns
+    finally:
+        close_visualizations(block)
+
+def test_scatterplots_used_for_small_samples(small_linear_data):
+    df, y = small_linear_data
+    block = get_linear_relations_block(
+        df,
+        y,
+        sample_size_threshold=5000,
+    )
+    try:
+
+        visualizations = block.block_config.visualizations
+        assert any(
+            vr.extra_info is not None and vr.extra_info.get("kind") == "scatterplot"
+            for vr in visualizations
+        ), "Expected at least one scatter visualization"
+
+    finally:
+        close_visualizations(block)
+
+def test_hexbins_used_for_large_samples(large_linear_data):
+    df, y = large_linear_data
+
+    block = get_linear_relations_block(
+        df,
+        y,
+        sample_size_threshold=5000,
+    )
+    try:
+        visualizations = block.block_config.visualizations
+        assert any(
+                vr.extra_info is not None and vr.extra_info.get("kind") == "hexbin"
+                for vr in visualizations
+            ), "Expected at least one scatter visualization"
+    finally:
+        close_visualizations(block)
+
+def test_visualization_switching_respects_threshold(small_linear_data):
+    df, y = small_linear_data
+
+    block = get_linear_relations_block(
+        df,
+        y,
+        sample_size_threshold=10,
+    )
+    try:
+        visualizations = block.block_config.visualizations
+
+        hexbin_plots = [
+            v for v in visualizations
+            if "hex" in v.title.lower()
+        ]
+
+        assert len(hexbin_plots) > 0
+    finally:
+        close_visualizations(block)
+
 
 # -------------------------------
 # Tests for get_cardinality_block

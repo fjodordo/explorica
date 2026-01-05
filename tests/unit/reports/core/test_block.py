@@ -7,12 +7,30 @@ from explorica.types import VisualizationResult, TableResult
 
 
 # -------------------------------
-# Fixtures
+# Fixtures & helper functions
 # -------------------------------
 
 @pytest.fixture
-def block():
+def block() -> Block:
     return Block()
+
+@pytest.fixture
+def simple_visualization():
+    fig, ax = plt.subplots(figsize=(10, 6))
+    vr = VisualizationResult(figure=fig, axes=ax)
+    yield vr
+    plt.close(vr.figure)
+
+@pytest.fixture
+def simple_metric() -> dict:
+    metric = {
+        "name": "metric1",
+        "value": 14.2,
+        "description": "metric1 description"
+    }
+    return metric
+
+
 
 # -------------------------------
 # Tests for Block init
@@ -457,8 +475,56 @@ def test_render_pdf_forwards_parameters(mocker):
     assert called_kwargs["verbose"] is True
 
 # -----------------------------
-# Tests for Report.typename
+# Tests for Block.typename
 # -----------------------------
+
 def test_typename():
     block = Block()
     assert block.typename == "Block"
+
+# -----------------------------
+# Tests for Block.empty
+# -----------------------------
+
+def test_empty_block():
+    block = Block(BlockConfig(title="Test empty"))
+    assert block.empty is True
+
+def test_block_with_table():
+    block = Block(BlockConfig(title="Test table"))
+    block.add_table(TableResult(table=pd.DataFrame()))
+    assert block.empty is False
+
+def test_block_with_visualization(simple_visualization):
+    block = Block(BlockConfig(title="Test viz"))
+    block.add_visualization(simple_visualization)
+    assert block.empty is False
+
+def test_block_with_metrics(simple_metric):
+    block = Block(BlockConfig(title="Test metric"))
+    block.add_metric(**simple_metric)
+    assert block.empty is False
+
+# -----------------------------
+# Tests for Report.close_figures
+# -----------------------------
+
+def test_close_figures_really_closes_figures():
+    # Make figures 
+    fig1, ax1 = plt.subplots()
+    fig2, ax2 = plt.subplots()
+
+    block = Block(BlockConfig(visualizations=[fig1, fig2]))
+
+    # Check that figures're opened
+    open_figs_before = plt.get_fignums()
+    assert fig1.number in open_figs_before
+    assert fig2.number in open_figs_before
+
+    # Call close method
+    block.close_figures()
+
+    # Check that figures're closed
+    open_figs_after = plt.get_fignums()
+    assert fig1.number not in open_figs_after
+    assert fig2.number not in open_figs_after
