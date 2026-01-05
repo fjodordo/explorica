@@ -8,9 +8,9 @@ for exploratory data analysis (EDA).
 
 Functions
 ---------
-get_data_overview_blocks(data, round_digits=4)
+get_data_quality_blocks(data, round_digits=4)
     Build blocks for a detailed data quality analysis.
-get_data_overview_report(data, round_digits=4)
+get_data_quality_report(data, round_digits=4)
     Generate a detailed data quality analysis report.
 
 Notes
@@ -28,14 +28,14 @@ Examples
 --------
 >>> import pandas as pd
 >>> from explorica.reports.presets.data_quality import (
-...     get_data_overview_blocks,
-...     get_data_overview_report
+...     get_data_quality_blocks,
+...     get_data_quality_report
 ... )
 >>> df = pd.DataFrame({'a': [1, 2, 3], 'b': [1, 1, 1]})
->>> blocks = get_data_overview_blocks(df)
+>>> blocks = get_data_quality_blocks(df)
 >>> len(blocks) > 0
 True
->>> report = get_data_overview_report(df)
+>>> report = get_data_quality_report(df)
 >>> report.title
 'Data quality'
 """

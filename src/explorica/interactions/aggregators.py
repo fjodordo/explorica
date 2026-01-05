@@ -191,7 +191,7 @@ def detect_multicollinearity(
         cols = set(df_numeric.columns) | set(df_category.columns)
         for i, col in enumerate(cols):
             result["highest_correlation"][col] = pairs[pairs["Y"] == col]["coef"].max()
-            if result["highest_correlation"][col] >= np.abs(
+            if np.abs(result["highest_correlation"][col]) >= (
                 params["correlation_threshold"]
             ):
                 result["multicollinearity"][col] = 1

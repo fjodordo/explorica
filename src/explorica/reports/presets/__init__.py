@@ -11,10 +11,26 @@ get_data_overview_blocks(data, round_digits=4)
     Build blocks for a short data overview.
 get_data_overview_report(data, round_digits=4)
     Generate a short data overview report.
-get_data_overview_blocks(data, round_digits=4)
+get_data_quality_blocks(data, round_digits=4)
     Build blocks for a detailed data quality analysis.
-get_data_overview_report(data, round_digits=4)
+get_data_quality_report(data, round_digits=4)
     Generate a detailed data quality analysis report.
+get_interactions_blocks(
+    data,
+    feature_assignment = None,
+    category_threshold = 30,
+    round_digits = 4,
+    nan_policy="drop"
+)
+    Build linear and non-linear interaction blocks for Explorica reports.
+def get_interactions_report(
+    data,
+    feature_assignment = None,
+    category_threshold = 30,
+    round_digits = 4,
+    nan_policy = "drop"
+)
+    Generate an interaction analysis report.
 get_ctm_block(data, nan_policy='drop', round_digits=4)
     Build a `Block` instance containing tables of basic statistics for the dataset.
 get_data_shape_block(data, nan_policy='drop')
@@ -31,6 +47,13 @@ get_distributions_block(data, threshold_skewness=0.25, threshold_kurtosis=0.25,
     Build a Block instance summarizing feature distributions in a dataset.
 get_cardinality_block(data, round_digits=4, nan_policy="drop")
     Build a Block instance summarizing feature cardinality and constancy metrics.
+get_linear_relations_block(data, target, round_digits=4, nan_policy="drop")
+    Build a Block instance summarizing linear relationships in a dataset.
+get_nonlinear_relations_block(
+    numerical_data, categorical_data, numerical_target=None,
+    categorical_target=None, **kwargs
+)
+    Build a Block instance summarizing non-linear dependencies between features.
 
 Notes
 -----
@@ -63,20 +86,27 @@ from .blocks import (
     get_outliers_block,
     get_distributions_block,
     get_cardinality_block,
+    get_linear_relations_block,
+    get_nonlinear_relations_block,
 )
 
 from .data_overview import get_data_overview_blocks, get_data_overview_report
 from .data_quality import get_data_quality_blocks, get_data_quality_report
+from .interactions import get_interactions_blocks, get_interactions_report
 
 __all__ = [
     "get_data_overview_blocks",
     "get_data_overview_report",
     "get_data_quality_blocks",
     "get_data_quality_report",
+    "get_interactions_blocks",
+    "get_interactions_report",
     "get_ctm_block",
     "get_data_quality_overview_block",
     "get_data_shape_block",
     "get_outliers_block",
     "get_distributions_block",
     "get_cardinality_block",
+    "get_linear_relations_block",
+    "get_nonlinear_relations_block",
 ]

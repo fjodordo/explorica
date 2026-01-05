@@ -77,6 +77,7 @@ from typing import Any, Sequence, Hashable, Mapping
 from dataclasses import dataclass, field
 
 import plotly.graph_objects
+import matplotlib.pyplot as plt
 import matplotlib.figure
 
 from ...types import VisualizationResult, TableResult
@@ -218,9 +219,11 @@ class Block:
         **kwargs
     )
         Render the block to HTML format.
-    typename : str
+    typename
         The name of the class, always 'Block'. Useful for type-checking
         without direct imports.
+    empty
+        Check whether the block contains any content.
 
     Notes
     -----
@@ -326,6 +329,38 @@ class Block:
         'Block'
         """
         return self.__class__.__name__
+
+    @property
+    def empty(self):
+        """
+        Check whether the block contains any content.
+
+        Returns True if the block contains no metrics, visualizations, or tables,
+        otherwise returns False.
+
+        This is a convenient pseudo-attribute to quickly determine whether a
+        `Block` is empty without inspecting individual collections.
+
+        Examples
+        --------
+        >>> block = Block(BlockConfig(title="Empty block"))
+        >>> block.empty
+        True
+
+        >>> from explorica.types import TableResult
+        >>> block.add_table(TableResult(table=pd.DataFrame()))
+        >>> block.empty
+        False
+        """
+        if any(
+            [
+                self.block_config.metrics,
+                self.block_config.visualizations,
+                self.block_config.tables,
+            ]
+        ):
+            return False
+        return True
 
     def add_visualization(
         self,
@@ -902,3 +937,34 @@ class Block:
             **kwargs,
         }
         return render_pdf(self, **params)
+
+    def close_figures(self):
+        """
+        Close all Matplotlib figures associated with this block.
+
+        Iterates over all visualizations registered in the block configuration
+        and closes underlying Matplotlib ``Figure`` objects, if present. This
+        method is intended to free graphical resources and prevent accumulation
+        of open figures in long-running processes or batch report generation.
+
+        Notes
+        -----
+        - Only visualizations backed by Matplotlib figures are affected.
+        - Visualizations using other backends are ignored.
+        - Calling this method does not remove visualizations from the block;
+        it only closes their associated figures.
+
+        See Also
+        --------
+        matplotlib.pyplot.close
+            Close a Matplotlib figure and release its resources.
+
+        Examples
+        --------
+        >>> block = Block(BlockConfig())
+        >>> # ... generate visualizations and render block ...
+        >>> block.close_figures()
+        """
+        for vis in self.block_config.visualizations:
+            if isinstance(vis.figure, matplotlib.figure.Figure):
+                plt.close(vis.figure)
