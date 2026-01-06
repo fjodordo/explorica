@@ -111,7 +111,7 @@ def get_outliers_block(
           IQR (1.5)  Z-Score (3σ)
     x              1             1
     """
-    df = handle_nan(data, nan_policy, is_dataframe=False)
+    df = handle_nan(data, nan_policy, is_dataframe=False).select_dtypes("number")
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",

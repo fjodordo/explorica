@@ -7,6 +7,22 @@ flexible creation of data overview reports or standalone blocks.
 
 Functions
 ---------
+get_eda_blocks(
+    data,
+    numerical_names=None,
+    categorical_names=None,
+    target_name=None,
+    **kwargs
+)
+    Build a full exploratory data analysis (EDA) report as a list of blocks.
+get_eda_report(
+    data,
+    numerical_names=None,
+    categorical_names=None,
+    target_name=None,
+    **kwargs
+)
+    Build a full exploratory data analysis (EDA) report.
 get_data_overview_blocks(data, round_digits=4)
     Build blocks for a short data overview.
 get_data_overview_report(data, round_digits=4)
@@ -93,14 +109,9 @@ from .blocks import (
 from .data_overview import get_data_overview_blocks, get_data_overview_report
 from .data_quality import get_data_quality_blocks, get_data_quality_report
 from .interactions import get_interactions_blocks, get_interactions_report
+from .eda import get_eda_blocks, get_eda_report
 
 __all__ = [
-    "get_data_overview_blocks",
-    "get_data_overview_report",
-    "get_data_quality_blocks",
-    "get_data_quality_report",
-    "get_interactions_blocks",
-    "get_interactions_report",
     "get_ctm_block",
     "get_data_quality_overview_block",
     "get_data_shape_block",
@@ -109,4 +120,12 @@ __all__ = [
     "get_cardinality_block",
     "get_linear_relations_block",
     "get_nonlinear_relations_block",
+    "get_data_overview_blocks",
+    "get_data_overview_report",
+    "get_interactions_blocks",
+    "get_interactions_report",
+    "get_data_quality_blocks",
+    "get_data_quality_report",
+    "get_eda_blocks",
+    "get_eda_report",
 ]
