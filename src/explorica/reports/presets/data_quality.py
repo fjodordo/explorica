@@ -40,7 +40,8 @@ True
 'Data quality'
 """
 
-from typing import Sequence, Mapping, Any
+from typing import Sequence, Mapping, Any, Literal
+import warnings
 
 from ..core.block import Block
 from ..core.report import Report
@@ -50,6 +51,7 @@ from .blocks import get_cardinality_block, get_distributions_block, get_outliers
 def get_data_quality_blocks(
     data: Sequence[Any] | Mapping[str, Sequence[Any]],
     round_digits: int = 4,
+    nan_policy: str | Literal["drop", "raise", "include"] = "drop",
 ) -> list[Block]:
     """
     Build a set of blocks providing a detailed data quality analysis.
@@ -65,11 +67,39 @@ def get_data_quality_blocks(
         such as a dictionary of sequences or a sequence of records.
     round_digits : int, default 4
         Number of decimal digits to use when rounding numerical statistics.
+    nan_policy : {'drop', 'raise', 'include'}, default='drop'
+        Policy for handling missing values in the input data.
+        - 'drop' : rows containing missing values are removed before
+          analysis.
+        - 'raise' : an error is raised if missing values are present.
+        - 'include' : missing values are preserved where supported.
+        Note that not all child blocks support nan_policy='include'.
+        In such cases, the policy is internally downgraded to 'drop' for
+        those blocks.
 
     Returns
     -------
     list[Block]
         A list of `Block` instances for data quality analysis.
+
+    Notes
+    -----
+    - During the construction of EDA or interaction reports, many matplotlib figures
+      may be opened (one per plot or table visualization). This is expected behavior
+      when the dataset contains many features.
+    - To prevent runtime warnings about too many open figures, these warnings are
+      ignored internally.
+    - To free memory after rendering, it is recommended to explicitly close figures:
+
+      >>> report = get_eda_report(df)
+      >>> report.render()
+      >>> report.close_figures()
+
+      or for individual blocks:
+
+      >>> block = some_block
+      >>> block.render()
+      >>> block.close_figures()
 
     Examples
     --------
@@ -77,17 +107,40 @@ def get_data_quality_blocks(
     >>> len(blocks)
     3
     """
-    blocks = [
-        get_outliers_block(data),
-        get_distributions_block(data, round_digits=round_digits),
-        get_cardinality_block(data, round_digits=round_digits),
-    ]
+    # We ignore mpl runtime warnings because EDA reports may open many figures.
+    # It's assumed, that the user use ``Report.close_figures()``
+    # and ``Block.close_figures`` after rendering
+    blocks = []
+    with warnings.catch_warnings():
+
+        warnings.filterwarnings(
+            action="ignore",
+            module="explorica.visualizations",
+            message="More than 20 figures have been opened.",
+            category=RuntimeWarning,
+        )
+        blocks.extend(
+            [
+                get_outliers_block(
+                    data, nan_policy=nan_policy if nan_policy != "include" else "drop"
+                ),
+                get_distributions_block(
+                    data,
+                    round_digits=round_digits,
+                    nan_policy=nan_policy if nan_policy != "include" else "drop",
+                ),
+                get_cardinality_block(
+                    data, round_digits=round_digits, nan_policy=nan_policy
+                ),
+            ]
+        )
     return blocks
 
 
 def get_data_quality_report(
     data: Sequence[Any] | Mapping[str, Sequence[Any]],
     round_digits: int = 4,
+    nan_policy: str | Literal["drop", "raise", "include"] = "drop",
 ) -> Report:
     """
     Generate a full data quality report from multiple quality blocks.
@@ -103,6 +156,15 @@ def get_data_quality_report(
         such as a dictionary of sequences or a sequence of records.
     round_digits : int, default 4
         Number of decimal digits to use when rounding numerical statistics.
+    nan_policy : {'drop', 'raise', 'include'}, default='drop'
+        Policy for handling missing values in the input data.
+        - 'drop' : rows containing missing values are removed before
+          analysis.
+        - 'raise' : an error is raised if missing values are present.
+        - 'include' : missing values are preserved where supported.
+        Note that not all child blocks support nan_policy='include'.
+        In such cases, the policy is internally downgraded to 'drop' for
+        those blocks.
 
     Returns
     -------
@@ -116,9 +178,25 @@ def get_data_quality_report(
 
     Notes
     -----
-    This is a convenience wrapper around `get_data_overview_blocks`. Use
-    `get_data_overview_blocks` instead if you need fine-grained control over
-    block composition before report creation.
+    - This is a convenience wrapper around `get_data_overview_blocks`. Use
+      `get_data_overview_blocks` instead if you need fine-grained control over
+      block composition before report creation.
+    - During the construction of EDA or interaction reports, many matplotlib figures
+      may be opened (one per plot or table visualization). This is expected behavior
+      when the dataset contains many features.
+    - To prevent runtime warnings about too many open figures, these warnings are
+      ignored internally.
+    - To free memory after rendering, it is recommended to explicitly close figures:
+
+      >>> report = get_eda_report(df)
+      >>> report.render()
+      >>> report.close_figures()
+
+      or for individual blocks:
+
+      >>> block = some_block
+      >>> block.render()
+      >>> block.close_figures()
 
     Examples
     --------
@@ -129,7 +207,7 @@ def get_data_quality_report(
     3
     """
     return Report(
-        blocks=get_data_quality_blocks(data, round_digits),
+        blocks=get_data_quality_blocks(data, round_digits, nan_policy=nan_policy),
         title="Data quality",
         description=(
             "A comprehensive summary of dataset quality, including missing values, "

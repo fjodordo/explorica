@@ -100,7 +100,8 @@ def get_data_shape_block(
     block.add_metric("Rows", df.shape[0])
     block.add_metric("Columns", df.shape[1])
     data_types = TableResult(
-        df.dtypes.reset_index()
+        df.dtypes.astype("str")
+        .reset_index()
         .groupby(0)["index"]
         .count()
         .sort_values(ascending=False)

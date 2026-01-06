@@ -38,11 +38,52 @@ render_block_html(block)
     Render a single `Block` into an HTML fragment.
 render_block_pdf(block, doc_template_kws)
     Render a single `Block` into a PDF byte stream.
+get_eda_blocks(
+    data,
+    numerical_names=None,
+    categorical_names=None,
+    target_name=None,
+    **kwargs
+)
+    Build a full exploratory data analysis (EDA) report as a list of blocks.
+get_eda_report(
+    data,
+    numerical_names=None,
+    categorical_names=None,
+    target_name=None,
+    **kwargs
+)
+    Build a full exploratory data analysis (EDA) report.
+get_data_overview_blocks(data, round_digits=4)
+    Build blocks for a short data overview.
+get_data_overview_report(data, round_digits=4)
+    Generate a short data overview report.
+get_data_quality_blocks(data, round_digits=4)
+    Build blocks for a detailed data quality analysis.
+get_data_quality_report(data, round_digits=4)
+    Generate a detailed data quality analysis report.
+get_interactions_blocks(
+    data,
+    feature_assignment = None,
+    category_threshold = 30,
+    round_digits = 4,
+    nan_policy="drop"
+)
+    Build linear and non-linear interaction blocks for Explorica reports.
+def get_interactions_report(
+    data,
+    feature_assignment = None,
+    category_threshold = 30,
+    round_digits = 4,
+    nan_policy = "drop"
+)
+    Generate an interaction analysis report.
 normalize_visualization(figure)
     Normalize Matplotlib and Plotly figures into a unified
     `VisualizationResult` representation.
 normalize_table(data)
     Normalize tabular data into a standardized TableResult object.
+
 
 Notes
 -----
@@ -78,6 +119,16 @@ Examples
 from .core import Block, BlockConfig, Report
 from .utils import normalize_visualization, normalize_table
 from .renderers import render_block_html, render_block_pdf, render_html, render_pdf
+from .presets import (
+    get_eda_blocks,
+    get_eda_report,
+    get_data_overview_blocks,
+    get_data_overview_report,
+    get_data_quality_blocks,
+    get_data_quality_report,
+    get_interactions_blocks,
+    get_interactions_report,
+)
 
 __all__ = [
     "Block",
@@ -89,4 +140,12 @@ __all__ = [
     "render_block_pdf",
     "render_html",
     "render_pdf",
+    "get_eda_blocks",
+    "get_eda_report",
+    "get_data_overview_blocks",
+    "get_data_overview_report",
+    "get_data_quality_blocks",
+    "get_data_quality_report",
+    "get_interactions_blocks",
+    "get_interactions_report",
 ]

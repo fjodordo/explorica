@@ -31,7 +31,8 @@ Examples
 3
 """
 
-from typing import Sequence, Mapping, Any
+from typing import Sequence, Mapping, Any, Literal
+import warnings
 
 from ..core.block import Block
 from ..core.report import Report
@@ -41,6 +42,7 @@ from .blocks import get_ctm_block, get_data_quality_overview_block, get_data_sha
 def get_data_overview_blocks(
     data: Sequence[Any] | Mapping[str, Sequence[Any]],
     round_digits: int = 4,
+    nan_policy: str | Literal["drop", "raise", "include"] = "drop",
 ) -> list[Block]:
     """
     Build blocks for a short data overview.
@@ -61,6 +63,15 @@ def get_data_overview_blocks(
         such as a dictionary of sequences or a sequence of records.
     round_digits : int, default=4
         Number of decimal digits to use when rounding numerical statistics.
+    nan_policy : {'drop', 'raise', 'include'}, default='drop'
+        Policy for handling missing values in the input data.
+        - 'drop' : rows containing missing values are removed before
+          analysis.
+        - 'raise' : an error is raised if missing values are present.
+        - 'include' : missing values are preserved where supported.
+        Note that not all child blocks support nan_policy='include'.
+        In such cases, the policy is internally downgraded to 'drop' for
+        those blocks.
 
     Returns
     -------
@@ -69,9 +80,25 @@ def get_data_overview_blocks(
 
     Notes
     -----
-    This function does not return a `Report` instance and does not perform any
-    rendering. It is intended for compositional use, allowing users to merge
-    the returned blocks with other presets before building a final report.
+    - This function does not return a `Report` instance and does not perform any
+      rendering. It is intended for compositional use, allowing users to merge
+      the returned blocks with other presets before building a final report.
+    - During the construction of EDA or interaction reports, many matplotlib figures
+      may be opened (one per plot or table visualization). This is expected behavior
+      when the dataset contains many features.
+    - To prevent runtime warnings about too many open figures, these warnings are
+      ignored internally.
+    - To free memory after rendering, it is recommended to explicitly close figures:
+
+      >>> report = get_eda_report(df)
+      >>> report.render()
+      >>> report.close_figures()
+
+      or for individual blocks:
+
+      >>> block = some_block
+      >>> block.render()
+      >>> block.close_figures()
 
     Examples
     --------
@@ -81,17 +108,38 @@ def get_data_overview_blocks(
     >>> blocks[0].block_config.title
     'Basic statistics for the dataset.'
     """
-    blocks = [
-        get_ctm_block(data, round_digits=round_digits),
-        get_data_shape_block(data),
-        get_data_quality_overview_block(data, round_digits=round_digits),
-    ]
+    # We ignore mpl runtime warnings because EDA reports may open many figures.
+    # It's assumed, that the user use ``Report.close_figures()``
+    # and ``Block.close_figures`` after rendering
+    blocks = []
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="More than 20 figures have been opened.",
+            category=RuntimeWarning,
+            module="explorica.visualizations",
+        )
+        blocks.extend(
+            [
+                get_ctm_block(
+                    data,
+                    round_digits=round_digits,
+                    nan_policy=nan_policy if nan_policy != "include" else "drop",
+                ),
+                get_data_shape_block(data, nan_policy=nan_policy),
+                get_data_quality_overview_block(
+                    data,
+                    round_digits=round_digits,
+                ),
+            ]
+        )
     return blocks
 
 
 def get_data_overview_report(
     data: Sequence[Any] | Mapping[str, Sequence[Any]],
     round_digits: int = 4,
+    nan_policy: str | Literal["drop", "raise", "include"] = "drop",
 ) -> list[Block] | Report:
     """
     Generate a short data overview report.
@@ -108,6 +156,15 @@ def get_data_overview_report(
         such as a dictionary of sequences or a sequence of records.
     round_digits : int, default 4
         Number of decimal digits to use when rounding numerical statistics.
+    nan_policy : {'drop', 'raise', 'include'}, default='drop'
+        Policy for handling missing values in the input data.
+        - 'drop' : rows containing missing values are removed before
+          analysis.
+        - 'raise' : an error is raised if missing values are present.
+        - 'include' : missing values are preserved where supported.
+        Note that not all child blocks support nan_policy='include'.
+        In such cases, the policy is internally downgraded to 'drop' for
+        those blocks.
 
     Returns
     -------
@@ -119,9 +176,25 @@ def get_data_overview_report(
 
     Notes
     -----
-    This is a convenience wrapper around `get_data_overview_blocks`. Use
-    `get_data_overview_blocks` instead if you need fine-grained control over
-    block composition before report creation.
+    - This is a convenience wrapper around `get_data_overview_blocks`. Use
+      `get_data_overview_blocks` instead if you need fine-grained control over
+      block composition before report creation.
+    - During the construction of EDA or interaction reports, many matplotlib figures
+      may be opened (one per plot or table visualization). This is expected behavior
+      when the dataset contains many features.
+    - To prevent runtime warnings about too many open figures, these warnings are
+      ignored internally.
+    - To free memory after rendering, it is recommended to explicitly close figures:
+
+      >>> report = get_eda_report(df)
+      >>> report.render()
+      >>> report.close_figures()
+
+      or for individual blocks:
+
+      >>> block = some_block
+      >>> block.render()
+      >>> block.close_figures()
 
     Examples
     --------
@@ -132,7 +205,9 @@ def get_data_overview_report(
     3
     """
     return Report(
-        blocks=get_data_overview_blocks(data, round_digits=round_digits),
+        blocks=get_data_overview_blocks(
+            data, round_digits=round_digits, nan_policy=nan_policy
+        ),
         title="Data overview",
         description=(
             "Short overview of the dataset. "

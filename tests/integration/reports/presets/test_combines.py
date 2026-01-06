@@ -4,6 +4,7 @@ import pandas as pd
 from explorica.reports.presets.data_overview import get_data_overview_report, get_data_overview_blocks
 from explorica.reports.presets.data_quality import get_data_quality_blocks, get_data_quality_report
 from explorica.reports.presets.interactions import get_interactions_blocks, get_interactions_report
+from explorica.reports.presets.eda import get_eda_blocks, get_eda_report
 from explorica.reports.core.block import Block, BlockConfig
 from explorica.reports.core.report import Report
 from explorica.types import FeatureAssignment
@@ -20,6 +21,111 @@ def df_mixed():
         "c1": ["a", "b", "a", "b"],
         "y": [0, 1, 0, 1],
     })
+
+# -------------------------------
+# Tests for get_eda_blocks
+# -------------------------------
+
+def test_get_eda_blocks_basic_blocks_generation(df_mixed):
+
+    blocks = []
+    try:
+        blocks = get_eda_blocks(df_mixed)
+        # Check that `blocks` are returned as a list of Blocks
+        assert isinstance(blocks, list)
+        assert all(isinstance(b, Block) for b in blocks)
+        # Check availability of main blocks
+        titles = [b.block_config.title for b in blocks]
+        assert "Data Overview" in titles
+        assert "Data Quality" in titles
+        assert "Feature Interactions" in titles
+    finally:
+        for block in blocks:
+            block.close_figures()
+
+def test_get_eda_blocks_target_assignment_heuristics():
+    df = pd.DataFrame({
+        "num_small_unique": [0, 1, 0, 1],
+        "num_large_unique": [10, 20, 30, 40],
+        "cat": ["a", "b", "a", "b"]
+    })
+    blocks = []
+    try:
+        blocks = get_eda_blocks(
+            df,
+            numerical_names=["num_large_unique"],
+            target_name="num_small_unique",
+            categorical_threshold=3
+        )
+        assert len(blocks) > 0
+        titles = [b.block_config.title for b in blocks]
+        assert "Feature Interactions" in titles
+        assert "Linear relations" in titles
+        assert "Non-linear relations" in titles
+    finally:
+        for block in blocks:
+            block.close_figures()
+
+def test_get_eda_blocks_nan_policy_include_vs_drop():
+    df = pd.DataFrame({
+        "x1": [1, 2, None, 4],
+        "c1": ["a", "b", None, "b"],
+        "y": [0, 1, 0, None]
+    })
+    blocks_drop = []
+    blocks_include = []
+    try:
+        # nan_policy='drop'
+        blocks_drop = get_eda_blocks(df, nan_policy="drop")
+        assert all(isinstance(b, Block) for b in blocks_drop)
+        # nan_policy='include'
+        blocks_include = get_eda_blocks(df, nan_policy="include")
+        assert all(isinstance(b, Block) for b in blocks_include)
+    finally:
+        for block in blocks_drop + blocks_include:
+            block.close_figures()
+
+# -------------------------------
+# Tests for get_eda_report
+# -------------------------------
+
+def test_get_eda_report_smoke(mocker):
+    df = pd.DataFrame({"x": [1, 2, 3]})
+
+    fake_blocks = []
+
+    mocked_blocks = mocker.patch(
+        "explorica.reports.presets.eda.get_eda_blocks",
+        return_value=fake_blocks,
+    )
+
+    report = get_eda_report(
+        df,
+        numerical_names=["x"],
+        target_name="x",
+        categorical_threshold=42,
+        round_digits=7,
+        nan_policy="raise",
+    )
+
+    try:
+        # Report is constructed correctly
+        assert isinstance(report, Report)
+        assert report.title == "Exploratory Data Analysis Report"
+        assert len(report.blocks) == len(fake_blocks)
+
+        # Parameters are forwarded correctly
+        mocked_blocks.assert_called_once_with(
+            df,
+            ["x"],
+            None,
+            "x",
+            categorical_threshold=42,
+            round_digits=7,
+            nan_policy="raise",
+        )
+    finally:
+        report.close_figures()
 
 
 # -------------------------------
@@ -48,13 +154,10 @@ def test_get_interactions_blocks_nonlinear_block_conditionally_added(df_mixed):
             block.close_figures()
 
 def test_get_interactions_blocks_feature_assignment_priority(df_mixed):
-    fa = FeatureAssignment(
-        numerical_features=["x1"],
-        categorical_features=["c1"],
-        numerical_target="y",
-    )
 
-    blocks = get_interactions_blocks(df_mixed, feature_assignment=fa)
+    blocks = get_interactions_blocks(
+        df_mixed, numerical_names=["x1"], categorical_names=["c1"],
+        target_numerical_name="y")
     try:
         linear_block = blocks[0]
 
@@ -107,7 +210,7 @@ def test_get_interactions_report_smoke(mocker):
 
     report = get_interactions_report(
         df,
-        category_threshold=42,
+        categorical_threshold=42,
         round_digits=7,
         nan_policy="raise",
     )
@@ -120,8 +223,10 @@ def test_get_interactions_report_smoke(mocker):
         # Parameters are forwarded
         mocked_blocks.assert_called_once_with(
             df,
-            feature_assignment=None,
-            category_threshold=42,
+            numerical_names=None,
+            categorical_names=None,
+            target_name=None,
+            categorical_threshold=42,
             round_digits=7,
             nan_policy="raise",
         )
@@ -161,9 +266,9 @@ def test_get_data_quality_blocks_smoke(mocker):
         assert blocks[2].block_config.title == "cardinality"
 
         # Calls
-        card_mock.assert_called_once_with(data, round_digits=round_digits)
-        dist_mock.assert_called_once_with(data, round_digits=round_digits)
-        out_mock.assert_called_once_with(data)
+        card_mock.assert_called_once_with(data, round_digits=round_digits, nan_policy="drop")
+        dist_mock.assert_called_once_with(data, round_digits=round_digits, nan_policy="drop")
+        out_mock.assert_called_once_with(data, nan_policy="drop")
     finally:
         for block in blocks:
             block.close_figures()
@@ -189,7 +294,7 @@ def test_get_data_quality_report_smoke(mocker):
     report = get_data_quality_report(df, 3)
     try:
         # orchestration
-        blocks_mock.assert_called_once_with(df, 3)
+        blocks_mock.assert_called_once_with(df, 3, nan_policy="drop")
 
         # report object
         assert isinstance(report, Report)
