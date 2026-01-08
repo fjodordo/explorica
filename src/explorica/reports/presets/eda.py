@@ -60,7 +60,7 @@ import warnings
 
 import pandas as pd
 
-from ..._utils import handle_nan
+from ..._utils import convert_dataframe
 from ..core.block import Block
 from ..core.report import Report
 from ..utils import normalize_assignment, _split_features_by_assignment
@@ -184,12 +184,7 @@ def get_eda_blocks(
         "categorical_threshold": kwargs.get("categorical_threshold", 30),
         "nan_policy": kwargs.get("nan_policy", "drop"),
     }
-    df = handle_nan(
-        data,
-        nan_policy=other_params["nan_policy"],
-        supported_policy=("drop", "raise", "include"),
-        is_dataframe=False,
-    )
+    df = convert_dataframe(data)
     feature_assignment = normalize_assignment(
         df,
         numerical_names,

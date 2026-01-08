@@ -119,15 +119,17 @@ def get_data_quality_blocks(
             message="More than 20 figures have been opened.",
             category=RuntimeWarning,
         )
+        outliers_policy = nan_policy if nan_policy != "include" else "drop"
+        outliers_policy = (
+            "drop_with_split" if outliers_policy == "drop" else outliers_policy
+        )
         blocks.extend(
             [
-                get_outliers_block(
-                    data, nan_policy=nan_policy if nan_policy != "include" else "drop"
-                ),
+                get_outliers_block(data, nan_policy=outliers_policy),
                 get_distributions_block(
                     data,
                     round_digits=round_digits,
-                    nan_policy=nan_policy if nan_policy != "include" else "drop",
+                    nan_policy=outliers_policy,
                 ),
                 get_cardinality_block(
                     data, round_digits=round_digits, nan_policy=nan_policy

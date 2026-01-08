@@ -525,7 +525,7 @@ def _render_block_html_build_tables(
     html_parts.append(f"<div class='{container_class}'>")
     for table_result in tables:
         if table_result.title:
-            html_parts.append(f"<h4>{table_result.title}</h4>")
+            html_parts.append(f"<h4>{table_result.title}:</h4>")
 
         if table_result.description:
             html_parts.append(

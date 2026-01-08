@@ -295,9 +295,9 @@ class DetectionMethods:
         near_zero = data.var() < threshold
         if near_zero.any():
             if near_zero.shape[0] == 1:
-                cols = data.columns[near_zero]
+                cols = data.columns[near_zero].astype("str")[0]
             else:
-                cols = ", ".join(data.columns[near_zero].astype("str"))
+                cols = ", ".join(list(data.columns[near_zero].astype("str")))
             wrn_msg = DetectionMethods._warns["data_quality"][
                 "outliers_on_zero_variance_f"
             ].format(cols)

@@ -33,7 +33,7 @@ from ...core.block import Block, BlockConfig
 
 def get_data_shape_block(
     data: Sequence[Any] | Mapping[str, Sequence[Any]],
-    nan_policy: Literal["drop", "raise", "include"] = "drop",
+    nan_policy: Literal["drop", "raise", "include"] = "include",
 ) -> Block:
     """
     Generate a data shape block.
@@ -47,7 +47,7 @@ def get_data_shape_block(
     data : Sequence[Any] or Mapping[str, Sequence[Any]]
         The input dataset. Can be a list of sequences, a dictionary of sequences,
         or a pandas-compatible structure convertible to a DataFrame.
-    nan_policy : {'drop', 'raise', 'include'}, default 'drop'
+    nan_policy : {'drop', 'raise', 'include'}, default 'include'
         Policy for handling missing values:
         - 'drop' : remove rows with NaN values before computing metrics.
         - 'raise': raise an error if NaN values are present.

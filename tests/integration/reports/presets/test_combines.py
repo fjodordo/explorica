@@ -1,5 +1,7 @@
 import pytest
+import numpy as np
 import pandas as pd
+import seaborn as sns
 
 from explorica.reports.presets.data_overview import get_data_overview_report, get_data_overview_blocks
 from explorica.reports.presets.data_quality import get_data_quality_blocks, get_data_quality_report
@@ -267,8 +269,8 @@ def test_get_data_quality_blocks_smoke(mocker):
 
         # Calls
         card_mock.assert_called_once_with(data, round_digits=round_digits, nan_policy="drop")
-        dist_mock.assert_called_once_with(data, round_digits=round_digits, nan_policy="drop")
-        out_mock.assert_called_once_with(data, nan_policy="drop")
+        dist_mock.assert_called_once_with(data, round_digits=round_digits, nan_policy="drop_with_split")
+        out_mock.assert_called_once_with(data, nan_policy="drop_with_split")
     finally:
         for block in blocks:
             block.close_figures()
@@ -324,7 +326,7 @@ def test_get_data_overview_blocks_basic():
 
         # Check block headers
         titles = [b.block_config.title for b in blocks]
-        assert "Basic statistics for the dataset." in titles
+        assert "Basic statistics for the dataset" in titles
         assert "Dataset shape" in titles
         assert "Data quality quick summary" in titles
     finally:

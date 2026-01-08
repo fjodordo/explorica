@@ -351,8 +351,13 @@ def _get_correlation_matrix_heatmap(
     ----------------
     cmap : str, default='magma'
         Colormap for the heatmap.
-    figsize : tuple, default=(5, 3)
+    figsize : tuple, default=(5, 4)
         Figure size of the heatmap.
+    annot_threshold : int, default=11
+        Maximum number of features for which numeric annotations are displayed
+        on the heatmap. If the number of features in ``df`` + ``y`` exceeds
+        this threshold, ``annot`` is automatically set to False to prevent
+        clutter and unreadable text in the figure.
 
     Returns
     -------
@@ -367,7 +372,8 @@ def _get_correlation_matrix_heatmap(
     """
     other_params = {
         "cmap": kwargs.get("cmap", "magma"),
-        "figsize": kwargs.get("figsize", (5, 3)),
+        "figsize": kwargs.get("figsize", (5, 4)),
+        "annot_threshold": kwargs.get("annot_threshold", 11),
     }
     df_full = handle_nan(pd.concat([df, y], axis=1), nan_policy)
     title = (
@@ -375,8 +381,10 @@ def _get_correlation_matrix_heatmap(
         if method == "pearson"
         else "Correlation matrix (Spearman)"
     )
+    annot = other_params["annot_threshold"] >= df_full.shape[1]
     vr = heatmap(
         corr_matrix_linear(df_full, method),
+        annot=annot,
         title=title,
         figsize=other_params["figsize"],
         cmap=other_params["cmap"],

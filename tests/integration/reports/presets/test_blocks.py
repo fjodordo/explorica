@@ -378,7 +378,7 @@ def test_distributions_block_nan_policy_drop():
     df = pd.DataFrame({
         "x": [1, 2, np.nan, 4]
     })
-    block = get_distributions_block(df, nan_policy="drop")
+    block = get_distributions_block(df, nan_policy="drop_with_split")
     table = block.block_config.tables[0].table
     # The table is calculated based on 3 elements
     assert table.loc["x", "skewness"] == table.loc["x", "skewness"]  # not NaN
@@ -432,8 +432,8 @@ def test_get_outliers_block_zero_variance_feature():
     df = pd.DataFrame({
         "const": [5, 5, 5, 5, 5]
     })
-
-    block = get_outliers_block(df)
+    with pytest.warns(UserWarning, match="have zero or very small variance"):
+        block = get_outliers_block(df)
     table = block.block_config.tables[0].table
 
     # No outliers should be detected for a constant feature
@@ -455,13 +455,12 @@ def test_get_outliers_block_with_nans_drop():
         "y": [10, 10, 99, 10],
     })
 
-    block = get_outliers_block(df, nan_policy="drop")
+    block = get_outliers_block(df, nan_policy="drop_with_split")
     table = block.block_config.tables[0].table
 
     assert set(table.index) == {"x", "y"}
 
-    # 'y' column becomes constant after drop
-    assert table.loc["y", "IQR (1.5)"] == 0
+    assert table.loc["y", "IQR (1.5)"] == 1
     assert table.loc["y", "Z-Score (3.0σ)"] == 0
 
 
@@ -649,9 +648,9 @@ def test_get_ctm_block_values():
 
 def test_get_ctm_block_nan_handling():
     data = {'num': [1, 2, np.nan], 'cat': ['x', 'y', 'x']}
-    
+
     # nan_policy='drop' must execute
-    block_drop = get_ctm_block(data, nan_policy='drop')
+    block_drop = get_ctm_block(data, nan_policy='drop_with_split')
     assert isinstance(block_drop, Block)
     
     # nan_policy='raise' must raise ValueError

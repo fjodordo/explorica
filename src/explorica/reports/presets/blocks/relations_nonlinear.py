@@ -219,6 +219,9 @@ def _get_eta_squared_heatmap(
         Colormap for the heatmap.
     figsize : tuple, default=(5, 3)
         Figure size for the heatmap.
+    annot_threshold : int, default=11
+        Maximum allowed size of the dependency matrix dimension for which
+        numeric annotations are displayed on heatmap.
 
     Returns
     -------
@@ -247,7 +250,8 @@ def _get_eta_squared_heatmap(
     other_params = {
         "nan_policy": kwargs.get("nan_policy", "drop"),
         "cmap": kwargs.get("cmap", "magma"),
-        "figsize": kwargs.get("figsize", (5, 3)),
+        "figsize": kwargs.get("figsize", (5, 4)),
+        "annot_threshold": kwargs.get("annot_threshold", 11),
     }
     if not target_numerical.empty:
         df_num = pd.concat([df_numerical.copy(), target_numerical], axis=1)
@@ -260,8 +264,10 @@ def _get_eta_squared_heatmap(
     df_num = handle_nan(df_num, other_params["nan_policy"])
     df_cat = handle_nan(df_cat, other_params["nan_policy"])
     dependency_matrix = corr_matrix_eta(df_num, df_cat)
+    annot = other_params["annot_threshold"] >= max(dependency_matrix.shape)
     vr = heatmap(
         dependency_matrix,
+        annot=annot,
         title="Dependency matrix (eta squared)",
         cmap=other_params["cmap"],
         figsize=other_params["figsize"],
@@ -295,10 +301,16 @@ def _get_cramer_v_heatmap(
     ----------------
     cmap : str, default='magma'
         Colormap for the heatmap.
-    figsize : tuple, default=(5, 3)
+    figsize : tuple, default=(5, 4)
         Figure size for the heatmap.
     bias_correction : bool, default=True
         Whether to apply bias correction in Cramer's V computation.
+    annot_threshold : int, default=11
+        Maximum number of features for which numeric annotations are displayed
+        on the heatmap. If the number of features in
+        ``df_categorical`` + ``target_categorical`` exceeds
+        this threshold, ``annot`` is automatically set to False to prevent
+        clutter and unreadable text in the figure.
 
     Returns
     -------
@@ -324,8 +336,9 @@ def _get_cramer_v_heatmap(
     """
     other_params = {
         "cmap": kwargs.get("cmap", "magma"),
-        "figsize": kwargs.get("figsize", (5, 3)),
+        "figsize": kwargs.get("figsize", (5, 4)),
         "bias_correction": kwargs.get("bias_correction", True),
+        "annot_threshold": kwargs.get("annot_threshold", 11),
     }
     if not target_categorical.empty:
         df = handle_nan(
@@ -336,8 +349,10 @@ def _get_cramer_v_heatmap(
     dependency_matrix = corr_matrix_cramer_v(
         df, bias_correction=other_params["bias_correction"]
     )
+    annot = other_params["annot_threshold"] >= df.shape[1]
     vr = heatmap(
         dependency_matrix,
+        annot=annot,
         title="Dependency matrix (Cramer's V)",
         figsize=other_params["figsize"],
         cmap=other_params["cmap"],
@@ -376,6 +391,7 @@ def _get_highest_dependency_pairs_table(
         Number of top dependency pairs to include in the table.
     round_digits : int, default=4
         Number of decimal places to round coefficients.
+
 
     Returns
     -------

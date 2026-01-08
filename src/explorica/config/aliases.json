@@ -16,6 +16,7 @@
         "shannon": ["shannon", "claude shannon"],
         "drop": ["drop", "drop_axis0"],
         "drop_columns": ["drop_columns", "drop_axis1"],
+        "drop_with_split": ["drop_with_split", "drop_and_split"],
         "raise": ["raise"],
         "include": ["include", "handle"]
     },
