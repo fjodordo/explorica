@@ -44,6 +44,7 @@ from typing import Sequence, Mapping, Any, Literal
 import warnings
 
 import numpy as np
+import pandas as pd
 
 from ...._utils import convert_dataframe, handle_nan
 from ....types import TableResult
@@ -57,7 +58,7 @@ def get_distributions_block(
     threshold_skewness: float = 0.25,
     threshold_kurtosis: float = 0.25,
     round_digits: int = 4,
-    nan_policy: Literal["drop", "raise"] = "drop",
+    nan_policy: Literal["drop_with_split", "raise"] = "drop_with_split",
 ) -> Block:
     """
     Generate a `Block` summarizing feature distributions in a dataset.
@@ -84,10 +85,17 @@ def get_distributions_block(
         for a feature to be considered approximately normal.
     round_digits : int, default=4
         Number of decimal digits for skewness and kurtosis values in the table.
-    nan_policy : {'drop', 'raise'}, default 'drop'
-        Policy for handling missing values:
-        - 'drop' : remove rows with missing values.
-        - 'raise': raise an error if missing values are present.
+    nan_policy : {'drop_with_split', 'raise'}, default 'drop'
+        Policy to handle missing values:
+        - 'drop_with_split' :
+          Missing values are handled independently for each feature.
+          For every column, NaNs are dropped column-wise before computing
+          statistics. As a result, different features may be evaluated
+          on different numbers of observations.
+          This behavior is semantically correct in an EDA context, where
+          preserving per-feature statistics is preferred over strict
+          row-wise alignment.
+        - 'raise' : raise an error if NaNs are present.
 
     Returns
     -------
@@ -112,21 +120,28 @@ def get_distributions_block(
     a    0.0000    -1.300      False                low-pitched
     b    0.3632    -1.372      False  right-skewed, low-pitched
     """
-    df = handle_nan(
-        convert_dataframe(data).select_dtypes("number"), nan_policy=nan_policy
+    dict_of_series = handle_nan(
+        convert_dataframe(data).select_dtypes("number"),
+        nan_policy=nan_policy,
+        supported_policy=["raise", "drop_with_split"],
     )
 
     # Describe skewness-kurtosis
     with warnings.catch_warnings():
         warnings.filterwarnings(
-            "ignore",
             category=UserWarning,
+            action="ignore",
             module="explorica.data_quality.outliers.stats",
         )
-        sk_describe = describe_distributions(
-            df,
-            threshold_skewness=threshold_skewness,
-            threshold_kurtosis=threshold_kurtosis,
+        sk_describe = pd.DataFrame(
+            [
+                describe_distributions(
+                    dict_of_series[feat],
+                    threshold_skewness=threshold_skewness,
+                    threshold_kurtosis=threshold_kurtosis,
+                ).iloc[0]
+                for feat in dict_of_series
+            ]
         )
     sk_describe["kurtosis"] = np.round(
         sk_describe["kurtosis"],
@@ -144,13 +159,13 @@ def get_distributions_block(
     # Add boxplots
     boxplots = [
         boxplot(
-            df[feature],
+            dict_of_series[feature],
             title=f"boxplot for '{feature}' feature",
             figsize=(5, 3),
             palette="Set1",
             style="whitegrid",
         )
-        for feature in df.columns
+        for feature in dict_of_series
     ]
     for i, vr in enumerate(boxplots):
         if i == 0:
@@ -160,7 +175,7 @@ def get_distributions_block(
     # Add distplots
     boxplots = [
         distplot(
-            df[feature],
+            dict_of_series[feature],
             title=f"distplot for '{feature}' feature",
             figsize=(5, 3),
             palette="Set1",
@@ -168,7 +183,7 @@ def get_distributions_block(
             ylabel="frequency",
             style="whitegrid",
         )
-        for feature in df.columns
+        for feature in dict_of_series
     ]
     for i, vr in enumerate(boxplots):
         if i == 0:

@@ -82,7 +82,7 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle, StyleSheet1
 from reportlab.platypus import Image
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -108,21 +108,33 @@ ERR_MSG_UNSUPPORTED_STRING_FLAG_F = read_config("messages")["errors"][
 
 
 TTF_SANS = (
-    Path(__file__).absolute().parent.parent.parent / "assets/fonts/DejaVuSans.ttf"
+    Path(__file__).absolute().parent.parent.parent
+    / "assets/fonts/dejavusans/DejaVuSans.ttf"
+)
+TTF_SANS_BOLD = (
+    Path(__file__).absolute().parent.parent.parent
+    / "assets/fonts/dejavusans/DejaVuSans-Bold.ttf"
 )
 TTF_SERIF = (
-    Path(__file__).absolute().parent.parent.parent / "assets/fonts/DejaVuSerif.ttf"
+    Path(__file__).absolute().parent.parent.parent
+    / "assets/fonts/dejavuserif/DejaVuSerif.ttf"
+)
+TTF_SERIF_BOLD = (
+    Path(__file__).absolute().parent.parent.parent
+    / "assets/fonts/dejavuserif/DejaVuSerif-Bold.ttf"
 )
 
 pdfmetrics.registerFont(TTFont("DejaVuSans", TTF_SANS))
+pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", TTF_SANS_BOLD))
 pdfmetrics.registerFont(TTFont("DejaVuSerif", TTF_SERIF))
+pdfmetrics.registerFont(TTFont("DejaVuSerif-Bold", TTF_SERIF_BOLD))
 
 
 def render_pdf(
     data,
     path: str = None,
     font: str = "DejaVuSans",
-    doc_template_kws: dict = None,
+    boldfont: str = "DejaVuSans-Bold",
     **kwargs,
 ) -> bytes:
     """
@@ -150,12 +162,19 @@ def render_pdf(
         - `"DejaVuSerif"`
         - path to a custom TTF font file, which will be registered as
           `UserProvidedFont`.
-    doc_template_kws : dict, optional
-        Additional keyword arguments to pass to `SimpleDocTemplate` for
-        customizing PDF layout (e.g., margins, page size).
+    boldfont : str, default="DejaVuSans-Bold"
+        Font to use for rendering bold text in the PDF. Supports the following:
+        - `"DejaVuSans-Bold"` (default)
+        - `"DejaVuSerif-Bold"`
+        - path to a custom TTF font file, which will be registered as
+          `UserProvidedBoldFont`.
+
 
     Other parameters
     ----------------
+    doc_template_kws : dict, optional
+        Additional keyword arguments to pass to `SimpleDocTemplate` for
+        customizing PDF layout (e.g., margins, page size).
     report_name : str, default="report"
         The base name used when saving the PDF if `path` is a directory.
         Also serves as a placeholder name in logs or error messages.
@@ -248,6 +267,7 @@ def render_pdf(
     ...     }
     """
     params = {
+        "doc_template_kws": kwargs.get("doc_template_kws"),
         "plotly_fig_scale": kwargs.get("plotly_fig_scale", 1),
         "mpl_fig_scale": kwargs.get("mpl_fig_scale", 80),
         "report_name": kwargs.get("report_name", "report"),
@@ -265,7 +285,7 @@ def render_pdf(
         context = nullcontext()
     with context:
         logger.info("Rendering '%s' in pdf", params["report_name"])
-        font, reportlab_styles = _preprocess_font(font)
+        reportlab_styles: StyleSheet1 = _preprocess_font(font, boldfont)
         # Render pipeline for a single Block
         if data.typename == "Block":
             block_base_name = f"{params['report_name']}_block"
@@ -310,7 +330,7 @@ def render_pdf(
                     "Report '%s' has no blocks; inserting placeholder",
                     params["report_name"],
                 )
-        pdf_bytes = _get_build_pdf(story, doc_template_kws=doc_template_kws)
+        pdf_bytes = _get_build_pdf(story, doc_template_kws=params["doc_template_kws"])
         if path is not None:
             _save_pdf(pdf_bytes, path, report_name=params["report_name"])
         logger.info("'%s' was successfully rendered", params["report_name"])
@@ -367,53 +387,106 @@ def _get_build_pdf(story: list, doc_template_kws: dict = None) -> bytes:
         buffer.close()
 
 
-def _preprocess_font(font: str):
+def _preprocess_font(
+    font: str = "DejaVuSans", boldfont: str = "DejaVuSans-Bold"
+) -> StyleSheet1:
     """
-    Validate and register a font for ReportLab PDF rendering.
+    Validate, register, and prepare font styles for ReportLab PDF rendering.
+
+    This function initializes a ReportLab style sheet and configures it
+    to use a specified font family, including a bold variant. Both fonts
+    can be provided either as predefined aliases or as paths to TTF files.
 
     Parameters
     ----------
-    font : str
-        Font alias or path to a TTF font file. Supported aliases:
+    font : str, default="DejaVuSans"
+        Font alias or path to a TTF font file for regular text.
+        Supported aliases:
         - "DejaVuSans"
         - "DejaVuSerif"
-        If a path is provided, the font is registered as "UserProvidedFont".
+
+        If a file path is provided, the font is registered under the
+        name ``"UserProvidedFont"``.
+
+    boldfont : str, default="DejaVuSans-Bold"
+        Font alias or path to a TTF font file for bold text.
+        Supported aliases:
+        - "DejaVuSans-Bold"
+        - "DejaVuSerif-Bold"
+
+        If a file path is provided, the font is registered under the
+        name ``"UserProvidedBoldFont"``.
 
     Returns
     -------
-    tuple
-        - font_name : str — the font name to use in ReportLab styles
-        - reportlab_styles : dict — a dictionary of ReportLab paragraph styles
-          updated to use the specified font
+    StyleSheet1
+    - reportlab_styles : StyleSheet1
+      A ReportLab style sheet with updated and extended paragraph styles.
 
     Raises
     ------
     ValueError
-        If `font` is not a recognized alias and the specified file path does not exist.
+        If `font` or `boldfont` is neither a supported alias nor a valid
+        path to an existing TTF file.
 
     Notes
     -----
-    - Updates standard ReportLab styles: Normal, BodyText, Heading1–3
+    The returned style sheet is modified as follows:
+
+    - The following base styles are updated to use the regular font:
+      ``Normal``, ``BodyText``, ``Italic``, ``Heading1``, ``Heading2``,
+      ``Heading3``, ``Heading4``.
+
+    - Additional styles are added:
+      - ``BodyText-Bold`` - bold variant of ``BodyText``.
+      - ``Heading4-Bold`` - bold variant of ``Heading4``.
+
+    - Bold styles explicitly use the `boldfont` font and do not rely on
+      synthetic font weight emulation.
+
+    - The function mutates a freshly created style sheet obtained via
+      ``getSampleStyleSheet()`` and does not affect global ReportLab state.
     """
     reportlab_styles = getSampleStyleSheet()
     if font not in {"DejaVuSans", "DejaVuSerif"}:
         if not Path(font).exists():
             raise ValueError(
-                f"There is no font in the specified directory: {font}."
+                f"There is no font in the specified directory for `font`: {font}."
                 f"Please, provide an existing path to font or alias"
                 "('DejaVuSans', 'DejaVuSerif')"
             )
         pdfmetrics.registerFont(TTFont("UserProvidedFont", Path(font)))
         logger.info("Using user-provided font from path: %s", font)
         font = "UserProvidedFont"
+    if boldfont not in {"DejaVuSans-Bold", "DejaVuSerif-Bold"}:
+        if not Path(boldfont).exists():
+            raise ValueError(
+                "There is no font in the specified "
+                f"directory for `boldfont`: {boldfont}. "
+                "Please, provide an existing path to font or alias "
+                "('DejaVuSans-Bold', 'DejaVuSerif-Bold')"
+            )
+        pdfmetrics.registerFont(TTFont("UserProvidedBoldFont", Path(boldfont)))
+        logger.info("Using user-provided bold font from path: %s", boldfont)
+        boldfont = "UserProvidedBoldFont"
     reportlab_styles["Normal"].fontName = font
     reportlab_styles["BodyText"].fontName = font
+    reportlab_styles.add(
+        ParagraphStyle(
+            "BodyText-Bold", parent=reportlab_styles["BodyText"], fontName=boldfont
+        )
+    )
     reportlab_styles["Heading1"].fontName = font
     reportlab_styles["Heading2"].fontName = font
     reportlab_styles["Heading3"].fontName = font
     reportlab_styles["Heading4"].fontName = font
+    reportlab_styles.add(
+        ParagraphStyle(
+            "Heading4-Bold", parent=reportlab_styles["Heading4"], fontName=boldfont
+        )
+    )
     reportlab_styles["Italic"].fontName = font
-    return font, reportlab_styles
+    return reportlab_styles
 
 
 def render_block_pdf(
@@ -440,8 +513,14 @@ def render_block_pdf(
     plotly_fig_scale : float, default=1.0
         Scaling factor applied to Plotly figure placeholders in the PDF.
     reportlab_styles : dict or None, optional
-        Predefined ReportLab styles to use for rendering. If None, default
-        styles from `getSampleStyleSheet()` are used.
+        Predefined ReportLab styles to use for rendering.
+        If None, styles are obtained via the internal `_preprocess_font()` helper,
+        which starts from ReportLab's default `StyleSheet1` and applies additional
+        preprocessing, including font registration and the creation of extended
+        styles (e.g. ``BodyText-Bold``).
+        As a result, when ``reportlab_styles`` is None, the styles used are not
+        the raw output of ``getSampleStyleSheet()``, but a modified and extended
+        stylesheet expected by the PDF rendering pipeline.
     block_name : str, default='block'
         Name of the block used in logging and error messages. It is not used
         elsewhere in the rendering.
@@ -486,7 +565,7 @@ def render_block_pdf(
     <class 'list'>
     """
     if reportlab_styles is None:
-        reportlab_styles = getSampleStyleSheet()
+        reportlab_styles = _preprocess_font()
     story = []
 
     # title
@@ -508,10 +587,9 @@ def render_block_pdf(
         value = metric.get("value", "")
         desc = metric.get("description", "")
 
-        text = f"<b>{name}</b>: {value}"
+        story.append(Paragraph(f"{name}: {value}", reportlab_styles["BodyText-Bold"]))
         if desc:
-            text += f"<br/><i>{desc}</i>"
-        story.append(Paragraph(text, reportlab_styles["BodyText"]))
+            story.append(Paragraph(desc, reportlab_styles["BodyText"]))
         story.append(Spacer(1, 8))
         log_counter += 1
 
@@ -589,7 +667,7 @@ def _render_block_pdf_build_tables(
     for tr in tables:
         # --- title ---
         if tr.title:
-            story.append(Paragraph(tr.title, reportlab_styles["Heading4"]))
+            story.append(Paragraph(f"{tr.title}:", reportlab_styles["Heading4-Bold"]))
             story.append(Spacer(1, 6))
 
         # --- description ---

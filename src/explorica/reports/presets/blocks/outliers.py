@@ -41,7 +41,7 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from ...._utils import handle_nan
+from ...._utils import handle_nan, convert_dataframe
 from ....types import TableResult
 from ...core.block import Block, BlockConfig
 from ....data_quality import detect_iqr, detect_zscore
@@ -51,7 +51,7 @@ def get_outliers_block(
     data: Sequence[Any] | Mapping[str, Sequence[Any]],
     iqr_factor: float = 1.5,
     zscore_factor: float = 3.0,
-    nan_policy: Literal["drop", "raise"] = "drop",
+    nan_policy: Literal["drop_with_split", "raise"] = "drop_with_split",
 ) -> Block:
     """
     Generate a `Block` summarizing outliers detected by different methods.
@@ -78,10 +78,17 @@ def get_outliers_block(
     zscore_factor : float, default 3.0
         Threshold (in standard deviations) used for Z-score-based
         outlier detection.
-    nan_policy : {'drop', 'raise'}, default 'drop'
-        Policy for handling missing values prior to outlier detection:
-        - 'drop' : remove rows with missing values.
-        - 'raise': raise an error if missing values are present.
+    nan_policy : {'drop_with_split', 'raise'}, default='drop'
+        Policy to handle missing values:
+        - 'drop_with_split' :
+          Missing values are handled independently for each feature.
+          For every column, NaNs are dropped column-wise before computing
+          statistics. As a result, different features may be evaluated
+          on different numbers of observations.
+          This behavior is semantically correct in an EDA context, where
+          preserving per-feature statistics is preferred over strict
+          row-wise alignment.
+        - 'raise' : raise an error if NaNs are present.
 
     Returns
     -------
@@ -111,22 +118,29 @@ def get_outliers_block(
           IQR (1.5)  Z-Score (3σ)
     x              1             1
     """
-    df = handle_nan(data, nan_policy, is_dataframe=False).select_dtypes("number")
+
+    dict_of_series = handle_nan(
+        convert_dataframe(data).select_dtypes("number"),
+        nan_policy,
+        supported_policy=["drop_with_split", "raise"],
+    )
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",
             category=UserWarning,
             module="explorica.data_quality.outliers.detection",
         )
-        zscore_outliers = detect_zscore(df, threshold=zscore_factor)
-        iqr_outliers = detect_iqr(df, iqr_factor=iqr_factor)
-    zscore_outliers = zscore_outliers.count()
-    iqr_outliers = iqr_outliers.count()
-    if not isinstance(zscore_outliers, pd.Series):
-        zscore_outliers = pd.Series([zscore_outliers], index=df.columns)
-    if not isinstance(iqr_outliers, pd.Series):
-        iqr_outliers = pd.Series([iqr_outliers], index=df.columns)
-
+    zscore_outliers = pd.Series(
+        [
+            detect_zscore(dict_of_series[key], zscore_factor).count()
+            for key in dict_of_series
+        ],
+        index=list(dict_of_series),
+    )
+    iqr_outliers = pd.Series(
+        [detect_iqr(dict_of_series[key], iqr_factor).count() for key in dict_of_series],
+        index=list(dict_of_series),
+    )
     outliers_table = TableResult(
         pd.DataFrame(
             {
@@ -136,7 +150,10 @@ def get_outliers_block(
         )
     )
 
-    variance_series = np.var(df, axis=0, ddof=0)
+    variance_series = pd.Series(
+        [np.var(dict_of_series[key], ddof=0) for key in dict_of_series],
+        index=list(dict_of_series),
+    )
     variance_series = variance_series[np.isclose(variance_series, 0.0, atol=1e-10)]
 
     block = Block(BlockConfig(title="Outliers"))

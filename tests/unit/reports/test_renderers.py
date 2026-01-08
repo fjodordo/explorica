@@ -322,7 +322,7 @@ def test_render_pdf_invalid_type(simple_block, simple_report):
 def test_render_pdf_block_calls(simple_block, mocker):
     # Mock helpers
     mock_preprocess = mocker.patch("explorica.reports.renderers.pdf._preprocess_font",
-                                   return_value=("DejaVuSans", {"Normal": None, "Heading1": None, "BodyText": None}))
+                                   return_value=({"Normal": None, "Heading1": None, "BodyText": None}))
     mock_render_block = mocker.patch("explorica.reports.renderers.pdf.render_block_pdf",
                                      return_value=["mock_story"])
     mock_get_pdf = mocker.patch("explorica.reports.renderers.pdf._get_build_pdf",
@@ -333,7 +333,7 @@ def test_render_pdf_block_calls(simple_block, mocker):
                            font="DejaVuSans", report_name="my_block")
 
     # Check calls
-    mock_preprocess.assert_called_once_with("DejaVuSans")
+    mock_preprocess.assert_called_once_with("DejaVuSans", "DejaVuSans-Bold")
     mock_render_block.assert_called_once()
     mock_get_pdf.assert_called_once_with(["mock_story"], doc_template_kws=None)
     mock_save_pdf.assert_not_called()  # path=None -> do not save
@@ -343,7 +343,7 @@ def test_render_pdf_block_calls(simple_block, mocker):
 
 def test_render_pdf_report_params(simple_report, mocker):
     mock_preprocess = mocker.patch("explorica.reports.renderers.pdf._preprocess_font",
-                                   return_value=("DejaVuSans", {"Normal": None, "Heading1": None, "BodyText": None}))
+                                   return_value=({"Normal": None, "Heading1": None, "BodyText": None}))
     mock_render_block = mocker.patch("explorica.reports.renderers.pdf.render_block_pdf",
                                      return_value=["block_story"])
     mock_get_pdf = mocker.patch("explorica.reports.renderers.pdf._get_build_pdf",
@@ -391,14 +391,16 @@ def test_render_pdf_logging(simple_block, mocker, caplog):
 # -------------------------------
 
 def test_preprocess_font_builtin():
-    font, styles = _preprocess_font("DejaVuSans")
-    assert font == "DejaVuSans"
-    assert "Normal" in styles
+    styles = _preprocess_font("DejaVuSans", "DejaVuSans-Bold")
+    assert styles.get("Heading4-Bold") is not None
+    assert styles.get("Heading4-Bold").fontName == "DejaVuSans-Bold"
 
 def test_preprocess_font_user_path(tmp_path):
-    font_path = Path(__file__).parent.parent.parent.parent / "src/explorica/assets/fonts/DejaVuSans.ttf"
-    font, styles = _preprocess_font(str(font_path))
-    assert font == "UserProvidedFont"
+    font_path = Path(__file__).parent.parent.parent.parent / "src/explorica/assets/fonts/dejavusans/DejaVuSans.ttf"
+    styles = _preprocess_font(str(font_path), str(font_path))
+    assert styles.get("Heading4-Bold") is not None
+    assert styles.get("Heading4-Bold").fontName == "UserProvidedBoldFont"
+    assert styles["Heading4"].fontName == "UserProvidedFont"
 
 def test_preprocess_font_invalid_path():
     with pytest.raises(ValueError):
@@ -409,13 +411,13 @@ def test_preprocess_font_invalid_path():
 # -------------------------------
 
 def test_get_build_pdf_basic():
-    story = [Paragraph("Test", _preprocess_font("DejaVuSans")[1]["Normal"])]
+    story = [Paragraph("Test", _preprocess_font("DejaVuSans")["Normal"])]
     pdf_bytes = _get_build_pdf(story)
     assert isinstance(pdf_bytes, bytes)
     assert len(pdf_bytes) > 0
 
 def test_get_build_pdf_with_doc_template_kws():
-    story = [Paragraph("Test", _preprocess_font("DejaVuSans")[1]["Normal"])]
+    story = [Paragraph("Test", _preprocess_font("DejaVuSans")["Normal"])]
     pdf_bytes = _get_build_pdf(story, doc_template_kws={"rightMargin": 10})
     assert isinstance(pdf_bytes, bytes)
 
@@ -441,7 +443,7 @@ def test_render_block_basic_metrics_and_description():
     # Second Flowable should be description
     assert str(flowables[2]).find("This is a test block") != -1
     # Metric text should be present
-    metric_text = str(flowables[4])
+    metric_text = str(flowables[4]) + str(flowables[5])
     assert "sum" in metric_text and "42" in metric_text and "total" in metric_text
 
 def test_render_block_with_matplotlib_fig():
@@ -536,8 +538,8 @@ def test_render_block_pdf_returns_flowables_with_tables():
 
     # Check that table headers are inserted as Paragraph in front of tables
     paragraph_texts = [f.getPlainText() for f in flowables if isinstance(f, Paragraph)]
-    assert "Central Tendency" in paragraph_texts
-    assert "Feature Ranges" in paragraph_texts
+    assert "Central Tendency:" in paragraph_texts
+    assert "Feature Ranges:" in paragraph_texts
 
 
 def test_render_block_pdf_tables_respect_render_extra_flags():

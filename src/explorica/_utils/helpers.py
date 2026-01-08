@@ -42,11 +42,11 @@ from .validation import validate_array_not_contains_nan, validate_string_flag
 
 def handle_nan(
     data: pd.DataFrame | Sequence | Mapping,
-    nan_policy: Literal["drop", "raise", "include", "drop_columns"],
+    nan_policy: Literal["drop", "raise", "include", "drop_with_split", "drop_columns"],
     supported_policy: Iterable[str] = ("drop", "raise"),
     is_dataframe: bool = True,
     data_name: str = "data",
-):
+) -> pd.DataFrame | dict[pd.Series]:
     """
     Handles NaN values in a dataset according to a specified policy.
 
@@ -58,6 +58,9 @@ def handle_nan(
         Policy for handling NaN values:
         - 'drop': drop rows with NaNs.
         - 'drop_columns': drop columns with NaNs.
+        - 'drop_with_split' : for each column, return a Series with NaNs removed.
+          The returned Series may have different lengths. This is useful for
+          computing column-wise statistics without losing other columns.
         - 'raise': raise ValueError if NaNs are present.
         - 'include': treat NaNs as valid values (do nothing).
     supported_policy : Iterable[str], default={'drop', 'raise'}
@@ -95,11 +98,13 @@ def handle_nan(
             f"Choose from: {supported_policy}"
         ),
     )
-
+    output = df
     if nan_policy == "drop":
-        df = df.dropna(axis=0)
+        output = df.dropna(axis=0)
     elif nan_policy == "drop_columns":
-        df = df.dropna(axis=1)
+        output = df.dropna(axis=1)
+    elif nan_policy == "drop_with_split":
+        output = {col: df[col].dropna() for col in df.columns}
     elif nan_policy == "raise":
         error_messages = read_config("messages")["errors"]
         # will raise valueError if necessary
@@ -107,7 +112,7 @@ def handle_nan(
             df, err_msg=error_messages["array_contains_nans_f"].format(data_name)
         )
     # 'include' -> do nothing
-    return df
+    return output
 
 
 @contextmanager

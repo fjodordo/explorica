@@ -83,6 +83,10 @@ def get_data_overview_blocks(
     - This function does not return a `Report` instance and does not perform any
       rendering. It is intended for compositional use, allowing users to merge
       the returned blocks with other presets before building a final report.
+    - The data shape block is always computed with missing values included
+      (nan_policy='include'), to ensure that structural metrics reflect the full
+      dataset. This is semantically correct in the context of exploratory data
+      analysis (EDA), even if other blocks respect the provided nan_policy.
     - During the construction of EDA or interaction reports, many matplotlib figures
       may be opened (one per plot or table visualization). This is expected behavior
       when the dataset contains many features.
@@ -119,14 +123,16 @@ def get_data_overview_blocks(
             category=RuntimeWarning,
             module="explorica.visualizations",
         )
+        ctm_policy = nan_policy if nan_policy != "include" else "drop"
+        ctm_policy = "drop_with_split" if ctm_policy == "drop" else ctm_policy
         blocks.extend(
             [
                 get_ctm_block(
                     data,
                     round_digits=round_digits,
-                    nan_policy=nan_policy if nan_policy != "include" else "drop",
+                    nan_policy=ctm_policy,
                 ),
-                get_data_shape_block(data, nan_policy=nan_policy),
+                get_data_shape_block(data, nan_policy="include"),
                 get_data_quality_overview_block(
                     data,
                     round_digits=round_digits,
