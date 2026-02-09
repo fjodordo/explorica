@@ -67,8 +67,8 @@ def detect_multicollinearity(
     method : {"VIF", "corr"}, default="VIF"
         Method to detect multicollinearity:
         - "VIF" : Compute Variance Inflation Factor for numerical features.
-        - "corr" : Detect multicollinearity based on the highest pairwise correlation
-          between features (numeric–numeric, numeric–categorical,
+        - "corr" : Detect multicollinearity based on the highest pairwise absolute
+          correlation between features (numeric–numeric, numeric–categorical,
           categorical–categorical).
           Supported correlation metrics include: ``sqrt_eta_squared``, ``cramer_v``,
           ``pearson``, ``spearman``.
@@ -190,7 +190,8 @@ def detect_multicollinearity(
         pairs = high_corr_pairs(numeric_features, category_features, threshold=0)
         cols = set(df_numeric.columns) | set(df_category.columns)
         for i, col in enumerate(cols):
-            result["highest_correlation"][col] = pairs[pairs["Y"] == col]["coef"].max()
+            subset = pairs.loc[pairs["Y"] == col, "coef"]
+            result["highest_correlation"][col] = subset.loc[subset.abs().idxmax()]
             if np.abs(result["highest_correlation"][col]) >= (
                 params["correlation_threshold"]
             ):

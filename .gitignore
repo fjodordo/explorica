@@ -2,6 +2,7 @@
 config.json
 test_template.py
 .venv/
+.venv3_11
 
 # Debug files
 debug*.ipynb

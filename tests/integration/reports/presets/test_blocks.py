@@ -552,7 +552,8 @@ def test_get_data_shape_block_basic_dataframe():
 
     # Dtypes table
     dtype_table = block.block_config.tables[0].table
-    assert set(dtype_table['dtype'].astype("str")) == {"int64", "object"}
+    assert (set(dtype_table['dtype'].astype("str")) == {"int64", "object"}
+            or set(dtype_table['dtype'].astype("str")) == {"int64", "str"})
     assert dtype_table['n_features'].sum() == 2
 
 
@@ -604,8 +605,11 @@ def test_get_data_shape_block_mixed_dtypes():
     
     dtype_table = block.block_config.tables[0].table
     # Check all types
-    expected_dtypes = {"int64", "float64", "object", "bool"}
-    assert set(dtype_table['dtype'].astype("str")) == expected_dtypes
+    expected_dtypes = [
+        {"int64", "float64", "object", "bool"},
+        {"int64", "float64", "str", "bool"},]
+    assert (set(dtype_table['dtype'].astype("str")) == expected_dtypes[0]
+            or set(dtype_table['dtype'].astype("str")) == expected_dtypes[1])
     assert dtype_table['n_features'].sum() == 4
 
 

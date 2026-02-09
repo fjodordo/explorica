@@ -33,7 +33,7 @@ Examples
 'Non-linear relations'
 """
 
-from typing import Sequence, Mapping, Any, Literal
+from typing import Sequence, Mapping, Any
 
 import numpy as np
 import pandas as pd
@@ -48,7 +48,6 @@ from ....visualizations import heatmap
 def get_nonlinear_relations_block(
     numerical_data: Sequence[Any] | Mapping[str, Sequence[Any]] = None,
     categorical_data: Sequence[Any] | Mapping[str, Sequence[Any]] = None,
-    numerical_target: Sequence[Any] | Mapping[str, Sequence[Any]] = None,
     categorical_target: Sequence[Any] | Mapping[str, Sequence[Any]] = None,
     **kwargs,
 ) -> Block:
@@ -69,8 +68,6 @@ def get_nonlinear_relations_block(
     categorical_data : Sequence or Mapping, optional
         Categorical features for dependency analysis;
         must be convertible to a pandas DataFrame.
-    numerical_target : Sequence or Mapping, optional
-        Numerical target variable to include in the analysis.
     categorical_target : Sequence or Mapping, optional
         Categorical target variable to include in the analysis.
 
@@ -139,15 +136,23 @@ def get_nonlinear_relations_block(
     }
     df_numerical = convert_dataframe(numerical_data)
     df_categorical = convert_dataframe(categorical_data)
+    series_categorical_target = (
+        None if categorical_target is None else convert_series(categorical_target)
+    )
 
-    if numerical_target is not None and categorical_target is not None:
-        raise ValueError(
-            "Target is ambiguous. Please, provide only `numerical_target` or only"
-            "`categorical_target`, not both."
-        )
+    df_full = pd.concat(
+        [df_numerical, df_categorical, series_categorical_target], axis=1
+    )
+    df_full = df_full.loc[:, ~df_full.columns.duplicated()]
+    df_full = handle_nan(df_full, nan_policy=other_params["nan_policy"])
+    df_numerical = df_full[df_numerical.columns]
+    df_categorical = df_full[df_categorical.columns]
+    series_categorical_target = (
+        None
+        if series_categorical_target is None
+        else df_full[series_categorical_target.name]
+    )
     block = Block(BlockConfig(title="Non-linear relations"))
-    series_numerical_target = convert_series(numerical_target)
-    series_categorical_target = convert_series(categorical_target)
 
     # Add heatmap of eta squared dependency matrix
     # Doesn't work unless both types of feature are provided
@@ -155,9 +160,7 @@ def get_nonlinear_relations_block(
         heatmap_eta: VisualizationResult = _get_eta_squared_heatmap(
             df_numerical,
             df_categorical,
-            target_numerical=series_numerical_target,
             target_categorical=series_categorical_target,
-            nan_policy=other_params["nan_policy"],
         )
         block.add_visualization(heatmap_eta)
 
@@ -167,19 +170,17 @@ def get_nonlinear_relations_block(
         heatmap_cramer: VisualizationResult = _get_cramer_v_heatmap(
             df_categorical,
             series_categorical_target,
-            nan_policy=other_params["nan_policy"],
         )
         block.add_visualization(heatmap_cramer)
 
     # Add table of highest dependency pairs
     # Doesn't work if target is not categorical
-    if not series_categorical_target.empty:
+    if series_categorical_target is not None:
         pairs: TableResult = _get_highest_dependency_pairs_table(
             df_numerical,
             df_categorical,
             target_categorical=series_categorical_target,
             round_digits=other_params["round_digits"],
-            nan_policy=other_params["nan_policy"],
         )
         block.add_table(pairs)
 
@@ -189,7 +190,6 @@ def get_nonlinear_relations_block(
 def _get_eta_squared_heatmap(
     df_numerical: pd.DataFrame,
     df_categorical: pd.DataFrame,
-    target_numerical: pd.Series = None,
     target_categorical: pd.Series = None,
     **kwargs,
 ) -> VisualizationResult:
@@ -206,15 +206,11 @@ def _get_eta_squared_heatmap(
         DataFrame containing numerical features.
     df_categorical : pandas.DataFrame
         DataFrame containing categorical features.
-    target_numerical : pandas.Series, optional
-        Numerical target variable to include in the dependency matrix.
     target_categorical : pandas.Series, optional
         Categorical target variable to include in the dependency matrix.
 
     Other Parameters
     ----------------
-    nan_policy : {'drop', 'raise'}, default='drop'
-        How to handle missing values.
     cmap : str, default='magma'
         Colormap for the heatmap.
     figsize : tuple, default=(5, 3)
@@ -248,22 +244,15 @@ def _get_eta_squared_heatmap(
     <class 'explorica.types.VisualizationResult'>
     """
     other_params = {
-        "nan_policy": kwargs.get("nan_policy", "drop"),
         "cmap": kwargs.get("cmap", "magma"),
         "figsize": kwargs.get("figsize", (5, 4)),
         "annot_threshold": kwargs.get("annot_threshold", 11),
     }
-    if not target_numerical.empty:
-        df_num = pd.concat([df_numerical.copy(), target_numerical], axis=1)
-    else:
-        df_num = df_numerical.copy()
-    if not target_categorical.empty:
+    if target_categorical is not None:
         df_cat = pd.concat([df_categorical.copy(), target_categorical], axis=1)
     else:
         df_cat = df_categorical.copy()
-    df_num = handle_nan(df_num, other_params["nan_policy"])
-    df_cat = handle_nan(df_cat, other_params["nan_policy"])
-    dependency_matrix = corr_matrix_eta(df_num, df_cat)
+    dependency_matrix = corr_matrix_eta(df_numerical, df_cat)
     annot = other_params["annot_threshold"] >= max(dependency_matrix.shape)
     vr = heatmap(
         dependency_matrix,
@@ -278,7 +267,6 @@ def _get_eta_squared_heatmap(
 def _get_cramer_v_heatmap(
     df_categorical: pd.DataFrame,
     target_categorical: pd.Series = None,
-    nan_policy: Literal["drop", "raise"] = "drop",
     **kwargs,
 ) -> VisualizationResult:
     """
@@ -294,8 +282,6 @@ def _get_cramer_v_heatmap(
         DataFrame containing categorical features.
     target_categorical : pandas.Series, optional
         Categorical target variable to include in the dependency matrix.
-    nan_policy : {'drop', 'raise'}, default='drop'
-        How to handle missing values.
 
     Other Parameters
     ----------------
@@ -340,10 +326,8 @@ def _get_cramer_v_heatmap(
         "bias_correction": kwargs.get("bias_correction", True),
         "annot_threshold": kwargs.get("annot_threshold", 11),
     }
-    if not target_categorical.empty:
-        df = handle_nan(
-            pd.concat([df_categorical, target_categorical], axis=1), nan_policy
-        )
+    if target_categorical is not None:
+        df = pd.concat([df_categorical, target_categorical], axis=1)
     else:
         df = df_categorical.copy()
     dependency_matrix = corr_matrix_cramer_v(
@@ -385,8 +369,6 @@ def _get_highest_dependency_pairs_table(
 
     Other Parameters
     ----------------
-    nan_policy : {'drop', 'raise'}, default='drop'
-        How to handle missing values.
     rows : int, default=5
         Number of top dependency pairs to include in the table.
     round_digits : int, default=4
@@ -420,16 +402,13 @@ def _get_highest_dependency_pairs_table(
     <class 'explorica.types.TableResult'>
     """
     other_params = {
-        "nan_policy": kwargs.get("nan_policy", "drop"),
         "rows": kwargs.get("rows", 5),
         "round_digits": kwargs.get("round_digits", 4),
     }
 
-    df_num = handle_nan(df_numerical.copy(), other_params["nan_policy"])
     df_cat = pd.concat([df_categorical, target_categorical], axis=1)
-    df_cat = handle_nan(df_cat, other_params["nan_policy"])
     pairs = high_corr_pairs(
-        numeric_features=df_num,
+        numeric_features=df_numerical,
         category_features=df_cat,
         y=target_categorical.name,
         threshold=0.0,

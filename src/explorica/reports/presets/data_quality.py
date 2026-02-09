@@ -51,7 +51,9 @@ from .blocks import get_cardinality_block, get_distributions_block, get_outliers
 def get_data_quality_blocks(
     data: Sequence[Any] | Mapping[str, Sequence[Any]],
     round_digits: int = 4,
-    nan_policy: str | Literal["drop", "raise", "include"] = "drop",
+    nan_policy: (
+        str | Literal["drop_with_split", "raise", "include"]
+    ) = "drop_with_split",
 ) -> list[Block]:
     """
     Build a set of blocks providing a detailed data quality analysis.
@@ -67,10 +69,16 @@ def get_data_quality_blocks(
         such as a dictionary of sequences or a sequence of records.
     round_digits : int, default 4
         Number of decimal digits to use when rounding numerical statistics.
-    nan_policy : {'drop', 'raise', 'include'}, default='drop'
+    nan_policy : {'drop_with_split', 'raise', 'include'}, default='drop_with_split'
         Policy for handling missing values in the input data.
-        - 'drop' : rows containing missing values are removed before
-          analysis.
+        - 'drop_with_split' :
+          Missing values are handled independently for each feature.
+          For every column, NaNs are dropped column-wise before computing
+          statistics. As a result, different features may be evaluated
+          on different numbers of observations.
+          This behavior is semantically correct in an EDA context, where
+          preserving per-feature statistics is preferred over strict
+          row-wise alignment.
         - 'raise' : an error is raised if missing values are present.
         - 'include' : missing values are preserved where supported.
         Note that not all child blocks support nan_policy='include'.
@@ -119,17 +127,18 @@ def get_data_quality_blocks(
             message="More than 20 figures have been opened.",
             category=RuntimeWarning,
         )
-        outliers_policy = nan_policy if nan_policy != "include" else "drop"
-        outliers_policy = (
-            "drop_with_split" if outliers_policy == "drop" else outliers_policy
-        )
+
+        # `normalized_policy` is intended for functions that don't support the
+        # "include" policy.
+        #  In our case it is `get_outliers_block` & `get_distributions_block`.
+        normalized_policy = nan_policy if nan_policy != "include" else "drop_with_split"
         blocks.extend(
             [
-                get_outliers_block(data, nan_policy=outliers_policy),
+                get_outliers_block(data, nan_policy=normalized_policy),
                 get_distributions_block(
                     data,
                     round_digits=round_digits,
-                    nan_policy=outliers_policy,
+                    nan_policy=normalized_policy,
                 ),
                 get_cardinality_block(
                     data, round_digits=round_digits, nan_policy=nan_policy
@@ -142,7 +151,9 @@ def get_data_quality_blocks(
 def get_data_quality_report(
     data: Sequence[Any] | Mapping[str, Sequence[Any]],
     round_digits: int = 4,
-    nan_policy: str | Literal["drop", "raise", "include"] = "drop",
+    nan_policy: (
+        str | Literal["drop_with_split", "raise", "include"]
+    ) = "drop_with_split",
 ) -> Report:
     """
     Generate a full data quality report from multiple quality blocks.
@@ -158,10 +169,16 @@ def get_data_quality_report(
         such as a dictionary of sequences or a sequence of records.
     round_digits : int, default 4
         Number of decimal digits to use when rounding numerical statistics.
-    nan_policy : {'drop', 'raise', 'include'}, default='drop'
+    nan_policy : {'drop_with_split', 'raise', 'include'}, default='drop_with_split'
         Policy for handling missing values in the input data.
-        - 'drop' : rows containing missing values are removed before
-          analysis.
+        - 'drop_with_split' :
+          Missing values are handled independently for each feature.
+          For every column, NaNs are dropped column-wise before computing
+          statistics. As a result, different features may be evaluated
+          on different numbers of observations.
+          This behavior is semantically correct in an EDA context, where
+          preserving per-feature statistics is preferred over strict
+          row-wise alignment.
         - 'raise' : an error is raised if missing values are present.
         - 'include' : missing values are preserved where supported.
         Note that not all child blocks support nan_policy='include'.

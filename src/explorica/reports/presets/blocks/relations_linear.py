@@ -49,6 +49,8 @@ Examples
 4  x2  target -0.4472  spearman
 """
 
+# pylint: disable=unsupported-assignment-operation,unsubscriptable-object
+
 from typing import Sequence, Mapping, Any, Literal
 
 import numpy as np
@@ -148,11 +150,10 @@ def get_linear_relations_block(
     4  x2  target -0.4472  spearman
     """
     df = convert_dataframe(data).select_dtypes("number")
-    df = handle_nan(df, nan_policy)
-    y = None
-    if target is not None:
-        y = convert_series(target)
-        y = handle_nan(y, nan_policy)
+    y = convert_series(target)
+    df_full = handle_nan(pd.concat([df, target], axis=1), nan_policy)
+    df = df_full[df.columns]
+    y = df_full[y.name] if y.name in df_full.columns else None
 
     block = Block(BlockConfig(title="Linear relations"))
 
@@ -197,7 +198,6 @@ def get_linear_relations_block(
             visualizations = _get_hexbins(df, y, nan_policy=nan_policy)
             for vr in visualizations:
                 block.add_visualization(vr)
-
     return block
 
 
@@ -205,7 +205,6 @@ def _get_highest_correlation_table(
     df: pd.DataFrame,
     y: pd.Series,
     round_digits: int = 4,
-    nan_policy: Literal["drop", "raise"] = "drop",
 ) -> TableResult:
     """
     Build a table of highest linear correlation pairs with the target variable.
@@ -222,8 +221,6 @@ def _get_highest_correlation_table(
         Target variable for correlation analysis.
     round_digits : int, default=4
         Number of decimal places to round correlation coefficients.
-    nan_policy : {'drop', 'raise'}, default='drop'
-        How to handle missing values before computing correlations.
 
     Returns
     -------
@@ -236,10 +233,10 @@ def _get_highest_correlation_table(
     - Uses linear correlation metrics provided by `high_corr_pairs`
       (e.g. Pearson, Spearman depending on implementation).
     - Correlations are computed on the combined dataset
-      ``[df, y]`` after NaN handling.
+      ``[df, y]``.
     - Intended for internal use in linear relations analysis blocks.
     """
-    df_full = handle_nan(pd.concat([df, y], axis=1), nan_policy)
+    df_full = pd.concat([df, y], axis=1)
     pairs = TableResult(
         high_corr_pairs(df_full, y=y.name, threshold=0.0).head(5),
         render_extra={"show_index": False},
@@ -293,7 +290,7 @@ def _get_multicollinearity_table(
       absolute pairwise correlation per feature.
     - Intended for internal use in linear relations analysis blocks.
     """
-    multycoll_table = detect_multicollinearity(
+    multycoll_table: pd.DataFrame = detect_multicollinearity(
         df,
         method=method,
         variance_inflation_threshold=thresholds["VIF"],

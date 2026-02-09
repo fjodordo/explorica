@@ -26,7 +26,6 @@ Examples
 
 from explorica.types import NaturalNumber
 
-
 # disabled, because `natural_number` will be removed in future versions
 # pylint: disable=C0103
 natural_number = NaturalNumber

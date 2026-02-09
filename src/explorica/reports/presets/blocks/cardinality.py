@@ -39,7 +39,7 @@ from typing import Sequence, Mapping, Any, Literal
 import numpy as np
 import pandas as pd
 
-from ...._utils import handle_nan
+from ...._utils import handle_nan, convert_dataframe
 from ....types import TableResult
 from ...core.block import Block, BlockConfig
 from ....data_quality import get_entropy
@@ -48,7 +48,9 @@ from ....data_quality import get_entropy
 def get_cardinality_block(
     data: Sequence[Any] | Mapping[str, Sequence[Any]],
     round_digits: int = 4,
-    nan_policy: str | Literal["drop", "raise", "include"] = "drop",
+    nan_policy: (
+        str | Literal["drop_with_split", "raise", "include"]
+    ) = "drop_with_split",
 ) -> Block:
     """
     Generate a `Block` summarizing feature cardinality and constancy metrics.
@@ -77,7 +79,14 @@ def get_cardinality_block(
         Number of decimal places to round ratio and entropy metrics.
     nan_policy : {'drop', 'raise', 'include'}, default='drop'
         Policy for handling missing values:
-        - 'drop' : remove rows with missing values.
+        - 'drop_with_split' :
+          Missing values are handled independently for each feature.
+          For every column, NaNs are dropped column-wise before computing
+          statistics. As a result, different features may be evaluated
+          on different numbers of observations.
+          This behavior is semantically correct in an EDA context, where
+          preserving per-feature statistics is preferred over strict
+          row-wise alignment.
         - 'raise': raise an error if any missing values are present.
         - 'include': treat NaN as a valid category (counts towards uniqueness
           and entropy calculations).
@@ -113,63 +122,80 @@ def get_cardinality_block(
     C       True        False         2 ...             0.5                   1.0
     D      False         True         1 ...             1.0                   NaN
     """
-    df = handle_nan(
-        data,
+    # NaN handling is fully delegated to nan_policy.
+    # At this stage, NaNs are either intentionally preserved ("include")
+    # or already removed per-feature ("drop_with_split").
+    dict_of_series = handle_nan(
+        convert_dataframe(data),
         nan_policy,
-        supported_policy=("drop", "raise", "include"),
-        is_dataframe=False,
+        supported_policy=("drop_with_split", "raise", "include"),
     )
-    if df.shape[0] == 0:
-        # Add placeholder table
-        cardinality_table = pd.DataFrame(
-            {
-                "is_unique": np.nan,
-                "is_constant": np.nan,
-                "n_unique": 0,
-                "unique_ratio": np.nan,
-                "top_value_ratio": np.nan,
-                "entropy (normalized)": np.nan,
-            },
-            index=df.columns,
-        )
-    else:
-        nunique = df.nunique(axis=0, dropna=False)
-        entropy = get_entropy(df, nan_policy=nan_policy)
-        if not isinstance(entropy, pd.Series):
-            entropy = pd.Series(entropy, index=df.columns)
-        cardinality_table = pd.DataFrame(
-            {
-                "is_unique": nunique.map(lambda row: row == df.shape[0]),
-                "is_constant": nunique.map(lambda row: row == 1),
-                "n_unique": nunique,
-                "unique_ratio": np.round(nunique / df.shape[0], round_digits),
-                "top_value_ratio": np.round(
-                    df.apply(
-                        (
-                            lambda col: col.value_counts(dropna=False).max()
-                            / df.shape[0]
-                        ),
-                        axis=0,
-                    ),
-                    round_digits,
-                ),
-                "entropy (normalized)": np.round(
-                    (
-                        pd.Series(
-                            {
-                                col: (
-                                    entropy[col] / np.log2(nunique[col])
-                                    if nunique[col] > 1
-                                    else np.nan
-                                )
-                                for col in df.columns
-                            }
+    if nan_policy == "include":
+        dict_of_series = {feat: dict_of_series[feat] for feat in dict_of_series.columns}
+    # From this point on, dict_of_series is guaranteed to be dict[str, pd.Series]
+
+    nunique = {key: dict_of_series[key].nunique(dropna=False) for key in dict_of_series}
+    cardinality_table = pd.DataFrame(
+        {
+            "is_unique": pd.Series(
+                {
+                    feat: (
+                        len(dict_of_series[feat]) == nunique[feat]
+                        if nunique[feat] != 0
+                        else np.nan
+                    )
+                    for feat in dict_of_series
+                }
+            ),
+            "is_constant": pd.Series(
+                {
+                    feat: nunique[feat] == 1 if nunique[feat] != 0 else np.nan
+                    for feat in nunique
+                }
+            ),
+            "n_unique": pd.Series({feat: nunique[feat] for feat in nunique}),
+            "unique_ratio": np.round(
+                pd.Series(
+                    {
+                        key: (
+                            nunique[key] / len(dict_of_series[key])
+                            if len(dict_of_series[key]) != 0
+                            else np.nan
                         )
-                    ),
-                    round_digits,
+                        for key in dict_of_series
+                    }
                 ),
-            }
-        )
+                round_digits,
+            ),
+            "top_value_ratio": np.round(
+                pd.Series(
+                    {
+                        feat: (
+                            dict_of_series[feat].value_counts(dropna=False).max()
+                            / len(dict_of_series[feat])
+                            if len(dict_of_series[feat]) != 0
+                            else np.nan
+                        )
+                        for feat in dict_of_series
+                    }
+                ),
+                round_digits,
+            ),
+            "entropy (normalized)": np.round(
+                pd.Series(
+                    {
+                        feat: (
+                            get_entropy(dict_of_series[feat]) / np.log2(nunique[feat])
+                            if nunique[feat] > 1
+                            else np.nan
+                        )
+                        for feat in dict_of_series
+                    }
+                ),
+                round_digits,
+            ),
+        }
+    )
 
     cardinality_table = TableResult(cardinality_table, "Constancy | uniqueness metrics")
     block = Block(BlockConfig(title="Cardinality"))

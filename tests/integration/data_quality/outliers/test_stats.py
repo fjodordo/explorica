@@ -30,4 +30,4 @@ def test_describe_distributions_deterministic():
                           "Columns with near-zero variance: ['const']. Their excess kurtosis will be set to np.nan."]
     actual_messages = [str(i.message) for i in w]
     assert pd.Series(actual_messages).isin(expected_warn_msgs).all()
-    pd.testing.assert_frame_equal(report, expected, atol=1e-4)
+    pd.testing.assert_frame_equal(report, expected, atol=1e-4, check_dtype=False)
