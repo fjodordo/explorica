@@ -48,7 +48,7 @@ import warnings
 
 import pandas as pd
 
-from ..._utils import convert_dataframe, handle_nan
+from ..._utils import convert_dataframe
 from ..core.block import Block
 from ..core.report import Report
 from ..utils import _split_features_by_assignment, normalize_assignment
@@ -155,7 +155,7 @@ def get_interactions_blocks(
         "nan_policy": kwargs.get("nan_policy", "drop"),
     }
 
-    df = handle_nan(convert_dataframe(data), other_params["nan_policy"])
+    df = convert_dataframe(data)
     feature_assignment = normalize_assignment(
         df,
         numerical_names,
@@ -191,10 +191,11 @@ def get_interactions_blocks(
                     nan_policy=other_params["nan_policy"],
                 )
             )
+        # Combine numerical features and numerical target for the nonlinear block.
+        nonlinear_numerical = pd.concat([df_num, target_num], axis=1)
         block_nonlinear_rels = get_nonlinear_relations_block(
-            df_num,
+            nonlinear_numerical,
             df_cat,
-            numerical_target=target_num,
             categorical_target=target_cat,
             round_digits=other_params["round_digits"],
             nan_policy=other_params["nan_policy"],

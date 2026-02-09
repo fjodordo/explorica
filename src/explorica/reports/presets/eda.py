@@ -177,14 +177,14 @@ def get_eda_blocks(
     >>> blocks[-1].title  # last block may vary depending on data
     'Relations Non-linear'
     """
+    df = convert_dataframe(data)
     other_params = {
         "target_numerical_name": kwargs.get("target_numerical_name", None),
         "target_categorical_name": kwargs.get("target_categorical_name", None),
-        "round_digits": kwargs.get("round_digits", 4),
         "categorical_threshold": kwargs.get("categorical_threshold", 30),
         "nan_policy": kwargs.get("nan_policy", "drop"),
+        "round_digits": kwargs.get("round_digits", 4),
     }
-    df = convert_dataframe(data)
     feature_assignment = normalize_assignment(
         df,
         numerical_names,
@@ -212,12 +212,24 @@ def get_eda_blocks(
         # Data Overview Block
         blocks.append(Block({"title": "Data Overview"}))
         blocks.extend(
-            get_data_overview_blocks(df, round_digits=other_params["round_digits"])
+            get_data_overview_blocks(
+                df,
+                round_digits=other_params["round_digits"],
+                nan_policy=other_params["nan_policy"],
+            )
         )
         # Data Quality Block
         blocks.append(Block({"title": "Data Quality"}))
         blocks.extend(
-            get_data_quality_blocks(df, round_digits=other_params["round_digits"])
+            get_data_quality_blocks(
+                df,
+                round_digits=other_params["round_digits"],
+                nan_policy=(
+                    other_params["nan_policy"]
+                    if other_params["nan_policy"] != "drop"
+                    else "drop_with_split"
+                ),
+            )
         )
         # Interactions Block
         interaction_blocks = get_interactions_blocks(
@@ -226,6 +238,7 @@ def get_eda_blocks(
             categorical_names=cat_features.columns,
             target_numerical_name=other_params["target_numerical_name"],
             target_categorical_name=other_params["target_categorical_name"],
+            target_name=target_name,
             round_digits=other_params["round_digits"],
             nan_policy=(
                 other_params["nan_policy"]
