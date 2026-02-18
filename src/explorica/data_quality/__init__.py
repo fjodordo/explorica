@@ -5,17 +5,12 @@ This package provides a unified interface for data quality analysis, combining
 functionality from preprocessing, feature engineering, and outlier detection
 submodules into a single convenient namespace.
 
-Classes
--------
-DataPreprocessing
-    Handling missing values, categorical features, and constant features.
-FeatureEngineering
-    Encoding methods, binning utilities, and feature transformations.
-
-Methods
--------
-get_summary : Comprehensive data quality report
-
+Functions
+---------
+get_summary(data, return_as = "dataframe",
+    auto_round=True, round_digits=4, **kwargs
+)
+    Compute a data-quality summary for a dataset.
 detect_iqr(cls, data, iqr_factor, show_boxplot)
     Detects outliers in a numerical series using the Interquartile Range
     (IQR) method.
@@ -121,38 +116,32 @@ alone                 0.0         0.0             2.0        0.0110
 ...
 """
 
-from .data_preprocessing import DataPreprocessing
+from .data_preprocessing import (
+    get_missing,
+    drop_missing,
+    get_constant_features,
+    get_categorical_features,
+    set_categorical,
+)
 from .summary import get_summary
-from .feature_engineering import EncodeMethods
+from .feature_engineering import discretize_continuous, freq_encode, ordinal_encode
 from .information_metrics import get_entropy
-from .outliers import DetectionMethods, DistributionMetrics, HandlingMethods
-
-get_missing = DataPreprocessing.get_missing
-drop_missing = DataPreprocessing.drop_missing
-get_constant_features = DataPreprocessing.get_constant_features
-get_categorical_features = DataPreprocessing.get_categorical_features
-set_categorical = DataPreprocessing.set_categorical
-
-discretize_continuous = EncodeMethods.discretize_continuous
-freq_encode = EncodeMethods.freq_encode
-ordinal_encode = EncodeMethods.ordinal_encode
-
-detect_iqr = DetectionMethods.detect_iqr
-detect_zscore = DetectionMethods.detect_zscore
-describe_distributions = DistributionMetrics.describe_distributions
-get_skewness = DistributionMetrics.get_skewness
-get_kurtosis = DistributionMetrics.get_kurtosis
-remove_outliers = HandlingMethods.remove_outliers
-replace_outliers = HandlingMethods.replace_outliers
+from .outliers import (
+    replace_outliers,
+    remove_outliers,
+    detect_zscore,
+    detect_iqr,
+    get_skewness,
+    get_kurtosis,
+    describe_distributions,
+)
 
 __all__ = [
-    "DataPreprocessing",
     "get_missing",
     "drop_missing",
     "get_constant_features",
     "get_categorical_features",
     "set_categorical",
-    "EncodeMethods",
     "discretize_continuous",
     "freq_encode",
     "ordinal_encode",

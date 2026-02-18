@@ -1,29 +1,18 @@
-explorica package
-=================
+explorica
+=========
 
-Submodules
-----------
+.. toctree::
+   :maxdepth: 4
 
-explorica.data_quality module
------------------------------------
+   explorica.data_quality
+   explorica.interactions
+   explorica.reports
+   explorica.visualizations
 
-.. automodule:: explorica.data_quality
+explorica.types
+---------------
+
+.. automodule:: explorica.types
    :members:
-   :undoc-members:
    :show-inheritance:
-
-explorica.interactions module
-----------------------------------
-
-.. automodule:: explorica.interactions
-   :members:
    :undoc-members:
-   :show-inheritance:
-
-explorica.visualizer module
----------------------------
-
-.. automodule:: explorica.visualizer
-   :members:
-   :undoc-members:
-   :show-inheritance:

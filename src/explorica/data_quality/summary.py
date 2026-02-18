@@ -71,17 +71,17 @@ import logging
 import numpy as np
 import pandas as pd
 
-from explorica._utils import (
+from .._utils import (
     convert_dataframe,
     read_config,
     validate_string_flag,
     handle_nan,
     temp_log_level,
 )
-from explorica.interactions import detect_multicollinearity
+from ..interactions import detect_multicollinearity
 
-from .data_preprocessing import DataPreprocessing
-from .outliers import DistributionMetrics
+from .data_preprocessing import get_missing, get_constant_features
+from .outliers import describe_distributions
 
 logger = logging.getLogger(__name__)
 
@@ -514,7 +514,7 @@ def _compute_nans(data: pd.DataFrame, section_name: str = "nans") -> pd.DataFram
         - count_of_nans: number of missing values per feature
         - pct_of_nans: fraction of missing values per feature (0..1)
     """
-    report = DataPreprocessing.get_missing(data)
+    report = get_missing(data)
     report = _designate_section(report, section_name)
     logger.log(
         logging.INFO, "Section '%s' computed. nan_policy is not used.", section_name
@@ -564,9 +564,9 @@ def _compute_duplicates(
     nunique = df.nunique(dropna=False)
     report["count_of_unique"] = nunique
     report["pct_of_unique"] = nunique / df.shape[0]
-    report["quasi_constant_pct"] = DataPreprocessing.get_constant_features(
-        df, nan_policy=nan_policy
-    )[quasi_constant_method]
+    report["quasi_constant_pct"] = get_constant_features(df, nan_policy=nan_policy)[
+        quasi_constant_method
+    ]
     logger.log(
         logging.INFO,
         "Section '%s' computed. Used 'nan_policy': '%s' for %s metrics",
@@ -616,7 +616,7 @@ def _compute_distribution(
     data_num = handle_nan(
         data_num, nan_policy_normalized, supported_policy=("drop", "raise")
     )
-    description_sk = DistributionMetrics.describe_distributions(data_num)
+    description_sk = describe_distributions(data_num)
     report["is_normal"] = description_sk["is_normal"]
     report["desc"] = description_sk["desc"]
     report["skewness"] = description_sk["skewness"]

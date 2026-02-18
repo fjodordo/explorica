@@ -84,7 +84,6 @@ normalize_visualization(figure)
 normalize_table(data)
     Normalize tabular data into a standardized TableResult object.
 
-
 Notes
 -----
 - Visualization objects provided to `BlockConfig.visualizations` are
