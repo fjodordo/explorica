@@ -9,16 +9,16 @@ exponential, binomial, power-law), categorical (Cramér's V), and hybrid
 (η²) measures. Users can optionally enable non-linear and multiple-
 correlation modes.
 
-Private helper functions
-------------------------
-These functions support the internal computations of `high_corr_pairs`
-and are not intended for direct use:
-
-- _high_corr_pairs_get_execution_queue
-- _high_corr_pairs_run_execution_queue
-- _high_corr_pairs_extract_corr_pairs
-- _high_corr_pairs_extract_by_numeric
-- _high_corr_pairs_extract_by_multiple
+Functions
+---------
+detect_multicollinearity(numeric_features=None, category_features=None, method="VIF",
+    return_as="dataframe", **kwargs
+)
+    Detect multicollinearity among features using either Variance Inflation Factor (VIF)
+    or correlation-based methods.
+high_corr_pairs(numeric_features=None, category_features=None, threshold=0.7, **kwargs)
+    Finds and returns all significant pairs of
+    correlated features from the input datasets.
 """
 
 import warnings
@@ -30,7 +30,7 @@ import pandas as pd
 from statsmodels.api import add_constant
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
-from explorica._utils import (
+from .._utils import (
     convert_dataframe,
     read_config,
     validate_array_not_contains_nan,
@@ -39,7 +39,7 @@ from explorica._utils import (
     validate_string_flag,
     validate_unique_column_names,
 )
-from explorica.interactions.correlation_matrices import CorrelationMatrices
+from .correlation_matrices import corr_matrix, corr_vector_multiple
 
 _errors = read_config("messages")["errors"]
 
@@ -431,19 +431,15 @@ def _high_corr_pairs_run_execution_queue(
             )
             corr_pairs = pd.concat([corr_pairs, pairs_by_method], ignore_index=True)
         elif method == "cramer_v":
-            corr_matrix = CorrelationMatrices.corr_matrix(category_df, method=method)
-            pairs_by_method = _high_corr_pairs_extract_corr_pairs(
-                corr_matrix, y, method
-            )
+            matrix = corr_matrix(category_df, method=method)
+            pairs_by_method = _high_corr_pairs_extract_corr_pairs(matrix, y, method)
             pairs_by_method = pairs_by_method[abs(pairs_by_method["coef"]) >= threshold]
             corr_pairs = pd.concat([corr_pairs, pairs_by_method], ignore_index=True)
         elif method == "eta":
-            corr_matrix = CorrelationMatrices.corr_matrix(
-                numeric_df, method, category_df
-            )
+            matrix = corr_matrix(numeric_df, method, category_df)
             both_cols = set(category_cols) & set(numeric_cols)
             pairs_by_method = _high_corr_pairs_extract_corr_pairs(
-                corr_matrix, y, method, drop_diagonal=False
+                matrix, y, method, drop_diagonal=False
             )
             pairs_by_method = pairs_by_method[abs(pairs_by_method["coef"]) >= threshold]
             # conditions under which feature's comparisons with self occurs
@@ -491,8 +487,8 @@ def _high_corr_pairs_extract_corr_pairs(
 
 
 def _high_corr_pairs_extract_by_numeric(df, method, threshold, y):
-    corr_matrix = CorrelationMatrices.corr_matrix(df, method=method)
-    pairs_by_method = _high_corr_pairs_extract_corr_pairs(corr_matrix, y, method)
+    matrix = corr_matrix(df, method=method)
+    pairs_by_method = _high_corr_pairs_extract_corr_pairs(matrix, y, method)
     pairs_by_method = pairs_by_method[abs(pairs_by_method["coef"]) >= threshold]
     return pairs_by_method
 
@@ -504,20 +500,20 @@ def _high_corr_pairs_extract_by_multiple(df, threshold, y):
         factors = df.copy()
         target = factors[y]
         del factors[y]
-        corr_matrix = CorrelationMatrices.corr_vector_multiple(factors, target)
+        matrix = corr_vector_multiple(factors, target)
         columns = pd.Series([y])
     else:
-        corr_matrix = CorrelationMatrices.corr_matrix(df, method="multiple")
-        columns = pd.Series(corr_matrix["target"]).drop_duplicates()
-        corr_matrix = corr_matrix[corr_matrix["target"].isin(columns)]
-    corr_matrix = corr_matrix[corr_matrix["corr_coef"] >= threshold]
-    col_coefs = corr_matrix["corr_coef"]
+        matrix = corr_matrix(df, method="multiple")
+        columns = pd.Series(matrix["target"]).drop_duplicates()
+        matrix = matrix[matrix["target"].isin(columns)]
+    matrix = matrix[matrix["corr_coef"] >= threshold]
+    col_coefs = matrix["corr_coef"]
     col_method = np.repeat("multiple", col_coefs.size)
     col_pairs = pd.DataFrame(
         {
-            "X": corr_matrix["feature_combination"],
-            "Y": corr_matrix["target"],
-            "coef": corr_matrix["corr_coef"],
+            "X": matrix["feature_combination"],
+            "Y": matrix["target"],
+            "coef": matrix["corr_coef"],
             "method": col_method,
         }
     )

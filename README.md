@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 
- **Current version:** 0.2.2 (pre-release)  
+ **Current version:** 0.11.3 (pre-release)  
 
 **explorica** is a modular and extensible Python framework for **exploratory data analysis (EDA)**.  
 It provides ready-to-use components for **data preprocessing, feature engineering, statistical analysis, and visualization**, allowing analysts and data scientists to focus on insights instead of boilerplate code.
@@ -189,12 +189,9 @@ We welcome:
 > The roadmap gives a quick overview of completed tasks and future development plans.
 
 - [x] Refactor + n > 80% test coverage for `explorica.data_quality`
-- [ ] Refactor + n > 80% test coverage for `explorica.visualizations` 
-- [ ] Add new features for `explorica.data_quality`
-- [ ] Add `explorica.reports` feature to automate reports
-- [ ] Add `explorica.io` feature to load data out of the box
+- [x] Refactor + n > 80% test coverage for `explorica.visualizations`
+- [x] Add `explorica.reports` feature to automate reports
 - [ ] PyPI release
-- [ ] Prepare demonstration notebooks for release branch
 
 ---
 
