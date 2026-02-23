@@ -1,4 +1,4 @@
-"""
+r"""
 High-level plotting utilities for Explorica visualizations.
 
 This module defines high-level functions for exploring distributions and relationships
@@ -7,15 +7,15 @@ between numeric variables. Each function is independent and returns a
 
 Functions
 ---------
-distplot(data, bins = 30, kde = True, **kwargs)
+distplot(data, bins = 30, kde = True, \**kwargs)
     Plots a histogram of numeric data with optional Kernel Density Estimation (KDE).
-boxplot(data, **kwargs)
+boxplot(data, \**kwargs)
     Draws a boxplot for a numeric variable to visualize distribution, median,
     and potential outliers.
-hexbin(data, target, **kwargs)
+hexbin(data, target, \**kwargs)
     Creates a hexbin plot for two numeric variables. Useful for visualizing dense
     scatter data.
-heatmap(data, **kwargs)
+heatmap(data, \**kwargs)
     Generates a heatmap to visualize a 2D array of numeric values.
 
 Notes
@@ -24,37 +24,36 @@ Notes
   which provides a consistent interface for accessing the figure, axes (if applicable),
   plotting engine, and additional metadata.
 - `plot_kws` allows passing keyword arguments directly to the underlying plotting
-  function used by the engine (Matplotlib, Seaborn, or Plotly).
-      This provides fine-grained control over styling and behavior
-      specific to that function.
+  function used by the engine (Matplotlib, Seaborn, or Plotly). This provides
+  fine-grained control over styling and behavior specific to that function.
 
 Examples
 --------
->>> import explorica.visualizations as vis
+>>> from pathlib import Path
 >>> import numpy as np
-
-# Distribution plot with custom bins, KDE, and figure size
+>>> import explorica.visualizations as vis
+>>> # Distribution plot with custom bins, KDE, and figure size
 >>> data = np.random.normal(loc=0, scale=1, size=100)
 >>> result = vis.distplot(
-... data,
-... bins=30,
-... kde=True,
-... title="Normal Distribution Example",
-... plot_kws={"figsize": (8, 5)}
+...     data,
+...     bins=30,
+...     kde=True,
+...     title="Normal Distribution Example",
+...     figsize = (8, 5),
 ... )
->>> result.figure.show()
+>>> result.figure.show() # doctest: +SKIP
 
-# Boxplot with figure saving
->>> result = vis.boxplot(
+>>> # Boxplot with figure saving
+>>> result = vis.boxplot( # doctest: +SKIP
 ...     data,
 ...     title="Boxplot Example",
 ...     directory="./plots",
 ...     figsize = (6, 4)
 ... )
->>> Path("./plots/Boxplot Example.html").exists()
+>>> Path("./plots/boxplot.png").exists() # doctest: +SKIP
 True
 
-# Hexbin plot with color map and point sizing via plot_kws
+>>> # Hexbin plot with color map and point sizing via plot_kws
 >>> x = np.random.randn(500)
 >>> y = x*0.5 + np.random.randn(500)*0.5
 >>> result = vis.hexbin(
@@ -65,9 +64,9 @@ True
 ...     figsize = (7, 6),
 ...     plot_kws={"mincnt": 1}
 ... )
->>> result.figure.show()
+>>> result.figure.show() # doctest: +SKIP
 
-# Heatmap with annotations, custom colormap, and figure size
+>>> # Heatmap with annotations, custom colormap, and figure size
 >>> matrix = np.random.rand(5, 5)
 >>> result = vis.heatmap(
 ...     matrix,
@@ -76,7 +75,8 @@ True
 ...     title="Annotated Heatmap",
 ...     figsize=(6, 5)
 ... )
->>> result.figure.show()
+>>> result.figure.show() # doctest: +SKIP
+>>> plt.close(result.figure)
 """
 
 import warnings
@@ -103,6 +103,13 @@ from ._utils import (
     ERR_MSG_ARRAYS_LENS_MISMATCH,
 )
 
+__all__ = [
+    "distplot",
+    "boxplot",
+    "hexbin",
+    "heatmap",
+]
+
 
 def distplot(
     data: Sequence[float] | Mapping[str, Sequence[float]],
@@ -128,9 +135,11 @@ def distplot(
     ----------
     data : Sequence[float] | Mapping[str, Sequence[float]]
         Numeric input data. Can be:
+
         - 1D sequence of numbers
         - Dictionary with single key-value pair (value is numeric sequence)
         - pandas Series or single-column DataFrame
+
         Must be one-dimensional.
     bins : int, default=30
         Number of bins in the histogram. Must be a positive integer.
@@ -159,12 +168,12 @@ def distplot(
         advanced customization options, see urls below.
     directory : str, optional
         File path to save figure (e.g., "./plot.png").
-    nan_policy : str | Literal['drop', 'raise'],
-                 default='drop'
+    nan_policy : str | Literal['drop', 'raise'], default='drop'
         Policy for handling NaN values in input data:
+
         - 'raise' : raise ValueError if any NaNs are present in `data`.
         - 'drop'  : drop rows (axis=0) containing NaNs before computation. This
-                    does **not** drop entire columns.
+          does **not** drop entire columns.
     verbose : bool, default=False
         If True, enables informational logging during plot generation.
 
@@ -189,46 +198,49 @@ def distplot(
 
     Notes
     -----
-    This function uses seaborn.histplot under the hood. For complete parameter
-    documentation and advanced customization options, see:
-        Seaborn histplot:
-        https://seaborn.pydata.org/generated/seaborn.histplot.html#seaborn-histplot
+    - This function uses seaborn.histplot under the hood. For complete parameter
+      documentation and advanced customization options, see:
+      `seaborn histplot`_.
+
+      .. _seaborn histplot: https://seaborn.pydata.org/generated/
+         seaborn.histplot.html#seaborn-histplot>`_
+
     - Vectorization support is planned to be added.
     - Empty data returns a placeholder plot with informative message.
 
     Examples
     --------
+    >>> from pathlib import Path
     >>> import explorica.visualizations as vis
-
-    # Simple distribution plot with KDE
+    >>> # Simple distribution plot with KDE
     >>> data = [1, 2, 2, 3, 3, 3, 4]
     >>> result = vis.distplot(data, kde=True, title="Small Dataset Example")
-    >>> result.figure.show()
+    >>> result.figure.show() # doctest: +SKIP
 
-    # Distribution plot with figure saving
+    >>> # Distribution plot with figure saving
     >>> data = [10, 20, 20, 30, 40, 40, 50]
-    >>> result = vz.distplot(
+    >>> result = vis.distplot( # doctest: +SKIP
     ...     data,
     ...     bins=5,
     ...     title="Saved Plot Example",
     ...     directory="./plots"
     ... )
-    >>> Path("./plots/Saved Plot Example.html").exists()
+    >>> Path("./plots/distplot.png").exists() # doctest: +SKIP
     True
 
-    # Normal distribution with custom bins and figure size
+    >>> # Normal distribution with custom bins and figure size
     >>> import numpy as np
-    >>>
     >>> data = np.random.normal(loc=50, scale=15, size=200)
     >>> result = vis.distplot(
     ...     data,
     ...     bins=25,
     ...     kde=True,
     ...     title="Normal Distribution Example",
-    ...     figsize=(8, 5)
+    ...     figsize=(8, 5),
     ...     plot_kws={"color": "skyblue"}
     ... )
-    >>> result.figure.show()
+    >>> result.figure.show() # doctest: +SKIP
+    >>> plt.close(result.figure)
     """
     params = {**DEFAULT_MPL_PLOT_PARAMS, "opacity": 0.5, "palette": None, **kwargs}
     plot_kws_merged = {
@@ -293,9 +305,17 @@ def boxplot(
     ----------
     data : Sequence[float] | Mapping[str, Sequence[float]]
         Numeric input data. Can be:
+
         - 1D sequence of numbers
         - Dictionary with single key-value pair (value is numeric sequence)
         - pandas Series or single-column DataFrame
+
+    Returns
+    -------
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        See also :class:`explorica.types.VisualizationResult` for full attribute
+        details.
 
     Other Parameters
     ----------------
@@ -323,13 +343,6 @@ def boxplot(
     verbose : bool, default=False
         If True, enables informational logging during plot generation.
 
-    Returns
-    -------
-    VisualizationResult
-        A dataclass encapsulating the result of a visualization.
-        See also :class:`explorica.types.VisualizationResult` for full attribute
-        details.
-
     Warns
     -----
     UserWarning
@@ -338,29 +351,35 @@ def boxplot(
 
     Notes
     -----
-    This function uses matplotlib.axes.Axes.boxplot under the hood. For complete
-    parameter documentation and advanced customization options, see:
-        Matplotlib boxplot:
-        https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.boxplot.html
+    - This function uses matplotlib.axes.Axes.boxplot under the hood. For complete
+      parameter documentation and advanced customization options, see:
+      `matplotlib boxplot`_.
+
+      .. _matplotlib boxplot: https://matplotlib.org/stable/api/
+         _as_gen/matplotlib.axes.Axes.boxplot.html>`_
 
     Examples
     --------
-    >>> import explorica.visualizations as vis
     >>> from pathlib import Path
-
-    # Basic boxplot
+    >>> import explorica.visualizations as vis
+    >>> # Basic boxplot
     >>> plot = vis.boxplot([5, 7, 8, 5, 6, 9, 12], title="Simple Boxplot")
-    >>> plot.figure.show()
+    >>> plot.figure.show() # doctest: +SKIP
 
-    # Saving the plot to disk
-    >>> plot = vis.boxplot([4, 6, 5, 7, 8], directory="./plots", title="Saved Boxplot")
-    >>> Path("./plots/Saved Boxplot.html").exists()
+    >>> # Saving the plot to disk
+    >>> plot = vis.boxplot( # doctest: +SKIP
+    ...     [4, 6, 5, 7, 8],
+    ...     directory="./plots",
+    ...     title="Saved Boxplot"
+    ... )
+    >>> Path("./plots/boxplot.png").exists() # doctest: +SKIP
     True
 
-    # Detecting potential outliers
+    >>> # Detecting potential outliers
     >>> data_with_outliers = [10, 12, 11, 14, 100, 13, 12, 9, 105]
     >>> plot = vis.boxplot(data_with_outliers, title="Boxplot with Outliers")
-    >>> plot.figure.show()
+    >>> plot.figure.show() # doctest: +SKIP
+    >>> plt.close(plot.figure)
     """
     params = {
         **DEFAULT_MPL_PLOT_PARAMS,
@@ -422,6 +441,13 @@ def hexbin(
     target : Sequence[Number]
         Second numeric variable (plotted on y-axis).
 
+    Returns
+    -------
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        See also :class:`explorica.types.VisualizationResult` for full attribute
+        details.
+
     Other Parameters
     ----------------
     cmap : str or matplotlib.colors.Colormap, optional
@@ -455,16 +481,10 @@ def hexbin(
     verbose : bool, default=False
         If True, enables informational logging during plot generation.
 
-    Returns
-    -------
-    VisualizationResult
-        A dataclass encapsulating the result of a visualization.
-        See also :class:`explorica.types.VisualizationResult` for full attribute
-        details.
-
     Raises
     ------
     ValueError
+        Raised in the following cases:
         If `data` and `target` have different lengths.
         If NaN values are present and `nan_policy="raise"`.
         If `gridsize` is not a positive integer.
@@ -472,24 +492,27 @@ def hexbin(
     Warns
     -----
     UserWarning
-        Raised if the input data is empty. An empty plot with a warning message
-        will be returned in this case.
+        Raised if the input data is empty.
+        An empty plot with a warning message will be returned in this case.
 
     Notes
     -----
-    This function uses matplotlib.axes.Axes.hexbin under the hood.
-    For complete parameter documentation and advanced customization options, see:
-        Matplotlib hexbin:
-        https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.hexbin.html
+    - This function uses matplotlib.axes.Axes.hexbin under the hood.
+    - For complete parameter documentation and advanced customization options, see:
+      `matplotlib hexbin`_.
+
+      .. _matplotlib hexbin: https://matplotlib.org/stable/api/
+         _as_gen/matplotlib.axes.Axes.hexbin.html>`_
+
     - Hexbin plots are most effective with large datasets (>1000 points)
     - The color intensity represents the count of points in each hexagon
     - For very sparse data, consider using a scatter plot instead
 
     Examples
     --------
-    import explorica.visualizations as vis
-
-    # Simple usage
+    >>> from pathlib import Path
+    >>> import explorica.visualizations as vis
+    >>> # Simple usage
     >>> plot = vis.hexbin(
     ...     [1, 2, 3, 4, 5],
     ...     [2, 4, 6, 8, 10],
@@ -497,10 +520,10 @@ def hexbin(
     ...     ylabel="Y Variable",
     ...     gridsize=20
     ... )
-    >>> plot.figure.show()
+    >>> plot.figure.show() # doctest: +SKIP
 
-    # Saving the plot to a directory
-    >>> plot = vis.hexbin(
+    >>> # Saving the plot to a directory
+    >>> plot = vis.hexbin( # doctest: +SKIP
     ...     [1, 2, 3, 4, 5],
     ...     [2, 4, 6, 8, 10],
     ...     title="Hexbin Example",
@@ -509,14 +532,15 @@ def hexbin(
     ... )
     >>> # The figure is saved to the 'plots' directory with filename 'hexbin.png'
 
-    # Passing additional Matplotlib options via plot_kws
+    >>> # Passing additional Matplotlib options via plot_kws
     >>> plot = vis.hexbin(
     ...     [1, 2, 3, 4, 5],
     ...     [2, 4, 6, 8, 10],
     ...     plot_kws={"cmap": "viridis", "mincnt": 1},
     ...     gridsize=25
     ... )
-    >>> plot.figure.show()
+    >>> plot.figure.show() # doctest: +SKIP
+    >>> plt.close(plot.figure)
     """
     params = {
         **DEFAULT_MPL_PLOT_PARAMS,
@@ -596,9 +620,17 @@ def heatmap(
     ----------
     data : sequence of floats, sequence of sequences of floats, or mapping
         Input data for the heatmap. Can be:
+
         - 1D sequence of numerical values (converted to a 1-row heatmap),
         - 2D sequence (list of lists, NumPy array, etc.),
         - Mapping of keys to sequences (converted to a DataFrame).
+
+    Returns
+    -------
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        See also :class:`explorica.types.VisualizationResult` for full attribute
+        details.
 
     Other Parameters
     ----------------
@@ -629,13 +661,6 @@ def heatmap(
     verbose : bool, default=False
         Whether to print additional messages during plotting.
 
-    Returns
-    -------
-    VisualizationResult
-        A dataclass encapsulating the result of a visualization.
-        See also :class:`explorica.types.VisualizationResult` for full attribute
-        details.
-
     Raises
     ------
     ValueError
@@ -649,16 +674,15 @@ def heatmap(
 
     Notes
     -----
-    This function uses seaborn.heatmap under the hood. For complete parameter
-    documentation and advanced customization options, see:
-        Seaborn heatmap:
-        https://seaborn.pydata.org/generated/seaborn.heatmap.html
+    - This function uses seaborn.heatmap under the hood. For complete parameter
+      documentation and advanced customization options, see
+      `seaborn heatmap <https://seaborn.pydata.org/generated/seaborn.heatmap.html>`_.
 
     Examples
     --------
-    import explorica.visualizations as vis
-
-    # Simple usage
+    >>> from pathlib import Path
+    >>> import explorica.visualizations as vis
+    >>> # Simple usage
     >>> plot = vis.heatmap(
     ...     [[1, 2, 3, 4, 5],
     ...     [5, 4, 3, 2, 1],
@@ -667,10 +691,10 @@ def heatmap(
     ...     ylabel="Y Variable",
     ...     cmap="viridis"
     ... )
-    >>> plot.figure.show()
+    >>> plot.figure.show() # doctest: +SKIP
 
-    # Saving the plot to a directory
-    >>> plot = vis.heatmap(
+    >>> # Saving the plot to a directory
+    >>> plot = vis.heatmap( # doctest: +SKIP
     ...     [[1, 2, 3, 4, 5],
     ...     [5, 4, 3, 2, 1],
     ...     [2, 4, 6, 8, 10]],
@@ -680,7 +704,7 @@ def heatmap(
     ... )
     >>> # The figure is saved to the 'plots' directory with filename 'heatmap.png'
 
-    # Passing additional Matplotlib options via plot_kws
+    >>> # Passing additional Matplotlib options via plot_kws
     >>> plot = vis.heatmap(
     ...     [[1, 2, 3, 4, 5],
     ...     [5, 4, 3, 2, 1],
@@ -688,7 +712,8 @@ def heatmap(
     ...     plot_kws={"cmap": "viridis", "cbar": True},
     ...     annot=False
     ... )
-    >>> plot.figure.show()
+    >>> plot.figure.show() # doctest: +SKIP
+    >>> plt.close(plot.figure)
     """
     params = {
         **DEFAULT_MPL_PLOT_PARAMS,

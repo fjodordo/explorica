@@ -1,4 +1,4 @@
-"""
+r"""
 High-level plotting utilities for Explorica visualizations.
 
 This module provides a set of functions to generate common plots using Matplotlib,
@@ -7,13 +7,13 @@ dataclass and supports flexible styling, color palettes, and interactivity.
 
 Methods
 -------
-barchart(data, category, ascending=None, horizontal=False, **kwargs)
+barchart(data, category, ascending=None, horizontal=False, \**kwargs)
     Plots a bar chart from categorical and numerical data. Supports vertical
     or horizontal orientation, automatic sorting, and styling through Seaborn.
-piechart(data, category, autopct_method='value', **kwargs)
+piechart(data, category, autopct_method='value', \**kwargs)
     Draws a pie chart based on categorical and numerical data. Supports
     value, percent, or combined display on each segment.
-mapbox(lat, lon, category=None, **kwargs)
+mapbox(lat, lon, category=None, \**kwargs)
     Generates an interactive geographic scatter plot using Plotly Mapbox.
     Supports categorical coloring, point scaling, hover labels, and Mapbox
     styling.
@@ -25,38 +25,32 @@ Notes
   plotting engine, and additional metadata.
 - `plot_kws` allows passing keyword arguments directly to the underlying plotting
   function used by the engine (Matplotlib, Seaborn, or Plotly).
-      This provides fine-grained control over styling and behavior
-      specific to that function.
+  This provides fine-grained control over styling and behavior
+  specific to that function.
 
 Examples
 --------
 >>> import explorica.visualizations as vis
-
-# Basic vertical bar chart (Matplotlib)
+>>> # Basic vertical bar chart (Matplotlib)
 >>> data = [3, 7, 5]
 >>> categories = ['A', 'B', 'C']
 >>> result = vis.barchart(data, categories,
-                          plot_kws={'color':'skyblue', 'edgecolor':'black'})
->>> result.figure.show()  # Opens static Matplotlib figure window
->>> result.axes
-<matplotlib.axes._subplots.AxesSubplot object at 0x...>
+...                       plot_kws={'color':'skyblue', 'edgecolor':'black'})
+>>> result.figure.show()  # doctest: +SKIP
 
-# Pie chart with percentages displayed
+>>> # Pie chart with percentages displayed
 >>> result = vis.piechart(data, categories, autopct_method='percent')
->>> result.figure.show() # Opens static Matplotlib figure window
->>> result.axes # Access primary Axes
-None
+>>> result.figure.show() # doctest: +SKIP
 >>> result.extra_info
 {'autopct_method': 'percent'}
 
-# Mapbox scatter plot with categorical coloring
+>>> # Mapbox scatter plot with categorical coloring
 >>> lat = [34.05, 40.71, 37.77]
 >>> lon = [-118.24, -74.00, -122.42]
 >>> categories = ['City1', 'City2', 'City3']
 >>> result = vis.mapbox(lat, lon, category=categories)
->>> result.figure.show() # Interactive map with hover labels
->>> result.title
->>> None
+>>> # Show interactive map with hover labels
+>>> result.figure.show() # doctest: +SKIP
 """
 
 from typing import Optional, Sequence, Mapping, Any
@@ -86,6 +80,8 @@ from ._utils import (
     WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F,
 )
 
+__all__ = ["barchart", "piechart", "mapbox"]
+
 logger = logging.getLogger(__name__)
 
 
@@ -97,7 +93,7 @@ def barchart(
     **kwargs,
 ) -> VisualizationResult:
     """
-    Plots a Bar Chart using categorical and numerical data series.
+    Plot a Bar Chart using categorical and numerical data series.
 
     This function creates a bar chart to visualize the relationship between
     categorical labels and numerical values. It supports both vertical and
@@ -145,12 +141,13 @@ def barchart(
         internally constructs a dictionary from its own relevant parameters. Keys
         provided in `plot_kws` take precedence over internally generated defaults.
         For complete parameter documentation and advanced customization options, see
-        urls below
+        urls below.
     nan_policy : {'drop', 'raise'}, default='drop'
             Policy for handling NaN values in input data:
+
             - 'raise' : raise ValueError if any NaNs are present in `data`.
             - 'drop'  : drop rows (axis=0) containing NaNs before computation. This
-                        does **not** drop entire columns.
+              does **not** drop entire columns.
     directory : str, optional
         The path to the directory for saving the plot. If None (default),
         the plot is not saved.
@@ -164,8 +161,8 @@ def barchart(
         See also :class:`explorica.types.VisualizationResult` for full attribute
         details.
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If the lengths of the 'data' and 'category' input series do not match.
         If the 'data' or 'category' input contains more than one column/dimension.
@@ -181,29 +178,33 @@ def barchart(
     -----
     This function uses matplotlib.axes.Axes.bar and matplotlib.axes.Axes.barh under the
     hood. For complete parameter documentation and advanced customization options, see:
-        matplotlib bar:
-        https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.html
-        matplotlib barh:
-        https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.barh.html
+    `matplotlib bar`_.
 
+    .. _matplotlib bar: https://matplotlib.org/stable/api/
+       _as_gen/matplotlib.axes.Axes.html>`_
+
+    `matplotlib barh`_.
+
+    .. _matplotlib barh: https://matplotlib.org/stable/api/
+       _as_gen/matplotlib.axes.Axes.barh.html>`_
 
     Examples
     --------
-    # Simple vertical Bar Chart
-    >>> import numpy as np
+    >>> import explorica.visualizations as vis
+    >>> # Simple vertical Bar Chart
     >>> values = [25, 40, 15, 60, 35]
     >>> labels = ['Apple', 'Banana', 'Cherry', 'Date', 'Elderberry']
-    >>> plot = barchart(values, labels, title="Продажи фруктов")
-    >>> # plot.figure.show()
+    >>> plot = vis.barchart(values, labels, title="Fruit sales")
+    >>> plot.figure.show() # doctest: +SKIP
 
-    # Horizontal Bar Chart with descending sort:
+    >>> # Horizontal Bar Chart with descending sort:
     >>> values_h = [150, 80, 220]
     >>> labels_h = ['Group A', 'Group B', 'Group C']
     >>> plot = barchart(values_h, labels_h,
     ...                 horizontal=True,
     ...                 ascending=False,
     ...                 palette='viridis')
-    >>> # plot.figure.show()
+    >>> plot.figure.show() # doctest: +SKIP
     """
     params = {**DEFAULT_MPL_PLOT_PARAMS, "palette": None, "opacity": 0.5, **kwargs}
     plot_kws_merged = {"alpha": params["opacity"], **params.get("plot_kws", {})}
@@ -269,7 +270,7 @@ def piechart(
     **kwargs,
 ) -> VisualizationResult:
     """
-    Draws a pie chart based on categorical and corresponding numerical data.
+    Draw a pie chart based on categorical and corresponding numerical data.
 
     This function generates a pie chart where each segment represents a category
     from the input data. The size of each segment is proportional to the corresponding
@@ -282,8 +283,8 @@ def piechart(
     For complete parameter documentation and
     advanced customization options, see urls below
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     data : Sequence[float]
         A numerical sequence representing the sizes of the segments.
     category : Sequence[Any]
@@ -291,6 +292,13 @@ def piechart(
     autopct_method : str, default="value"
         Determines how the values are displayed on the pie chart.
         Supported options: "percent", "value", "both".
+
+    Returns
+    -------
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        See also :class:`explorica.types.VisualizationResult` for full attribute
+        details.
 
     Other Parameters
     ----------------
@@ -314,7 +322,7 @@ def piechart(
         behavior. If not provided, the function internally constructs a dictionary
         from its own relevant parameters. Keys provided in `plot_kws` take precedence
         over internally generated defaults. For complete parameter documentation and
-        advanced customization options, see urls below
+        advanced customization options, see urls below.
     directory : str, optional
         If provided, the plot will be saved to this directory.
     nan_policy : {"drop", "raise"}, default="drop"
@@ -322,15 +330,8 @@ def piechart(
     verbose : bool, default=False
         If True, print additional information.
 
-    Returns
-    -------
-    VisualizationResult
-        A dataclass encapsulating the result of a visualization.
-        See also :class:`explorica.types.VisualizationResult` for full attribute
-        details.
-
-    Raises:
-    -------
+    Raises
+    ------
     ValueError
         If input sizes mismatch.
         If invalid autopct method is provided.
@@ -345,30 +346,33 @@ def piechart(
     -----
     This function uses matplotlib.axes.Axes.pie under the hood. For complete parameter
     documentation and advanced customization options, see:
-        matplotlib pie:
-        https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.pie.html
+    `matplotlib pie`_.
+
+    .. _matplotlib pie: https://matplotlib.org/stable/api/
+       _as_gen/matplotlib.pyplot.pie.html>`_
 
     Examples
     --------
-    import explorica.visualizations as vis
-
-    # Simple pie chart displaying raw values
+    >>> import explorica.visualizations as vis
+    >>> # Simple pie chart displaying raw values
     >>> data = [15, 30, 45, 10]
     >>> categories = ["A", "B", "C", "D"]
     >>> result = vis.piechart(data, categories, autopct_method="value",
     ...                       title="Simple Pie")
-    >>> result.figure.show() # Display the chart
+    >>>  # Display the chart
+    >>> result.figure.show() # doctest: +SKIP
     >>> result.title
     'Simple Pie'
 
-    # Pie chart showing percentages on each segment
+    >>> # Pie chart showing percentages on each segment
     >>> data = [50, 25, 25]
     >>> categories = ["Apples", "Bananas", "Cherries"]
-    >>> result = visualizations.piechart(data, categories,
+    >>> result = vis.piechart(data, categories,
     ...     autopct_method="percent", show_legend=True)
-    >>> result.figure.show()
+    >>> result.figure.show() # doctest: +SKIP
     >>> result.extra_info["autopct_method"]
     'percent'
+    >>> plt.close(result.figure)
     """
     params = {
         **DEFAULT_MPL_PLOT_PARAMS,
@@ -477,8 +481,7 @@ def mapbox(
     **kwargs,
 ) -> VisualizationResult:
     """
-    Display an interactive geographic scatter plot (Mapbox) with optional
-    category-based coloring, point scaling, and hover labels.
+    Display an interactive geographic scatter plot (Mapbox).
 
     This method provides a high-level interface for visualizing spatial data
     using latitude and longitude coordinates. It supports categorical coloring,
@@ -501,6 +504,13 @@ def mapbox(
         Categorical labels used to color the points. Must match the length of
         `lat` and `lon`, cannot contain nulls, and determines the number of
         discrete colors in the plot.
+
+    Returns
+    -------
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        See also :class:`explorica.types.VisualizationResult` for full attribute
+        details.
 
     Other Parameters
     ----------------
@@ -533,7 +543,7 @@ def mapbox(
         behavior. If not provided, the function internally constructs a dictionary
         from its own relevant parameters. Keys provided in `plot_kws` take precedence
         over internally generated defaults. For complete parameter documentation and
-        advanced customization options, see urls below
+        advanced customization options, see urls below.
     nan_policy : str, default="drop"
         Policy for handling NaN values in input data. Supports 'drop'
         (removes rows with NaNs) or 'raise' (raises an error).
@@ -541,13 +551,6 @@ def mapbox(
         Path to save the figure as HTML.
     verbose : bool, default=False
         Enable logging.
-
-    Returns
-    -------
-    VisualizationResult
-        A dataclass encapsulating the result of a visualization.
-        See also :class:`explorica.types.VisualizationResult` for full attribute
-        details.
 
     Raises
     ------
@@ -563,49 +566,49 @@ def mapbox(
 
     Notes
     -----
-    This function uses plotly.express.scatter_map under the hood. For complete
-    parameter documentation and advanced customization options, see:
-        plotly scatter map:
-        https://plotly.com/python-api-reference/
-        generated/plotly.express.scatter_map.html
+    - This function uses plotly.express.scatter_map under the hood. For complete
+      parameter documentation and advanced customization options, see:
+      `plotly scatter map`_.
+
+      .. _plotly scatter map: https://plotly.com/python-api-reference/
+         generated/plotly.express.scatter_map.html
 
     - The plot is saved as an interactive HTML file when `directory` is set.
     - Color resolution is handled internally using `resolve_plotly_palette`.
     - This function is intended for rapid map-based EDA rather than full
       cartographic customization.
-    - Supported Plotly templates: https://plotly.com/python/templates/
-    - Supported Mapbox styles: https://plotly.com/python/mapbox-layers/
+    - `Supported Plotly templates <https://plotly.com/python/templates/>`_.
+    - `Supported Mapbox styles <https://plotly.com/python/mapbox-layers/>`_.
 
     Examples
     --------
-    # Basic Mapbox scatter plot usage
+    >>> from pathlib import Path
     >>> import explorica.visualizations as vis
+    >>> # Basic Mapbox scatter plot usage
     >>> lat = [34.05, 40.71, 37.77]
     >>> lon = [-118.24, -74.00, -122.42]
     >>> result = vis.mapbox(lat, lon, title="Major US Cities")
-    >>> result.figure.show()
+    >>> result.figure.show() # doctest: +SKIP
 
-    # Mapbox scatter plot with categorical coloring usage
+    >>> # Mapbox scatter plot with categorical coloring usage
     >>> lat = [34.05, 40.71, 37.77, 51.50]
     >>> lon = [-118.24, -74.00, -122.42, -0.12]
     >>> category = ["US", "US", "US", "UK"]
     >>> result = vis.mapbox(lat, lon, category=category, title="USA vs UK Cities")
-    >>> result.figure.show()
+    >>> result.figure.show() # doctest: +SKIP
 
-    # HTML saving example
+    >>> # HTML saving example
     >>> lat = [34.05, 40.71]
     >>> lon = [-118.24, -74.00]
-    >>> result = vis.mapbox(
-    >>> ...     lat, lon,
-    >>> ...     plot_kws={"zoom": 4},
-    >>> ...     directory="./plots",
-    >>> ...     title="Saved Map"
-    >>> ... )
-    >>> result.figure.show()
-
-    # Check that the file actually created
-    >>> output = Path("./plots/Saved Map.html")
-    >>> output.exists()
+    >>> result = vis.mapbox( # doctest: +SKIP
+    ...     lat, lon,
+    ...     plot_kws={"zoom": 4},
+    ...     directory="./plots",
+    ...     title="Saved Map"
+    ... )
+    >>> result.figure.show() # doctest: +SKIP
+    >>> # Check that the file actually created
+    >>> Path("./plots/Saved Map.html").exists() # doctest: +SKIP
     True
     """
     params = {

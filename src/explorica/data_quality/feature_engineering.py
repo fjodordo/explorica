@@ -38,7 +38,7 @@ Examples
 """
 
 import warnings
-from typing import Any, Hashable, Mapping, Sequence
+from typing import Any, Hashable, Mapping, Sequence, Literal
 
 import numpy as np
 import pandas as pd
@@ -312,7 +312,7 @@ def ordinal_encode(
 def discretize_continuous(
     data: Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[Any]],
     bins: int = None,
-    binning_method: str = "uniform",
+    binning_method: Literal["uniform", "quantile"] = "uniform",
     intervals: str | Sequence = "pandas",
 ) -> pd.Series | pd.DataFrame:
     """
@@ -357,7 +357,7 @@ def discretize_continuous(
         2  (2.333, 3.667]  (9.959, 30.0]
         3    (3.667, 5.0]   (30.0, 50.0]
         4    (3.667, 5.0]   (30.0, 50.0]
-    binning_method
+    binning_method : Literal['uniform', 'quantile'], default='uniform'
         Binning method to use. One of:
         - 'uniform': Equal-width binning.
         - 'quantile': Quantile-based binning (equal number of observations per bin).
@@ -430,14 +430,11 @@ def discretize_continuous(
     --------
     >>> import pandas as pd
     >>> import numpy as np
-    ...
     >>> import explorica.data_quality as data_quality
-    ...
     >>> df = pd.DataFrame({"f1": np.linspace(0, 1000, 100),
     ...                    "f2": np.linspace(0, 2150, 100)})
-    >>> encoded = data_quality.discretize_continuous(df, bins=[10, 15])
-    >>> print(encoded)
-    f1                  f2
+    >>> data_quality.discretize_continuous(df, bins=[10, 15])
+                    f1                  f2
     0   (-1.001, 100.0]   (-2.151, 143.333]
     1   (-1.001, 100.0]   (-2.151, 143.333]
     2   (-1.001, 100.0]   (-2.151, 143.333]
@@ -449,6 +446,7 @@ def discretize_continuous(
     97  (900.0, 1000.0]  (2006.667, 2150.0]
     98  (900.0, 1000.0]  (2006.667, 2150.0]
     99  (900.0, 1000.0]  (2006.667, 2150.0]
+    <BLANKLINE>
     [100 rows x 2 columns]
     """
 
