@@ -139,8 +139,7 @@ def validate_at_least_one_exist(values: Iterable, err_msg: str) -> None:
 
 def validate_lengths_match(array1: Sequence, array2: Sequence, err_msg: str) -> None:
     """
-    Validate that two arrays (or sequences) have matching number of rows
-    in column-based representation.
+    Validate that two arrays (or sequences) have matching number of rows.
 
     The arrays are internally converted to pandas DataFrames using
     ``convert_dataframe``, which follows a **column-based processing**

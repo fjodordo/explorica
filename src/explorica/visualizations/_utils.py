@@ -1,4 +1,4 @@
-"""
+r"""
 Internal utility module for Explorica's visualizations subpackage.
 
 This module provides necessary infrastructure for visualization methods (such as
@@ -9,7 +9,9 @@ consistent user experience.
 
 Functions
 -------
-save_plot(fig, directory, overwrite, plot_name, verbose)
+validate_file_format(ext, engine)
+    Validate that a given file extension is supported by the specified engine.
+save_plot(fig, directory=".", overwrite=True, plot_name="plot", \**kwargs)
     Saves a Matplotlib Figure object to disk with file handling and logging.
 get_empty_plot(message, figsize)
     Generates a placeholder Figure/Axes for instances where data is unavailable.
@@ -17,6 +19,8 @@ temp_plot_theme(palette, style, cmap)
     Context manager to temporarily set multiple Seaborn and Matplotlib styles.
 temp_plot_cmap(cmap)
     Context manager to temporarily set the default Matplotlib color map.
+resolve_plotly_palette(palette, categorical=True)
+    Resolve a Plotly color palette for categorical or sequential data.
 
 Notes
 -----
@@ -27,8 +31,12 @@ to manage global state safely.
 
 Examples
 --------
+>>> import matplotlib.pyplot as plt
 >>> fig, ax = get_empty_plot(message="Data validation failed")
 >>> # fig and ax are now Matplotlib objects that can be displayed or saved.
+>>> type(fig).__name__
+'Figure'
+>>> plt.close(fig)
 """
 
 import logging
@@ -45,6 +53,16 @@ from plotly.graph_objs import Figure as PxFigure
 from explorica._utils import temp_log_level, read_config
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "validate_file_format",
+    "resolve_plot_path",
+    "save_plot",
+    "get_empty_plot",
+    "temp_plot_theme",
+    "temp_plot_cmap",
+    "resolve_plotly_palette",
+]
 
 DEFAULT_MPL_PLOT_PARAMS = {
     "title": "",
@@ -192,8 +210,7 @@ def save_plot(
     **kwargs,
 ):
     """
-    Save a matplotlib or Plotly figure to disk with flexible format handling,
-    logging, and directory management.
+    Save a matplotlib or Plotly figure to disk with flexible format handling.
 
     This function validates the figure object, resolves output paths, checks
     for overwrite policies, and saves the figure in the specified format.
@@ -217,6 +234,9 @@ def save_plot(
     plot_name : str, default="plot"
         Name of the plot used for logging and for generating filenames when
         directory is a path without extension. Cannot be empty.
+
+    Other Parameters
+    ----------------
     verbose : bool, default=False
         If True, enables informational logging.
     engine : str, default="matplotlib"
@@ -253,9 +273,19 @@ def save_plot(
 
     Examples
     --------
+    >>> import matplotlib.pyplot as plt
+    >>> from pathlib import Path
     >>> fig, ax = plt.subplots()
-    >>> ax.plot([1, 2, 3])
-    >>> save_plot(fig, "./plot.png", "my_plot", verbose=True)
+    >>> _ = ax.plot([1, 2, 3])
+    >>> save_plot( # doctest: +SKIP
+    ...     fig,
+    ...     "./plot.png",
+    ...     "my_plot",
+    ...     verbose=True
+    ... )
+    >>> Path("./plot.png").exists() # doctest: +SKIP
+    True
+    >>> plt.close(fig)
     """
 
     # ----------------------------------------------------------------------
@@ -414,10 +444,17 @@ def get_empty_plot(
     Examples
     --------
     >>> fig, ax = get_empty_plot(message="No data", engine="matplotlib")
-    >>> fig
+    >>> type(fig).__name__
+    'Figure'
+    >>> plt.close(fig)
 
-    >>> fig = get_empty_plot(message="Nothing to display", engine="plotly")
-    >>> fig
+    >>> fig = get_empty_plot(
+    ...     message="Nothing to display",
+    ...     engine="plotly",
+    ...     figsize=(800, 400)
+    ... )
+    >>> type(fig)
+    <class 'plotly.graph_objs._figure.Figure'>
     """
     if engine == "matplotlib":
         fig, ax = plt.subplots(figsize=figsize)
@@ -481,17 +518,16 @@ def temp_plot_theme(palette: str = None, style: str = None, cmap: str = None):
 
     Examples
     --------
-    Temporarily apply a dark theme and custom palette:
-
-    >>> import pandas as pd
-    >>> import seaborn as sns
-    >>> data = pd.Series([1, 2, 3, 4])
+    >>> import matplotlib as mpl
+    >>> # Temporarily apply a dark theme and custom palette:
     >>>
     >>> with temp_plot_theme(style="darkgrid", palette="Set2"):
     ...     # All plots generated inside this block will use "darkgrid" and "Set2"
-    ...     sns.histplot(data)
-    ...
+    ...     mpl.rcParams['axes.facecolor']
+    '#EAEAF2'
     >>> # Plots generated after the block reverts to the previous global settings.
+    >>> mpl.rcParams['axes.facecolor']
+    'white'
     """
     contexts = []
     if style is not None:
@@ -530,15 +566,16 @@ def temp_plot_cmap(cmap: str):
 
     Examples
     --------
+    >>> import matplotlib as mpl
     >>> import matplotlib.pyplot as plt
-    >>> import numpy as np
-    >>> data = np.random.rand(10, 10)
     >>>
     >>> with temp_plot_cmap("plasma"):
     ...     # This plot will use the 'plasma' color map
-    ...     plt.imshow(data)
-    ...
+    ...     mpl.rcParams['image.cmap']
+    'plasma'
     >>> # Plots generated after this block will revert to the original cmap
+    >>> mpl.rcParams['image.cmap'] # Assuming 'viridis' was the original default
+    'viridis'
     """
     original_cmap = plt.rcParams["image.cmap"]
     plt.rcParams["image.cmap"] = cmap
@@ -588,13 +625,20 @@ def resolve_plotly_palette(palette: str | Sequence[str], categorical=True):
 
     Examples
     --------
+    >>> # Resolve a built-in categorical palette
     >>> import plotly.express as px
-    >>> resolve_plotly_palette("Plotly")
-    ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', ...]
+    >>> palette = resolve_plotly_palette("Plotly")
+    >>> palette[:5]
+    ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A']
+
+    >>> # Resolve a custom list of colors
     >>> resolve_plotly_palette(["#FF0000", "#00FF00", "#0000FF"])
     ['#FF0000', '#00FF00', '#0000FF']
-    >>> resolve_plotly_palette(None, categorical=False)
-    ['#440154', '#482878', '#3E4989', ...]  # Viridis sequential palette
+
+    >>> # Viridis sequential palette
+    >>> palette = resolve_plotly_palette(palette='Viridis', categorical=False)
+    >>> palette[:5]
+    ['#440154', '#482878', '#3e4989', '#31688e', '#26828e']
     """
     if palette is None:
         return (

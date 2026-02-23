@@ -1,4 +1,4 @@
-"""
+r"""
 High-level plotting utilities for Explorica visualizations.
 
 This module provides a high-level interface for generating scatter plots with
@@ -8,7 +8,7 @@ for themes, palettes, NaN handling, and plot saving.
 
 Functions
 ---------
-scatterplot(data, target, category=None, **kwargs)
+scatterplot(data, target, category=None, \**kwargs)
     Generates a scatter plot with optional categorization and a trendline.
 
 Notes
@@ -18,8 +18,8 @@ Notes
   plotting engine, and additional metadata.
 - `plot_kws` allows passing keyword arguments directly to the underlying plotting
   function used by the engine (Matplotlib, Seaborn, or Plotly).
-      This provides fine-grained control over styling and behavior
-      specific to that function.
+  This provides fine-grained control over styling and behavior
+  specific to that function.
 
 Examples
 --------
@@ -27,24 +27,25 @@ Examples
 >>> data = [1, 2, 3, 4, 5, 6, 7]
 >>> target = [2.5, 3.2, 4.8, 5.1, 7.5, 9.0, 10.5]
 >>> category = ['A', 'A', 'B', 'B', 'A', 'B', 'A']
-
-# Basic scatterplot with linear trendline
+>>> # Basic scatterplot with linear trendline
 >>> plot = vis.scatterplot(data, target, trendline='linear', show_legend=False,
 ...                       title='Basic Scatterplot')
->>> plot.figure.show()
+>>> plot.figure.show() # doctest: +SKIP
 
-# Scatterplot with categories and saving
->>> plot = vis.scatterplot(data, target, category=category, show_legend=True,
-...                       title='Scatterplot with Categories', directory='plots',
-...                       figsize=(8, 5))
+>>> # Scatterplot with categories and saving
+>>> plot = vis.scatterplot( # doctest: +SKIP
+...     data, target, category=category, show_legend=True,
+...     title='Scatterplot with Categories', directory='plots',
+...     figsize=(8, 5))
 >>> # The figure is saved to the 'plots' directory with filename 'scatterplot.png'
 
-# Scatterplot with polynomial trendline and custom plot_kws
+>>> # Scatterplot with polynomial trendline and custom plot_kws
 >>> plot = vis.scatterplot(data, target, trendline='polynomial',
 ...                       plot_kws={'s': 100, 'marker': 'o', 'c': 'orange',
 ...                                 'edgecolor': 'black'},
 ...                       title='Scatterplot with Polynomial Trendline')
->>> plot.figure.show()
+>>> plot.figure.show() # doctest: +SKIP
+>>> plt.close(plot.figure)
 """
 
 import warnings
@@ -77,6 +78,10 @@ from ._utils import (
     ERR_MSG_ARRAYS_LENS_MISMATCH,
 )
 
+__all__ = [
+    "scatterplot",
+]
+
 
 def scatterplot(
     data: Sequence[Number],
@@ -85,7 +90,7 @@ def scatterplot(
     **kwargs,
 ) -> VisualizationResult:
     """
-    Generates a scatter plot with optional categorization and a trendline.
+    Generate a scatter plot with optional categorization and a trendline.
 
     The function supports coloring points by category and displaying a fitted trendline.
     The trendline can be automatically calculated using Ordinary Least Squares (OLS)
@@ -107,6 +112,13 @@ def scatterplot(
     category : Sequence[Any], optional
         Categorical data used for coloring points and generating a legend.
         Defaults to None (no categorization).
+
+    Returns
+    -------
+    VisualizationResult
+        A dataclass encapsulating the result of a visualization.
+        See also :class:`explorica.types.VisualizationResult` for full attribute
+        details.
 
     Other Parameters
     ----------------
@@ -141,6 +153,7 @@ def scatterplot(
         over the X-domain for plotting.
     trendline_kws : dict, optional
         Additional arguments for the trendline function. Keys include:
+
         * **'color'** : str, optional
             Color of the trendline.
         * **'linestyle'** : str, default='--'
@@ -170,26 +183,19 @@ def scatterplot(
     verbose : bool, default=False
         If True, prints save messages.
 
-    Returns
-    -------
-    VisualizationResult
-        A dataclass encapsulating the result of a visualization.
-        See also :class:`explorica.types.VisualizationResult` for full attribute
-        details.
-
     Raises
     ------
     ValueError
-        If `trendline` is a string and is not one of the supported methods
-        ('linear', 'polynomial').
-        If `trendline` is a callable and its output is not a 1D sequence of
-        numbers with the same length as `x_domain`.
-        If `data`, `target`, or `category` (if provided) are not 1D sequences
-        or their lengths do not match.
-        If any of `data`, `target`, or `category` contains NaNs and
-        `nan_policy='raise'`.
-        If `trendline_kws['degree']` or `trendline_kws['dots']` are not
-        natural numbers.
+        - If `trendline` is a string and is not one of the supported methods
+          ('linear', 'polynomial').
+        - If `trendline` is a callable and its output is not a 1D sequence of
+          numbers with the same length as `x_domain`.
+        - If `data`, `target`, or `category` (if provided) are not 1D sequences
+          or their lengths do not match.
+        - If any of `data`, `target`, or `category` contains NaNs and
+          `nan_policy='raise'`.
+        - If `trendline_kws['degree']` or `trendline_kws['dots']` are not
+          natural numbers.
 
     Warns
     -----
@@ -203,18 +209,19 @@ def scatterplot(
     -----
     This function uses matplotlib.axes.Axes.scatter under the hood. For complete
     parameter documentation and advanced customization options, see:
-        Matplotlib scatterplot:
-        https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.scatter.html
+    `matplotlib scatterplot`_.
+
+    .. _matplotlib scatterplot: https://matplotlib.org/stable/api/
+       _as_gen/matplotlib.axes.Axes.scatter.html>`_
 
     Examples
     --------
-    import explorica.visualizations as vis
-
-    data = [1, 2, 3, 4, 5, 6, 7]
-    target = [2.5, 3.2, 4.8, 5.1, 7.5, 9.0, 10.5]
-    category = ['A', 'A', 'B', 'B', 'A', 'B', 'A']
-
-    # Basic scatterplot with linear trendline
+    >>> import explorica.visualizations as vis
+    >>> data = [1, 2, 3, 4, 5, 6, 7]
+    >>> target = [2.5, 3.2, 4.8, 5.1, 7.5, 9.0, 10.5]
+    >>> category = ['A', 'A', 'B', 'B', 'A', 'B', 'A']
+    >>>
+    >>> # Basic scatterplot with linear trendline
     >>> plot = vis.scatterplot(
     ...     data,
     ...     target,
@@ -222,10 +229,10 @@ def scatterplot(
     ...     show_legend=False,
     ...     title='Basic Scatterplot'
     ... )
-    >>> plot.figure.show()
+    >>> plot.figure.show() # doctest: +SKIP
 
-    # Scatterplot with categories and saving the plot
-    >>> plot = vis.scatterplot(
+    >>> # Scatterplot with categories and saving the plot
+    >>> plot = vis.scatterplot( # doctest: +SKIP
     ...     data,
     ...     target,
     ...     category=category,
@@ -236,7 +243,7 @@ def scatterplot(
     ... )
     >>> # The figure is saved to the 'plots' directory with filename 'scatterplot.png'
 
-    # Passing additional Matplotlib options via plot_kws and a polynomial trendline
+    >>> # Passing additional Matplotlib options via plot_kws and a polynomial trendline
     >>> plot = vis.scatterplot(
     ...     data,
     ...     target,
@@ -244,7 +251,8 @@ def scatterplot(
     ...     plot_kws={'s': 100, 'marker': 'o', 'c': 'orange', 'edgecolor': 'black'},
     ...     title='Scatterplot with Polynomial Trendline'
     ... )
-    >>> plot.figure.show()
+    >>> plot.figure.show() # doctest: +SKIP
+    >>> plt.close(plot.figure)
     """
     params = {
         **DEFAULT_MPL_PLOT_PARAMS,
