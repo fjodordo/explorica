@@ -11,7 +11,7 @@ Features include:
 
 import logging
 
-__version__ = "0.11.4"
+__version__ = "0.11.5"
 
 __all__ = []
 

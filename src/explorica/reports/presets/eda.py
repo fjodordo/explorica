@@ -1,4 +1,4 @@
-"""
+r"""
 Exploratory Data Analysis (EDA) presets.
 
 This module provides high-level orchestration functions for building
@@ -6,27 +6,20 @@ Explorica exploratory data analysis (EDA) reports. It defines convenient
 entry points that assemble multiple lower-level analysis blocks into
 coherent EDA workflows.
 
-The public API is designed for *casual usage*: users may specify feature
+The public API is designed for casual usage: users may specify feature
 groups and targets explicitly, or rely on heuristic inference based on
 data types and cardinality.
 
 Functions
 ---------
-get_eda_blocks(
-    data,
-    numerical_names=None,
-    categorical_names=None,
-    target_name=None,
-    **kwargs
-)
+**get_eda_blocks(data, numerical_names=None, categorical_names=None,**
+**target_name=None, \**kwargs)**
+
     Build a full exploratory data analysis (EDA) report as a list of blocks.
-get_eda_report(
-    data,
-    numerical_names=None,
-    categorical_names=None,
-    target_name=None,
-    **kwargs
-)
+
+**get_eda_report(data, numerical_names=None, categorical_names=None,**
+**target_name=None, \**kwargs)**
+
     Build a full exploratory data analysis (EDA) report.
 
 Notes
@@ -43,7 +36,7 @@ Notes
 Examples
 --------
 >>> import pandas as pd
->>> from explorica.reports.presets.eda import get_eda_report
+>>> from explorica.reports.presets import get_eda_report
 >>> df = pd.DataFrame({
 ...     "x1": [1, 2, 3, 4],
 ...     "x2": [10, 20, 30, 40],
@@ -55,18 +48,23 @@ Examples
 'Exploratory Data Analysis Report'
 """
 
-from typing import Sequence, Mapping, Hashable
 import warnings
+from typing import Hashable, Mapping, Sequence
 
 import pandas as pd
 
 from ..._utils import convert_dataframe
 from ..core.block import Block
 from ..core.report import Report
-from ..utils import normalize_assignment, _split_features_by_assignment
-from .interactions import get_interactions_blocks
+from ..utils import _split_features_by_assignment, normalize_assignment
 from .data_overview import get_data_overview_blocks
 from .data_quality import get_data_quality_blocks
+from .interactions import get_interactions_blocks
+
+__all__ = [
+    "get_eda_blocks",
+    "get_eda_report",
+]
 
 
 def get_eda_blocks(
@@ -100,6 +98,17 @@ def get_eda_blocks(
         is a numerical or categorical target based on its type and number of unique
         values.
 
+    Returns
+    -------
+    list[Block]
+        A list of `Block` objects representing the EDA report. Blocks included:
+
+        - Data overview blocks: cardinality, basic statistics, distributions.
+        - Data quality blocks: missing values, outliers, data types.
+        - Feature interactions blocks: linear and non-linear interactions
+          (correlations, η², Cramer's V). Only non-empty interaction blocks
+          are included.
+
     Other Parameters
     ----------------
     target_numerical_name : Hashable, optional
@@ -113,20 +122,11 @@ def get_eda_blocks(
         when inferred automatically.
     nan_policy : {'drop', 'raise', 'include'}, default='drop'
         Policy for handling missing values:
+
         - 'drop' : remove rows containing NaNs.
         - 'raise': raise an error if missing values are present.
         - 'include': keep NaNs where supported; for blocks that do not support
           'include', this defaults to 'drop'.
-
-    Returns
-    -------
-    list[Block]
-        A list of `Block` objects representing the EDA report. Blocks included:
-        - Data overview blocks: cardinality, basic statistics, distributions.
-        - Data quality blocks: missing values, outliers, data types.
-        - Feature interactions blocks: linear and non-linear interactions
-          (correlations, η², Cramer's V). Only non-empty interaction blocks
-          are included.
 
     Notes
     -----
@@ -147,20 +147,22 @@ def get_eda_blocks(
       ignored internally.
     - To free memory after rendering, it is recommended to explicitly close figures:
 
-      >>> report = get_eda_report(df)
-      >>> report.render()
-      >>> report.close_figures()
+      .. code-block:: python
 
-      or for individual blocks:
+          report = get_eda_report(df)
+          report.render()
+          report.close_figures()
 
-      >>> block = some_block
-      >>> block.render()
-      >>> block.close_figures()
+      Or for individual blocks:
+
+      .. code-block:: python
+
+          block.close_figures()
 
     Examples
     --------
     >>> import pandas as pd
-    >>> from explorica.reports.presets.blocks import get_eda_blocks
+    >>> from explorica.reports.presets import get_eda_blocks
     >>> df = pd.DataFrame({
     ...     "x1": [1, 2, 3, 4],
     ...     "x2": [10, 20, 30, 40],
@@ -169,13 +171,13 @@ def get_eda_blocks(
     ... })
     >>> blocks = get_eda_blocks(df)
     >>> len(blocks)
-    9
-    >>> blocks[0].title
-    'Exploratory Data Analysis Overview'
-    >>> blocks[5].title
-    'Feature Interactions'
-    >>> blocks[-1].title  # last block may vary depending on data
-    'Relations Non-linear'
+    11
+    >>> blocks[0].block_config.title
+    'Data Overview'
+    >>> blocks[5].block_config.title
+    'Outliers'
+    >>> blocks[-1].block_config.title  # last block may vary depending on data
+    'Non-linear relations'
     """
     df = convert_dataframe(data)
     other_params = {
@@ -287,6 +289,15 @@ def get_eda_report(
         Name of the target column. If provided, heuristics are used to determine
         whether it should be treated as a numerical or categorical target.
 
+    Returns
+    -------
+    Report
+        An Explorica :class:`Report` titled ``"Exploratory Data Analysis Report"``,
+        containing zero or more EDA blocks.
+
+        Only non-empty blocks are included. If no blocks can be constructed from
+        the provided data and get_eda_reportassignments, the report may be empty.
+
     Other Parameters
     ----------------
     target_numerical_name : Hashable, optional
@@ -300,19 +311,11 @@ def get_eda_report(
         when inferred automatically.
     nan_policy : {'drop', 'raise', 'include'}, default='drop'
         Policy for handling missing values:
+
         - 'drop' : remove rows containing NaNs.
         - 'raise': raise an error if missing values are present.
         - 'include': keep NaNs where supported; for blocks that do not support
           'include', this policy is internally converted to 'drop'.
-
-    Returns
-    -------
-    Report
-        An Explorica :class:`Report` titled ``"Exploratory Data Analysis Report"``,
-        containing zero or more EDA blocks.
-
-        Only non-empty blocks are included. If no blocks can be constructed from
-        the provided data and assignments, the report may be empty.
 
     See Also
     --------
@@ -336,15 +339,57 @@ def get_eda_report(
       ignored internally.
     - To free memory after rendering, it is recommended to explicitly close figures:
 
-      >>> report = get_eda_report(df)
-      >>> report.render()
-      >>> report.close_figures()
+      .. code-block:: python
 
-      or for individual blocks:
+          report = get_eda_report(df)
+          report.render()
+          report.close_figures()
 
-      >>> block = some_block
-      >>> block.render()
-      >>> block.close_figures()
+      Or for individual blocks:
+
+      .. code-block:: python
+
+          block.close_figures()
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from explorica.reports.presets import get_eda_report
+    >>> from explorica.reports.core.block import Block
+    >>> # Simple usage
+    >>> df = pd.DataFrame({
+    ...     "x1": [1, 2, 3, 4],
+    ...     "x2": [10, 20, 30, 40],
+    ...     "c1": ["a", "b", "a", "b"],
+    ...     "y": [0, 1, 0, 1],
+    ... })
+    >>> # Automatic feature and target inference
+    >>> report = get_eda_report(df, target_name="y")
+    >>> len(report.blocks) > 0
+    True
+
+    >>> # Explicit feature assignment
+    >>> report = get_eda_report(
+    ...     df,
+    ...     numerical_names=["x1", "x2"],
+    ...     categorical_names=["c1"],
+    ...     target_name="y",
+    ... )
+    >>> report.title
+    'Exploratory Data Analysis Report'
+
+    >>> # Explicit target specification via kwargs
+    >>> report = get_eda_report(
+    ...     df,
+    ...     numerical_names=["x1", "x2"],
+    ...     categorical_names=["c1"],
+    ...     target_numerical_name="y",
+    ... )
+    >>> len(report.blocks)
+    11
+    >>> all([isinstance(eda_block, Block) for eda_block in report.blocks])
+    True
+    >>> report.close_figures()
     """
     return Report(
         get_eda_blocks(data, numerical_names, categorical_names, target_name, **kwargs),

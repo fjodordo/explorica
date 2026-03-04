@@ -21,10 +21,10 @@ Notes
 Examples
 --------
 >>> import pandas as pd
->>> import explorica.data_quality as data_quality
-...
+>>> from explorica.data_quality import get_entropy
+>>>
 >>> data = pd.DataFrame({"A": [1, 2, 3, 4, 5], "B": [1, 1, 1, 2, 2]})
->>> data_quality.get_entropy(data)
+>>> get_entropy(data)
 A    2.321928
 B    0.970951
 dtype: float64
@@ -44,14 +44,16 @@ from explorica._utils import (
     validate_unique_column_names,
 )
 
+__all__ = ["get_entropy"]
+
 
 def get_entropy(
     data: Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[Any]],
     method: str = "shannon",
     nan_policy: Literal["drop", "raise", "include"] = "drop",
 ) -> float | pd.Series:
-    """
-    Computes the Shannon entropy of the input data.
+    r"""
+    Compute the Shannon entropy of the input data.
 
     Shannon entropy is a measure of uncertainty or randomness in a dataset.
     For a single feature, it quantifies how evenly the values are distributed.
@@ -61,8 +63,7 @@ def get_entropy(
 
     Parameters
     ----------
-    data : Sequence[float] | Sequence[Sequence[float]] |
-           Mapping[str, Sequence[Number]]
+    data : Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[Number]]
         Numeric input data. Can be 1D (sequence of numbers),
         2D (sequence of sequences), or a mapping of column names to sequences.
     method : str, default="shannon"
@@ -70,11 +71,14 @@ def get_entropy(
         Other methods (e.g., differential entropy) may be added in future releases.
         Entropy is calculated as:
 
-            H(x) = - sum(w_i * log_2(w_i))
+        .. math::
+
+            H(x) = - \sum{w_i * \log_2(w_i)}
 
         where w_i is the relative frequency of each unique element of the sample x.
     nan_policy : {'drop', 'raise', 'include'}, default='drop'
         Policy for handling NaN values in input data:
+
         - 'raise' : raise ValueError if any NaNs are present in `data`.
         - 'drop'  : drop rows (axis=0) containing NaNs before computation. This
                     does not drop entire columns.
@@ -83,12 +87,14 @@ def get_entropy(
     Returns
     -------
     float or pd.Series
+
         - If input is 1D, returns a float representing the Shannon entropy.
         - If input is 2D or dict, returns a pd.Series indexed by column names.
 
     Raises
     ------
     ValueError
+
         - If column names are not unique (in case of dict or DataFrame input)
         - If `method` is not supported
 
@@ -99,16 +105,15 @@ def get_entropy(
     Examples
     --------
     >>> import pandas as pd
-    >>> import explorica.data_quality as data_quality
-    ...
+    >>> from explorica.data_quality import get_entropy
+    >>> # Simple usage
     >>> data = pd.DataFrame({"A": [1, 1, 2, 2], "B": [1, 2, 3, 4]})
-    >>> data_quality.get_entropy(data)
+    >>> get_entropy(data)
     A    1.0
     B    2.0
     dtype: float64
-    ...
     >>> data = [1, 1, 1, 1, 1, 1]
-    >>> data_quality.get_entropy(data)
+    >>> get_entropy(data)
     np.float64(0.0)
     """
     errors = read_config("messages")["errors"]

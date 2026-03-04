@@ -1,4 +1,4 @@
-"""
+r"""
 Facade for Explorica reporting functionality.
 
 This package provides a unified interface for constructing and rendering
@@ -95,12 +95,12 @@ Notes
 
 Examples
 --------
-# Minimal example of creating and rendering a block:
->>> from explorica.reports import Block, BlockConfig, render_html
+>>> # Minimal example of creating and rendering a block:
 >>> import matplotlib.pyplot as plt
+>>> from explorica.reports.core.block import BlockConfig, Block
+>>> from explorica.reports.renderers import render_html
 >>>
 >>> fig, ax = plt.subplots()
->>> ax.plot([1, 2, 3], [4, 5, 6])
 >>>
 >>> config = BlockConfig(
 ...     title="Example Block",
@@ -111,23 +111,25 @@ Examples
 >>>
 >>> block = Block(config)
 >>> html = render_html(block)
->>> html[:50]
+>>> html.split('\n')[42]
 '<h2>Example Block</h2>'
+>>> # Close all mpl figures after usage
+>>> plt.close('all')
 """
 
 from .core import Block, BlockConfig, Report
-from .utils import normalize_visualization, normalize_table
-from .renderers import render_block_html, render_block_pdf, render_html, render_pdf
 from .presets import (
-    get_eda_blocks,
-    get_eda_report,
     get_data_overview_blocks,
     get_data_overview_report,
     get_data_quality_blocks,
     get_data_quality_report,
+    get_eda_blocks,
+    get_eda_report,
     get_interactions_blocks,
     get_interactions_report,
 )
+from .renderers import render_block_html, render_block_pdf, render_html, render_pdf
+from .utils import normalize_table, normalize_visualization
 
 __all__ = [
     "Block",

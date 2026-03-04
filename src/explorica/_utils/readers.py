@@ -16,17 +16,16 @@ Notes
 
 Examples
 --------
->>> from explorica._utils import read_config
-
+>>> # Simple usage
 >>> read_config("messages")
-{'errors': {'unsupported_method_f': "Unsupported method '{}'. Choose from: {}.",
-  'unsupported_method': 'Unsupported method choosed.',
-  ...
+{'errors': {'unsupported_method_f': "Unsupported method '{}'. Choose from: {}.", ...
 """
 
 import json
 import pathlib
 from functools import lru_cache
+
+__all__ = ["read_config"]
 
 
 @lru_cache(maxsize=2)
@@ -56,11 +55,9 @@ def read_config(name) -> dict:
 
     Examples
     --------
-    >>> from explorica._utils import read_config
-
+    >>> # Simple usage
     >>> read_config("messages")
-    {'errors': {'unsupported_method_f': "Unsupported method '{}'. Choose from: {}.",
-    'unsupported_method': 'Unsupported method choosed.',
+    {'errors': {'unsupported_method_f': "Unsupported method '{}'...", ...}
 
     Notes
     -----

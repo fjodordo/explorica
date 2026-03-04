@@ -1,4 +1,4 @@
-"""
+r"""
 Data preprocessing utilities for exploratory data analysis (EDA).
 
 Functions
@@ -11,9 +11,9 @@ get_constant_features(data, method="top_value_ratio", threshold=1.0, nan_policy=
     Identify constant and quasi-constant features
     based on the frequency of the most common value.
     Returns a DataFrame with columns: `is_constant` and `top_value_ratio`.
-get_categorical_features(data, threshold=30, **kwargs)
+get_categorical_features(data, threshold=30, \**kwargs)
     Identifies constant and quasi-constant features in the dataset.
-set_categorical(data, threshold=30, nan_policy="drop", verbose=False, **kwargs)
+set_categorical(data, threshold=30, nan_policy="drop", verbose=False, \**kwargs)
     Convert eligible columns to Pandas `category` dtype for memory optimization
     and improved performance in certain operations.
 
@@ -44,6 +44,13 @@ from explorica._utils import (
 
 from .information_metrics import get_entropy
 
+__all__ = [
+    "get_missing",
+    "drop_missing",
+    "get_constant_features",
+    "get_categorical_features",
+    "set_categorical",
+]
 logger = logging.getLogger(__name__)
 _errors = read_config("messages")["errors"]
 
@@ -56,19 +63,26 @@ def get_missing(
     """
     Calculate the number and percentage of missing (NaN) values for each column.
 
+    Identifying missing values is typically one of the first steps in exploratory
+    data analysis, as their presence and distribution can significantly affect
+    downstream modeling and analysis. This function provides a concise per-column
+    summary of missing value counts and their relative proportions.
+
     Parameters
     ----------
-    data : Sequence[float] | Sequence[Sequence[float]] |
-           Mapping[str, Sequence[Number]]
+    data : Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[Number]]
         Numeric input data. Can be 1D (sequence of numbers),
         2D (sequence of sequences), or a mapping of column names to sequences.
     ascending : bool, optional
         If specified, sorts the result by the ``count_of_nans`` column.
+
         - If True, sorts in ascending order (fewest missing values first).
         - If False, sorts in descending order (most missing values first).
         - If None (default), no sorting is performed.
+
     round_digits : int, optional
         Number of decimal places to round the ``pct_of_nans`` values to.
+
         - Must be a non-negative integer (``x >= 0``).
         - If ``None`` (default), no rounding is applied.
 
@@ -76,10 +90,11 @@ def get_missing(
     -------
     pd.DataFrame
         A DataFrame with the following columns:
+
         - `count_of_nans` : int
-        Number of NaN values in each column.
+          Number of NaN values in each column.
         - `pct_of_nans` : float
-        Proportion of NaN values in each column (0.0 to 1.0).
+          Proportion of NaN values in each column (0.0 to 1.0).
 
     Raises
     ------
@@ -90,18 +105,19 @@ def get_missing(
     Notes
     -----
     - The `pct_of_nans` values are calculated as the fraction of missing values
-    relative to the total number of rows in the dataset.
+      relative to the total number of rows in the dataset.
     - Useful for quickly identifying columns with high proportions of missing data
-    before applying data cleaning or imputation.
+      before applying data cleaning or imputation.
 
     Examples
     --------
     >>> import pandas as pd
-    >>> import explorica.data_quality as data_quality
-    ...
+    >>> import numpy as np
+    >>> from explorica.data_quality import get_missing
+    >>> # Simple usage
     >>> df = pd.DataFrame({"A": [1, 2, pd.NA, np.nan, 5, 6, 7],
     ...                    "B": [7, None, 5, 4, 3, 2, 1]})
-    >>> print(data_quality.get_missing(df, round_digits=4))
+    >>> get_missing(df, round_digits=4)
        count_of_nans  pct_of_nans
     A              2       0.2857
     B              1       0.1429
@@ -141,7 +157,7 @@ def drop_missing(
     verbose: Optional[bool] = False,
 ) -> pd.DataFrame:
     """
-    Drops rows or columns containing NaNs according to a specified threshold.
+    Drop rows or columns containing NaNs according to a specified threshold.
 
     This function removes rows (axis=0) or columns (axis=1) that contain NaN values
     in columns whose proportion of missing values is below (`axis=0`) or above
@@ -151,16 +167,17 @@ def drop_missing(
 
     Parameters
     ----------
-    data : Sequence[float] | Sequence[Sequence[float]] |
-           Mapping[str, Sequence[Number]]
+    data : Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[Number]]
         Numeric input data. Can be 1D (sequence of numbers),
         2D (sequence of sequences), or a mapping of column names to sequences.
     axis : int, optional, default=0
         Axis along which to remove NaNs:
+
         - 0 : drop rows with NaNs in columns under the threshold,
         - 1 : drop columns with NaNs above the threshold.
     threshold_pct : float, optional, default=0.05
         The maximum allowed proportion of NaNs for a feature to be retained.
+
         - When `axis=0` (row-wise deletion): rows are removed
           if the proportion of NaNs
           in their columns exceeds this threshold.
@@ -169,13 +186,16 @@ def drop_missing(
           Ignored if `threshold_abs` is provided.
     threshold_abs : int, optional
         The maximum allowed absolute number of NaNs for a feature to be retained.
+
         - When `axis=0`: rows are removed if the number of NaNs per column
           exceeds this threshold.
         - When `axis=1`: columns are removed if the number of NaNs
           exceeds this threshold.
+
         Overrides `threshold_pct` if provided.
     verbose : bool, optional, default=False
         If True, logs detailed information about the operation including:
+
         - number of rows or columns removed,
         - columns affected,
         - original and resulting DataFrame shape.
@@ -197,21 +217,22 @@ def drop_missing(
     Examples
     --------
     >>> import pandas as pd
-    >>> import explorica.data_quality as data_quality
+    >>> import numpy as np
+    >>> from explorica.data_quality import drop_missing
     >>> df = pd.DataFrame({"A": [1,2,3,4,5,np.nan],
     ...                    "B": [1,2,3,4,5,6],
     ...                    "C": [np.nan, 2, np.nan, np.nan, np.nan, np.nan]})
-    >>> # only removes rows if NaN is less than 2 per feature
-    >>> print(data_quality.drop_missing(df, axis=0, threshold_abs=2))
-        A  B    C
+    >>> # Only removes rows if NaN is less than 2 per feature
+    >>> print(drop_missing(df, axis=0, threshold_abs=2))
+         A  B    C
     0  1.0  1  NaN
     1  2.0  2  2.0
     2  3.0  3  NaN
     3  4.0  4  NaN
     4  5.0  5  NaN
-    >>> # only removes columns if more than 20% of values per feature are NaN
-    >>> print(data_quality.drop_missing(df, axis=1, threshold_pct=0.2))
-        A  B
+    >>> # Only removes columns if more than 20% of values per feature are NaN
+    >>> print(drop_missing(df, axis=1, threshold_pct=0.2))
+         A  B
     0  1.0  1
     1  2.0  2
     2  3.0  3
@@ -289,37 +310,46 @@ def get_constant_features(
     nan_policy: str | Literal["drop", "raise", "include"] = "drop",
 ) -> pd.DataFrame:
     """
-    Identifies constant and quasi-constant features in the dataset.
+    Identify constant and quasi-constant features in the dataset.
+
+    Constant and quasi-constant features carry little to no predictive information
+    and can negatively affect model training by introducing noise or causing
+    numerical instability. This function supports multiple detection strategies:
+    a ratio-based approach, a uniqueness-based metric, and Shannon entropy,
+    allowing the threshold to be interpreted either as a dominance criterion
+    or as an information-theoretic bound.
 
     Parameters
     ----------
-    data : Sequence[float] | Sequence[Sequence[float]] |
-           Mapping[str, Sequence[Number]]
+    data : Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[Number]]
         Numeric input data. Can be 1D (sequence of numbers),
         2D (sequence of sequences), or a mapping of column names to sequences.
-    method: str, default 'top_value_ratio'
+    method : str, default 'top_value_ratio'
         Metric used to detect constant features:
+
         - "top_value_ratio": proportion of the most frequent value.
         - "non_uniqueness": 1 - number of unique values / total count.
         - "entropy": Shannon entropy of the feature.
-    nan_policy : str | Literal['drop', 'raise', 'include', 'drop_columns'],
-                 default='drop'
+    threshold : float, default=1.0
+        Non-negative threshold value in the range [0, +∞).
+        Decision boundary for each method:
+
+        - For "top_value_ratio" or "non_uniqueness":
+          values >= threshold are flagged constant.
+        - For "entropy": values <= threshold are flagged constant.
+    nan_policy : str | Literal, default='drop'
         Policy for handling NaN values in input data:
+
         - 'raise' : raise ValueError if any NaNs are present in `data`.
         - 'drop'  : drop rows (axis=0) containing NaNs before computation. This
                     does **not** drop entire columns.
         - 'include' : treat NaN as a valid value and include them in computations.
-    threshold : float, default=1.0
-        Non-negative threshold value in the range [0, +∞).
-        Decision boundary for each method:
-        - For "top_value_ratio" or "non_uniqueness":
-          values >= threshold are flagged constant.
-        - For "entropy": values <= threshold are flagged constant.
 
     Returns
     -------
     pd.DataFrame
         A DataFrame indexed by column names with:
+
         - 'is_const': bool flag if column is (quasi-)constant
         - 'top_value_ratio': proportion of the most frequent value
 
@@ -332,30 +362,26 @@ def get_constant_features(
 
     Examples
     --------
-    Basic usage
-    ~~~~~~~~~~~~
-    Demonstrates a simple use case with the default ``top_value_ratio`` method,
-    which identifies constant or quasi-constant features based on the most frequent
-    value ratio.
+    >>> # Basic usage
+    >>> # Demonstrates a simple use case with the default ``top_value_ratio`` method,
+    >>> # which identifies constant or quasi-constant features based on the most
+    >>> # frequent value ratio.
     >>> import pandas as pd
     >>> import numpy as np
-    >>> import explorica.data_quality as data_quality
-    ...
+    >>> from explorica.data_quality import get_constant_features
     >>> data = [[1, 3, 3, 3, 3, 6], [1, 2, 3, 4, 5, 5]]
-    >>> print(data_quality.get_constant_features(
-    ...     data, method="top_value", threshold=0.5))
-    top_value_ratio  is_const
+    >>> print(get_constant_features(
+    ...     data, method="top_value_ratio", threshold=0.5))
+       top_value_ratio  is_const
     0         0.666667       1.0
     1         0.333333       0.0
-    Entropy-based threshold interpretation
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Illustrates how an entropy threshold can be interpreted as a fraction of the
-    maximum information capacity (in bits) for each feature. This approach allows
-    defining thresholds relative to the diversity of feature values.
+
+    >>> # Entropy-based threshold interpretation
+    >>> # Illustrates how an entropy threshold can be interpreted as a fraction of the
+    >>> # maximum information capacity (in bits) for each feature. This approach allows
+    >>> # defining thresholds relative to the diversity of feature values.
     >>> import pandas as pd
     >>> import numpy as np
-    >>> import explorica.data_quality as data_quality
-    ...
     >>> data = pd.DataFrame({"A": [1, 2, 3, 4, 5, 6, 6],
     ...                      "B": [0, 0, 0, 0, 0, 1, 1]})
     >>> thresh = 0.7
@@ -364,12 +390,11 @@ def get_constant_features(
     A    1.809474
     B    0.700000
     dtype: float64
-    ...
-    >>> data_quality.get_constant_features(
+    >>> get_constant_features(
     ...     data, method="entropy", threshold = thresh_bits_dim.mean())
-        entropy	is_const
-    A	2.521641	0.0
-    B	0.863121	1.0
+        entropy  is_const
+    A  2.521641       0.0
+    B  0.863121       1.0
     """
     if not isinstance(threshold, Number):
         raise TypeError("'threshold' must be a numeric type (int or float).")
@@ -415,13 +440,17 @@ def get_categorical_features(
     **kwargs,
 ) -> pd.DataFrame:
     """
-    Identify categorical features in a DataFrame based on unique value counts
-    and optionally on data type filters.
+    Identify categorical features in a dataset.
+
+    Identifying categorical features is a necessary preprocessing step before
+    applying encoding strategies or statistical tests that require knowledge
+    of feature types. This function combines dtype-based filtering with a
+    uniqueness threshold, and optionally flags binary and constant columns,
+    providing a flexible single-pass audit of categorical structure in the dataset.
 
     Parameters
     ----------
-    data : Sequence[Any] | Sequence[Sequence[Any]] |
-           Mapping[str, Sequence[Any]]
+    data : Sequence[Any] | Sequence[Sequence[Any]] | Mapping[str, Sequence[Any]]
         Input data. Can be 1D (sequence of numbers),
         2D (sequence of sequences), or a mapping of column names to sequences.
     threshold : int, Sequence[int] or Mapping[str, int], optional, default=30
@@ -436,7 +465,7 @@ def get_categorical_features(
         If True, append an `is_constant` column to the result,
         marking columns with only one unique value.
     include_number : bool, default=False
-        Include numeric (`number`) columns that satisfy the `threshold`
+        Include numeric (`number`) columns that satisfy the `threshold`.
     include_int : bool, default=False
         Include integer (`int`) columns that satisfy the `threshold`.
     include_str : bool, default=False
@@ -455,13 +484,15 @@ def get_categorical_features(
         Explicit set of dtype aliases to include
         (e.g. `{"object", "number"}` or `{"int", "bin"}`).
         The parameter has the highest priority among inclusion rules:
+
         1. Explicit `include` argument (user-defined)
         2. Flag parameters (e.g., `include_int`, `include_str`, etc.)
         3. Default value `{"object"}`
+
         If `include` is provided directly, all flags are ignored.
-    nan_policy : str | Literal['drop', 'raise', 'include'],
-                 default='drop'
+    nan_policy : str | Literal['drop', 'raise', 'include'], default='drop'
         Policy for handling NaN values in input data:
+
         - 'raise' : raise ValueError if any NaNs are present in `data`.
         - 'drop'  : drop rows (axis=0) containing NaNs before computation. This
                     does **not** drop entire columns.
@@ -471,6 +502,7 @@ def get_categorical_features(
     -------
     pd.DataFrame
         DataFrame indexed by column names with:
+
         - `categories_count` : number of unique values in each column
         - `is_category` : flag for categorical columns
         - `is_binary` : (optional) flag for binary columns
@@ -498,20 +530,19 @@ def get_categorical_features(
     --------
     >>> import pandas as pd
     >>> import seaborn as sns
-    >>> import explorica.data_quality as data_quality
-    ...
+    >>> from explorica.data_quality import get_categorical_features
     >>> df = sns.load_dataset("titanic")
     >>> # marks as a category string and integer columns
     >>> # with 4 or fewer unique objects
-    >>> print(data_quality.get_categorical_features(
-    ...     df, threshold=4, include={"str", "int"}))
-                categories_count  is_category
+    >>> get_categorical_features(
+    ...     df, threshold=4, include={"str", "int"})
+                 categories_count  is_category
     survived                    2            1
     pclass                      3            1
     sex                         2            1
     age                        63            0
-    sibsp                       4            0
-    parch                       4            0
+    sibsp                       4            1
+    parch                       4            1
     fare                       93            0
     embarked                    3            1
     class                       3            0
@@ -522,10 +553,9 @@ def get_categorical_features(
     alive                       2            1
     alone                       2            0
     >>> df["constant_feature"] = 0
-    >>> # additionally signs binary and constant features
-    >>> print(data_quality.get_categorical_features(
-    ...     df, threshold=10, sign_bin=True, sign_const=True))
-                    categories_count  is_category  is_binary  is_constant
+    >>> # Additionally signs binary and constant features
+    >>> get_categorical_features(df, threshold=10, sign_bin=True, sign_const=True)
+                      categories_count  is_category  is_binary  is_constant
     survived                         2            0          1            0
     pclass                           3            0          0            0
     sex                              2            1          1            0
@@ -534,7 +564,10 @@ def get_categorical_features(
     parch                            4            0          0            0
     fare                            93            0          0            0
     embarked                         3            1          0            0
-    ...
+    class                            3            0          0            0
+    who                              3            1          0            0
+    adult_male                       2            0          1            0
+    deck                             7            0          0            0
     embark_town                      3            1          0            0
     alive                            2            1          1            0
     alone                            2            0          1            0
@@ -586,12 +619,14 @@ def get_categorical_features(
     def _filter_standard_dtypes(df, included_dtypes):
         """
         Select columns of standard pandas dtypes matching `included_dtypes`.
+
         Parameters
         ----------
         df : pd.DataFrame
             Input dataframe.
         included_dtypes : set
             Target dtype names to include (e.g. {"number", "object"}).
+
         Returns
         -------
         Index
@@ -612,10 +647,12 @@ def get_categorical_features(
     def _filter_bin_const(df):
         """
         Identify binary and constant columns in the dataframe.
+
         Parameters
         ----------
         df : pd.DataFrame
             Input dataframe.
+
         Returns
         -------
         dict
@@ -632,6 +669,7 @@ def get_categorical_features(
     def _filter_categories(df, threshold, included_dtypes, **kwargs):
         """
         Apply combined filtering by threshold and dtype.
+
         Parameters
         ----------
         df : pd.DataFrame
@@ -646,6 +684,7 @@ def get_categorical_features(
             If True, include `is_binary` flag in the result.
         sign_const : bool, optional
             If True, include `is_constant` flag in the result.
+
         Returns
         -------
         pd.DataFrame
@@ -736,13 +775,14 @@ def set_categorical(
     **kwargs,
 ) -> pd.DataFrame:
     """
-    Convert eligible columns to Pandas `category` dtype for memory optimization
+    Convert eligible columns to Pandas `category` dtype.
+
+    Useful for memory optimization
     and improved performance in certain operations.
 
     Parameters
     ----------
-    data : Sequence[float] | Sequence[Sequence[float]] |
-           Mapping[str, Sequence[Number]]
+    data : Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[Number]]
         Input data. Can be 1D,
         2D (sequence of sequences), or a mapping of column names to sequences.
     threshold : int, Sequence[int] or Mapping[str, int], optional, default=30
@@ -751,7 +791,7 @@ def set_categorical(
         Scalar values are broadcast to all columns;
         sequences or mappings are aligned by column name.
     include_number : bool, default=False
-        Include numeric (`number`) columns that satisfy the `threshold`
+        Include numeric (`number`) columns that satisfy the `threshold`.
     include_int : bool, default=False
         Include integer (`int`) columns that satisfy the `threshold`.
     include_str : bool, default=False
@@ -770,19 +810,23 @@ def set_categorical(
         Explicit set of dtype aliases to include
         (e.g. `{"object", "number"}` or `{"int", "bin"}`).
         The parameter has the highest priority among inclusion rules:
+
         1. Explicit `include` argument (user-defined)
         2. Flag parameters (e.g., `include_int`, `include_str`, etc.)
         3. Default value `{"object"}`
+
         If `include` is provided directly, all flags are ignored.
-    nan_policy : str | Literal['drop', 'raise', 'include'],
-                 default='drop'
+    nan_policy : str | Literal['drop', 'raise', 'include'], default='drop'
         Policy for handling NaN values in input data:
+
         - 'raise' : raise ValueError if any NaNs are present in `data`.
         - 'drop'  : drop rows (axis=0) containing NaNs before computation. This
                     does **not** drop entire columns.
         - 'include' : treat NaN as a valid value and include them in computations.
+
     verbose : bool, optional, default=False
         If True, logs detailed information about the operation including:
+
         - count and names of affected columns.
 
     Returns
@@ -801,79 +845,83 @@ def set_categorical(
     Notes
     -----
     - Converting to `category` can significantly reduce memory usage,
-    especially for string/object columns with many repeated values.
+      especially for string/object columns with many repeated values.
     - `category` stores integer codes (`int8`/`int16`) and a category mapping,
-    making comparisons and filtering faster than for `object` dtype.
+      making comparisons and filtering faster than for `object` dtype.
     - For numeric columns, memory savings may be smaller, but grouping and filtering
-    can still be faster.
-    - The original DataFrame is not modified — a copy is returned.
+      can still be faster.
+    - The original DataFrame is not modified - a copy is returned.
 
     Examples
     --------
-    Basic usage example
-    ~~~~~~~~~~~~~~~~~~~
+    >>> # Basic usage example
     >>> import pandas as pd
-    >>> import explorica.data_quality as data_quality
-    ...
+    >>> import seaborn as sns
+    >>> from explorica.data_quality import set_categorical
     >>> df = pd.DataFrame({"A": [1, 2, 3, 4, 5, 6, 7, 8],
     ...                    "B": ["A", "A", "B", "C", "A", "B", "C", "A"],
     ...                    "C": [1, 0, 1, 0, 1, 1, 1, 1]})
-    >>> df = data_quality.set_categorical(df, include_bin=True, include_str=True)
-    >>> df.info()
+    >>> df = set_categorical(df, include_bin=True, include_str=True)
+    >>> df.info() # doctest: +SKIP
     <class 'pandas.core.frame.DataFrame'>
     RangeIndex: 8 entries, 0 to 7
     Data columns (total 3 columns):
-    #   Column  Non-Null Count  Dtype
+     #   Column  Non-Null Count  Dtype
     ---  ------  --------------  -----
-    0   A       8 non-null      int64
-    1   B       8 non-null      category
-    2   C       8 non-null      category
+     0   A       8 non-null      int64
+     1   B       8 non-null      category
+     2   C       8 non-null      category
     dtypes: category(2), int64(1)
-    memory usage: 464.0 bytes
+    memory usage: 468.0 bytes
 
-    Memory usage reducing example
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    >>> df = pd.read_csv('titanic.csv')
-    >>> df.info()
+    >>> # Memory usage reducing example
+    >>> df = sns.load_dataset('titanic')
+    >>> df.info() # doctest: +SKIP
     <class 'pandas.core.frame.DataFrame'>
     RangeIndex: 891 entries, 0 to 890
-    Data columns (total 12 columns):
-    #   Column       Non-Null Count  Dtype
+    Data columns (total 15 columns):
+     #   Column       Non-Null Count  Dtype
     ---  ------       --------------  -----
-    0   PassengerId  891 non-null    int64
-    1   Survived     891 non-null    int64
-    2   Pclass       891 non-null    int64
-    3   Name         891 non-null    object
-    4   Sex          891 non-null    object
-    5   Age          714 non-null    float64
-    6   SibSp        891 non-null    int64
-    7   Parch        891 non-null    int64
-    8   Ticket       891 non-null    object
-    9   Fare         891 non-null    float64
-    10  Cabin        204 non-null    object
-    11  Embarked     889 non-null    object
-    dtypes: float64(2), int64(5), object(5)
-    memory usage: 83.7+ KB
-    >>> data_quality.set_categorical(df).info()
+     0   survived     891 non-null    int64
+     1   pclass       891 non-null    int64
+     2   sex          891 non-null    object
+     3   age          714 non-null    float64
+     4   sibsp        891 non-null    int64
+     5   parch        891 non-null    int64
+     6   fare         891 non-null    float64
+     7   embarked     889 non-null    object
+     8   class        891 non-null    category
+     9   who          891 non-null    object
+     10  adult_male   891 non-null    bool
+     11  deck         203 non-null    category
+     12  embark_town  889 non-null    object
+     13  alive        891 non-null    object
+     14  alone        891 non-null    bool
+    dtypes: bool(2), category(2), float64(2), int64(4), object(5)
+    memory usage: 80.7+ KB
+    >>> set_categorical(df).info() # doctest: +SKIP
     <class 'pandas.core.frame.DataFrame'>
     RangeIndex: 891 entries, 0 to 890
-    Data columns (total 12 columns):
-    #   Column       Non-Null Count  Dtype
+    Data columns (total 15 columns):
+     #   Column       Non-Null Count  Dtype
     ---  ------       --------------  -----
-    0   PassengerId  891 non-null    int64
-    1   Survived     891 non-null    int64
-    2   Pclass       891 non-null    int64
-    3   Name         891 non-null    object
-    4   Sex          891 non-null    category
-    5   Age          714 non-null    float64
-    6   SibSp        891 non-null    int64
-    7   Parch        891 non-null    int64
-    8   Ticket       891 non-null    object
-    9   Fare         891 non-null    float64
-    10  Cabin        204 non-null    object
-    11  Embarked     889 non-null    category
-    dtypes: category(2), float64(2), int64(5), object(3)
-    memory usage: 71.7+ KB
+     0   survived     891 non-null    int64
+     1   pclass       891 non-null    int64
+     2   sex          891 non-null    category
+     3   age          714 non-null    float64
+     4   sibsp        891 non-null    int64
+     5   parch        891 non-null    int64
+     6   fare         891 non-null    float64
+     7   embarked     889 non-null    category
+     8   class        891 non-null    category
+     9   who          891 non-null    category
+     10  adult_male   891 non-null    bool
+     11  deck         203 non-null    category
+     12  embark_town  889 non-null    category
+     13  alive        891 non-null    category
+     14  alone        891 non-null    bool
+    dtypes: bool(2), category(7), float64(2), int64(4)
+    memory usage: 50.8 KB
     """
     include_kwargs = {
         "include_number": kwargs.get("include_number"),

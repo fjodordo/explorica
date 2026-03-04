@@ -9,6 +9,7 @@ Classes
 -------
 Replacers
     Provides methods to replace values in a pandas Series, including:
+
     - replacing specific indices with mean, median, mode,
       random or scalar values.
 
@@ -24,12 +25,15 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+__all__ = ["Replacers"]
+
 
 class Replacers:
     """
     Utility class for replacing values in a pandas Series.
 
     Provides methods to replace specific indices with:
+
     - measures of central tendency (mean, median, mode)
     - random values sampled from the Series
     - explicit scalar values

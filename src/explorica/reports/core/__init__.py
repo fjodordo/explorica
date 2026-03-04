@@ -23,7 +23,7 @@ Examples
 >>> import matplotlib.pyplot as plt
 >>> import plotly.graph_objects as go
 
-# Create a BlockConfig with some metrics and visualizations
+>>> # Create a BlockConfig with some metrics and visualizations
 >>> config = BlockConfig(
 ...     title="Sample Block",
 ...     description="Example block for demonstration",
@@ -32,24 +32,25 @@ Examples
 ... )
 >>> block = Block(config)
 
-# Add some visualizations
+>>> # Add some visualizations
 >>> fig, ax = plt.subplots()
 >>> ax.plot([1, 2, 3], [4, 5, 6])
+[<...>]
 >>> block.add_visualization(fig)
 
 >>> figly = go.Figure(data=go.Bar(y=[2, 3, 1]))
 >>> block.add_visualization(figly)
 
-# Render individual block
+>>> # Render individual block
 >>> html_output = block.render_html(path=None)
 >>> pdf_bytes = block.render_pdf(path=None)
 
-# Create a report with multiple blocks
+>>> # Create a report with multiple blocks
 >>> report = Report(blocks=[block], title="My Report", description="Demo report")
 >>> html_report = report.render_html(path=None)
 >>> pdf_report = report.render_pdf(path=None)
 
-# Close figures
+>>> # Close figures
 >>> plt.close(fig)
 >>> report.close_figures()
 """

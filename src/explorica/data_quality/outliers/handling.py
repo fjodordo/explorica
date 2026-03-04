@@ -1,4 +1,4 @@
-"""
+r"""
 Module for handling outliers in numerical datasets.
 
 This module defines the `HandlingMethods` class, which provides utility
@@ -8,24 +8,24 @@ Z-score methods.
 
 Functions
 ---------
-replace_outliers(data, detection_method="iqr",
-    strategy="median", recursive=False, **kwargs
-)
+**replace_outliers(data, detection_method="iqr",**
+**strategy="median", recursive=False, \**kwargs)**
+
     Replaces outliers in sequences or mappings according
     to the specified detection method and replacement strategy.
-remove_outliers(data, subset=None, detection_method="iqr",
-    recursive=False, **kwargs
-)
+
+**remove_outliers(data, subset=None, detection_method="iqr",**
+**recursive=False, **kwargs)**
+
     Remove outliers from a given sequence of numerical data.
 
 Examples
 --------
 >>> import pandas as pd
->>> from explorica.data_quality.outliers import HandlingMethods
-...
+>>> from explorica.data_quality.outliers import remove_outliers
 >>> df = pd.DataFrame([2, 1, 5, 4, 4, 3, 500, 9, 2, 10])
->>> outliers = HandlingMethods.remove_outliers(df, detection_method="iqr")
->>> print(outliers)
+>>> outliers = remove_outliers(df, detection_method="iqr")
+>>> outliers
 0     2
 1     1
 2     5
@@ -35,7 +35,7 @@ Examples
 7     9
 8     2
 9    10
-dtype: int64
+Name: 0, dtype: int64
 """
 
 import warnings
@@ -53,6 +53,10 @@ from explorica.data_quality._utils import Replacers
 
 from .detection import detect_iqr, detect_zscore
 
+__all__ = [
+    "replace_outliers",
+    "remove_outliers",
+]
 _errors = read_config("messages")["errors"]
 
 
@@ -64,22 +68,27 @@ def replace_outliers(
     **kwargs,
 ) -> pd.Series | pd.DataFrame:
     """
-    Replaces outliers in sequences or mappings according
-    to the specified detection method and replacement strategy.
+    Replace outliers in sequences or mappings.
+
+    Replaces outliers according to the specified detection
+    method and replacement strategy.
 
     Parameters
     ----------
     data : Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[Any]]
         Input data to process. Can be:
+
         - 1D sequence -> returns pd.Series
         - 2D sequence -> returns pd.DataFrame
         - Mapping of column names to sequences -> returns pd.DataFrame
     detection_method : str, default 'iqr'
         Method to detect outliers. Supported options:
+
         - 'iqr' : Interquartile Range method
         - 'zscore' : Z-score method
     strategy : str, default 'median'
         Method to replace detected outliers. Supported options:
+
         - 'median' : replace with median of the column
         - 'mean' : replace with mean of the column
         - 'mode' : replace with mode of the column
@@ -122,8 +131,10 @@ def replace_outliers(
     -------
     pd.Series or pd.DataFrame
         Object of same shape as input with outliers replaced.
+
         - Returns pd.Series if input is 1D or if the DataFrame has only one column.
         - Returns pd.DataFrame otherwise.
+
         Replacement values respect original data types: integers are rounded
         automatically if replacement value is float.
 
@@ -137,22 +148,23 @@ def replace_outliers(
 
     Examples
     --------
+    >>> import numpy as np
     >>> import pandas as pd
-    >>> import explorica.data_quality as dq
-    ...
+    >>> from explorica.data_quality.outliers import replace_outliers
     >>> data = pd.DataFrame({
     ...     "feature_1": [1.0, 2.4, 1.6, 12, 1.2, 501.1, 0.6],
     ...     "feature_2": [10, 11, 9, 12, 10, 11, 500]
-    ...     })
-    >>> print(dq.replace_outliers(data, detection_method="iqr", strategy="mean"))
-        feature_1  feature_2
-    0    1.000000         10
-    1    2.400000         11
-    2    1.600000          9
-    3   12.000000         12
-    4    1.200000         10
-    5    3.133333         11
-    6    0.600000         10
+    ... })
+    >>> result = replace_outliers(data, detection_method="iqr", strategy="mean")
+    >>> np.round(result, 4)
+       feature_1  feature_2
+    0     1.0000         10
+    1     2.4000         11
+    2     1.6000          9
+    3    12.0000         12
+    4     1.2000         10
+    5     3.1333         11
+    6     0.6000         10
     """
     df = convert_dataframe(data)
     params = {
@@ -326,6 +338,7 @@ def remove_outliers(
     2. Z-score
 
     Outliers can be removed in three modes:
+
     - Single removal (default)
     - Iterative removal (`iters` > 0)
     - Recursive removal until no outliers remain (`recursive=True`)
@@ -343,8 +356,10 @@ def remove_outliers(
         Used only if `subset` is None.
     detection_method : str, default 'iqr'
         Method used for outlier detection. Supported methods are:
+
         - 'iqr' : Interquartile Range method
         - 'zscore' : Z-score method
+
     recursive : bool, default False
         If True, removes outliers repeatedly until no outliers remain.
         Ignored if `iters` is specified.
@@ -353,8 +368,10 @@ def remove_outliers(
         If specified, `recursive` is ignored.
     remove_mode : {'any', 'all'}, default 'any'
         Defines how to treat multi-column outliers:
+
         - 'any': remove a row if any feature in subset is an outlier
         - 'all': remove a row only if all features in subset are outliers"
+
     zscore_threshold : float, default 2.0
         Threshold in units of standard deviations for Z-score detection.
         Z-values beyond this threshold are considered outliers.
@@ -377,6 +394,44 @@ def remove_outliers(
         If input data contains NaN values
         If the provided `detection_method` or `remove_mode` is not supported
         If `iters` is not a positive integer.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from explorica.data_quality.outliers import remove_outliers
+    >>> # Simple usage
+    >>> table = pd.DataFrame(
+    ...     {
+    ...         "feature1": [1, 2, 3, 4, 5, 10],
+    ...         "feature2": [2, 3, 4, 5, 1000, 1],
+    ...         "feature3": [0, 10003, 10004, 10005, 10006, 10008],
+    ...     },
+    ... )
+    >>> table = remove_outliers(
+    ...     table, detection_method="iqr", remove_mode="any"
+    ... )
+    >>> table
+       feature1  feature2  feature3
+    1         2         3     10003
+    2         3         4     10004
+    3         4         5     10005
+
+    >>> # Recursive drop method usage
+    >>> data_series = [1, 2, 3, 4, 5, 6, 11, 20]
+    >>> result = remove_outliers(
+    ... data_series, detection_method="iqr", recursive=True
+    ... )
+    >>> result
+    0    1
+    1    2
+    2    3
+    3    4
+    4    5
+    5    6
+    Name: 0, dtype: int64
+    >>> # In this case, '11' is only classified as an outlier after '20' is removed.
+    >>> # This is equivalent to calling:
+    >>> # remove_outliers(remove_outliers(data_series))
     """
     df = convert_dataframe(data)
     params = {

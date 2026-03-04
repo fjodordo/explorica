@@ -58,16 +58,16 @@ Notes
 
 from .conversion import (
     convert_dataframe,
-    convert_series,
+    convert_dict,
     convert_from_alias,
     convert_numpy,
-    convert_dict,
     convert_params_for_keys,
+    convert_series,
 )
 from .helpers import handle_nan, temp_log_level
+from .io import convert_filepath, enable_io_logs, validate_path
 from .readers import read_config
-from .types import natural_number, NaturalNumber
-from .io import enable_io_logs, validate_path, convert_filepath
+from .types import NaturalNumber, natural_number
 from .validation import (
     validate_array_not_contains_nan,
     validate_at_least_one_exist,

@@ -32,8 +32,5 @@ jobs:
         pip install -e ".[docs]"
 
     - name: Check external links
-      working-directory: ./docs
       run: |
-        echo "Checking if all links are valid..."
-        make clean
-        make linkcheck SPHINXOPTS="-qW"
+        ./scripts/docs_link_check.sh

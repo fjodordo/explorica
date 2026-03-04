@@ -5,18 +5,22 @@ sys.path.insert(0, os.path.abspath('../src/explorica'))
 project = 'Explorica'
 copyright = '2026, LaplaceDevil'
 author = 'LaplaceDevil'
-release = '0.11.4'
+release = '0.11.5'
 
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.viewcode',
-    'sphinx_rtd_theme',
-    'sphinx.ext.mathjax',
-    'numpydoc',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.viewcode",
+    "sphinx_rtd_theme",
+    "sphinx.ext.mathjax",
+    "sphinx.ext.doctest",
+    "numpydoc",
 ]
 
+with open("../_links.rst") as f:
+    rst_prolog = f.read()
+
 autodoc_default_options = {
-    'members': True,
+    "members": True,
 }
 
 numpydoc_validation_checks = {
@@ -34,18 +38,18 @@ numpydoc_validation_exclude = {
 html_theme = "sphinx_rtd_theme"
 
 html_theme_options = {
-    'collapse_navigation': False,
-    'sticky_navigation': True,
-    'navigation_depth': 10,
-    'includehidden': True,
-    'titles_only': False,
+    "collapse_navigation": False,
+    "sticky_navigation": True,
+    "navigation_depth": 10,
+    "includehidden": True,
+    "titles_only": False,
 }
 
 
 suppress_warnings = ["ref.class", "ref.func"]
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 exclude_patterns = []
 
 
-html_static_path = ['_static']
+# html_static_path = ["_static"]

@@ -21,7 +21,7 @@ Notes
 Examples
 --------
 >>> import pandas as pd
->>> from explorica.reports.presets.blocks.cardinality import get_cardinality_block
+>>> from explorica.reports.presets import get_cardinality_block
 >>> df = pd.DataFrame({
 ...     'a': [1, 1, 1, 1],
 ...     'b': [1, 2, 3, 4],
@@ -32,17 +32,20 @@ Examples
 'Cardinality'
 >>> [table.title for table in block.block_config.tables]
 ['Constancy | uniqueness metrics']
+>>> block.close_figures()
 """
 
-from typing import Sequence, Mapping, Any, Literal
+from typing import Any, Literal, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 
-from ...._utils import handle_nan, convert_dataframe
+from ...._utils import convert_dataframe, handle_nan
+from ....data_quality import get_entropy
 from ....types import TableResult
 from ...core.block import Block, BlockConfig
-from ....data_quality import get_entropy
+
+__all__ = ["get_cardinality_block"]
 
 
 def get_cardinality_block(
@@ -61,6 +64,7 @@ def get_cardinality_block(
     redundant values, or high uniqueness.
 
     The block contains a single table with the following columns:
+
     - `is_unique` : indicates if a feature has all unique values.
     - `is_constant` : indicates if a feature has a single unique value.
     - `n_unique` : number of unique values in the feature.
@@ -79,6 +83,7 @@ def get_cardinality_block(
         Number of decimal places to round ratio and entropy metrics.
     nan_policy : {'drop', 'raise', 'include'}, default='drop'
         Policy for handling missing values:
+
         - 'drop_with_split' :
           Missing values are handled independently for each feature.
           For every column, NaNs are dropped column-wise before computing
@@ -107,7 +112,7 @@ def get_cardinality_block(
     Examples
     --------
     >>> import pandas as pd
-    >>> from explorica.reports.presets.blocks import get_cardinality_block
+    >>> from explorica.reports.presets import get_cardinality_block
     >>> df = pd.DataFrame({
     ...     "A": [1, 2, 3, 4],
     ...     "B": [5, 5, 5, 5],
@@ -116,11 +121,14 @@ def get_cardinality_block(
     ... })
     >>> block = get_cardinality_block(df, nan_policy="include")
     >>> block.block_config.tables[0].table
-       is_unique  is_constant  n_unique ... top_value_ratio  entropy (normalized)
-    A       True        False         2 ...             0.5                   1.0
-    B      False         True         1 ...             1.0                   NaN
-    C       True        False         2 ...             0.5                   1.0
-    D      False         True         1 ...             1.0                   NaN
+       is_unique  is_constant  ...  top_value_ratio  entropy (normalized)
+    A       True        False  ...             0.25                1.0000
+    B      False         True  ...             1.00                   NaN
+    C      False        False  ...             0.50                0.9464
+    D      False        False  ...             0.50                0.0000
+    <BLANKLINE>
+    [4 rows x 6 columns]
+    >>> block.close_figures()
     """
     # NaN handling is fully delegated to nan_policy.
     # At this stage, NaNs are either intentionally preserved ("include")

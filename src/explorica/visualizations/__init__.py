@@ -29,9 +29,9 @@ ax.set_title("Custom Title")
 plt.show()
 """
 
-from .plots import piechart, barchart, mapbox
-from .statistical_plots import distplot, boxplot, heatmap, hexbin
+from .plots import barchart, mapbox, piechart
 from .scatterplot import scatterplot
+from .statistical_plots import boxplot, distplot, heatmap, hexbin
 
 __all__ = [
     "piechart",

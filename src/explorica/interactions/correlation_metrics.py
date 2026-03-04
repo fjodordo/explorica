@@ -40,6 +40,13 @@ from explorica._utils import (
     validate_string_flag,
 )
 
+__all__ = [
+    "cramer_v",
+    "eta_squared",
+    "corr_index",
+    "corr_multiple",
+]
+
 _warns = read_config("messages")["warns"]
 _errors = read_config("messages")["errors"]
 
@@ -51,8 +58,37 @@ def cramer_v(
     yates_correction: bool = False,
 ) -> float:
     r"""
-    Calculates Cramér's V statistic for measuring
-    the association between two categorical variables.
+    Calculate Cramér's V statistic.
+
+    Calculates Cramér's V (:math:`V`) for measuring the association
+    between two categorical variables. Bias correction and Yates'
+    correction are available as options.
+
+    Calculated as:
+
+    Without bias correction:
+
+    .. math::
+        V = \sqrt{ \frac{\phi^2}{\min(r - 1, k - 1)}}
+
+    With bias correction (Bergsma, 2013):
+
+    .. math::
+        V = \sqrt{\frac{\phi^2_{\text{corr}}}{\min(r - 1, k - 1)}}
+
+    :math:`\phi^2_{\text{corr}}` is:
+
+    .. math::
+        \phi^2_{\text{corr}} =
+        \max\left( 0, \phi^2 - \frac{(r-1)(k-1)}{n-1} \right)
+
+    Where :math:`\phi^2` is:
+
+    .. math::
+        \phi^2 = \frac{\chi^2}{n}
+
+    :math:`n` is sample size. :math:`r` and :math:`k` are number of rows and columns
+    in the contingency table respectively.
 
     Parameters
     ----------
@@ -79,30 +115,19 @@ def cramer_v(
         If 'x' or 'y' contains NaN values.
         If input sequences lengths mismatch.
 
-    Notes
-    -----
-    The statistic is based on the chi-square test of independence:
+    Examples
+    --------
+    >>> # Simple usage
+    >>> from explorica.interactions.correlation_metrics import cramer_v
+    >>> categories1 = ['A', 'A', 'A', 'B', 'B', 'B']
+    >>> categories2 = [1, 1, 1, 2, 2, 2]
+    >>> cramer_v(categories1, categories2, bias_correction=False)
+    np.float64(1.0)
 
-    .. math::
-        \phi^2 = \frac{\chi^2}{n}
-
-    where :math:`n` is the sample size.
-    Without bias correction:
-
-    .. math::
-        V = \sqrt{ \frac{\phi^2}{\min(r - 1, k - 1)} }
-
-    where :math:`r` is the number of rows and :math:`k` is the number of columns
-    in the contingency table.
-    With bias correction (Bergsma, 2013):
-
-    .. math::
-        \phi^2_{\text{corr}} =
-        \max\left( 0, \phi^2 - \frac{(r-1)(k-1)}{n-1} \right)
-        V = \sqrt{ \frac{\phi^2_{\text{corr}}}{\min(r - 1, k - 1)} }
-
-    If ``yates_correction=True``, Yates' continuity correction is applied when
-    computing :math:`\chi^2` (only affects :math:`2 \times 2` contingency tables).
+    >>> categories1 = ['A', 'A', 'A', 'B', 'B', 'B']
+    >>> categories2 = ['C', 'D', 'E', 'C', 'D', 'E']
+    >>> cramer_v(categories1, categories2)
+    np.float64(0.0)
     """
     validate_lengths_match(
         x,
@@ -138,11 +163,19 @@ def cramer_v(
 
 
 def eta_squared(values: Sequence[Number], categories: Sequence) -> float:
-    """
-    Calculate the eta-squared (η²) statistic for categorical and numeric variables.
-    η² (eta squared) is a measure of effect size used to quantify the proportion of
-    variance in a numerical variable that can be attributed to differences between
-    categories of a categorical variable.
+    r"""
+    Calculate the eta-squared (:math:`\eta^2`) statistic.
+
+    :math:`\eta^2` (eta squared) is a measure of effect size used to quantify the
+    proportion of variance in a numerical variable that can be attributed to
+    differences between categories of a categorical variable.
+
+    Calculated as:
+
+    .. math::
+
+        \eta^2=\frac{Q_A}{Q}=\frac{\sum{(\overline{x}_i-\overline{x})^2n_i}}
+        {\sum(x_j-\overline x)^2}
 
     Parameters
     ----------
@@ -156,6 +189,7 @@ def eta_squared(values: Sequence[Number], categories: Sequence) -> float:
     -------
     float
         Eta-squared statistic in the range [0, 1], where:
+
         - 0 means no association between variables,
         - 1 means perfect association (all variance explained by groups).
 
@@ -169,6 +203,17 @@ def eta_squared(values: Sequence[Number], categories: Sequence) -> float:
     -----
     If the total variance of `values` is zero, the function returns 0.
     NaN values should be handled before calling this function.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from explorica.interactions.correlation_metrics import eta_squared
+    >>> # Simple usage
+    >>> values = [2.3, 3.1, 2.8, 5.5, 6.0, 5.8]
+    >>> categories = ['A', 'A', 'A', 'B', 'B', 'B']
+    >>> result = eta_squared(values, categories)
+    >>> np.round(result, 4)
+    np.float64(0.9682)
     """
     validate_lengths_match(
         values,
@@ -202,32 +247,42 @@ def corr_index(
     custom_function: Optional[Callable[[Number], Number]] = None,
     normalization_bounds: Sequence[Number] = None,
 ) -> float:
-    """
+    r"""
+    Calculate a nonlinear correlation index.
+
     Calculates a nonlinear correlation index between two series `x` and `y`,
     based on the proportion of variance explained by the fitted function.
 
     The index is computed as:
-        R_I = sqrt(1 - SSE / SST),
-    where SSE is the sum of squared errors between the true `y` and predicted
-    `y(x)`, and SST is the total sum of squares `y` with respect to its mean.
+
+    .. math::
+
+        R_I=\sqrt{\frac{Q_R}{Q}}=
+        \sqrt{\frac{\sum{\left(y(x_i)-\overline y\right)^2}}
+        {\sum(y_i-\overline y)^2}}
+
+    where :math:`Q_R` is the sum of squared errors between the true :math:`y_i` and
+    predicted :math:`y(x_i)`, and :math:`Q` is the total sum of squares :math:`y` with
+    respect to its mean.
 
     This method is designed to handle non-linear dependencies
     and is robust to monotonic transformations. In degenerate cases
-    (e.g., constant `x` or `y`), a correlation index of 0 is returned.
+    (e.g., constant :math:`x` or :math:`y`), a correlation index of 0 is returned.
 
-    **Important**: If the model fit yields SSE > SST
+    **Important**: If the model fit yields :math:`Q_R` > :math:`Q`
     (i.e., performs worse than a mean-based predictor),
     the index is treated as 0. This reflects the model’s
     failure to explain any meaningful variance.
 
     Supported methods:
-    - 'linear':       y = a * x + b
-    - 'binomial':     y = a * x² + b * x + c
-    - 'exp':          y = b * exp(a * x)
-    - 'ln':           y = a * ln(x) + b
-    - 'hyperbolic':   y = a / x + b
-    - 'power':        y = a * xᵇ
-    - 'custom':       y = your function
+
+    - 'linear':       :math:`y = ax + b`
+    - 'binomial':     :math:`y = ax^2 + bx + c`
+    - 'exp':          :math:`y = be^{ax}`
+    - 'ln':           :math:`y = a\ln(x) + b`
+    - 'hyperbolic':   :math:`y = \frac{a}{x} + b`
+    - 'power':        :math:`y = ax^b`
+    - 'custom':       :math:`y =` your function
 
     Parameters
     ----------
@@ -237,20 +292,22 @@ def corr_index(
         The response variable.
     method : str, default='linear'
         Regression model to use. See supported methods above.
+    custom_function : Callable, optional
+        A user-defined function that takes a Number values and returns Number
+        predictions. Required when `method='custom'`.
     normalization_bounds : Sequence[Number], optional
         A pair of numeric values (``lower_bound``, ``upper_bound``) specifying
         the range to which the input ``x`` values are rescaled before fitting.
         If ``None`` (default), automatic normalization is applied **only** for
         methods with domain restrictions:
+
         - 'exp' → scaled to [0, 5]
         - 'ln' → scaled to [1, 10]
         - 'power' → scaled to [1, 10]
         - 'hyperbolic' → scaled to [2, 20]
+
         For all other methods, no normalization is applied unless explicitly
         provided by the user.
-    custom_function : Callable, optional
-        A user-defined function that takes a Number values and returns Number
-        predictions. Required when `method='custom'`
 
     Returns
     -------
@@ -261,6 +318,7 @@ def corr_index(
     ------
     ValueError
         If:
+
         - an unsupported method is passed
         - x and y are of unequal lengths
         - any NaNs are present in x or y
@@ -272,16 +330,33 @@ def corr_index(
     - If `x` or `y` is constant (i.e., has zero variance), the correlation index is
       defined as 0 to avoid division by zero or meaningless regression.
     - If the fitted model performs worse than the mean
-      (SSE > SST), R_I is also defined as 0.
+      (:math:`Q_R` > :math:`Q`), :math:`R_I` is also defined as 0.
     - User-provided ``normalization_bounds`` take precedence and will be applied
-        regardless of the chosen method.
+      regardless of the chosen method.
     - Automatic normalization is enabled selectively for models with restricted
-        domains to:
+      domains to:
+
         1. Prevent numerical instability due to extremely large/small values.
         2. Ensure compatibility with the domain restrictions of certain functions
            (e.g., logarithmic, power, or hyperbolic forms).
     - Parameter estimation is performed using `scipy.optimize.curve_fit`
       with a least-squares objective.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from explorica.interactions.correlation_metrics import corr_index
+    >>> # Linear method usage
+    >>> x = [1, 2, 3, 4, 5]
+    >>> y = [2, 4, 6, 8, 10]
+    >>> np.round(corr_index(x, y), 4)
+    np.float64(1.0)
+
+    >>> # Non-linear method usage
+    >>> x = [1, 2, 3, 4, 5]
+    >>> y = [2.7, 7.4, 20.1, 54.6, 148.4]
+    >>> np.round(corr_index(x, y, method='exp'), 4)
+    np.float64(1.0)
     """
 
     def scale_minmax(seq, lower_bound, upper_bound):
@@ -360,14 +435,24 @@ def corr_index(
 
 
 def corr_multiple(x: Sequence[Sequence[Number]], y: Sequence[Number]) -> float:
-    """
-    Computes the multiple correlation coefficient (R) between a set of predictor
-    variables (x) and a response variable (y), based on the determinant of their
-    correlation matrices.
+    r"""
+    Compute the multiple correlation coefficient.
 
-    This implementation is robust to singular correlation matrices. If the
-    determinant of the predictor correlation matrix is zero, R is defined as zero
-    (no linear dependency).
+    Multiple correlation coefficient (:math:`R`) between a set of predictor
+    variables (:math:`x`) and a response variable (:math:`y`).
+    In this case based on the determinant of their correlation matrices.
+
+    The function uses the formula:
+
+    .. math::
+
+        R = \sqrt{R^2}=\sqrt{1-\frac{|r|}{|r_x|}}
+
+    where :math:`r` is the correlation matrix of predictors and the response,
+    and :math:`r_x` is the correlation matrix of the predictors alone.
+
+    This implementation is robust to singular correlation matrices.
+    If :math:`r_x` is singular (:math:`|r_x|=0`), the function returns :math:`R = 0`.
 
     Parameters
     ----------
@@ -394,17 +479,20 @@ def corr_multiple(x: Sequence[Sequence[Number]], y: Sequence[Number]) -> float:
         If the predictors in x are found to be multicollinear
         (i.e., the determinant of their correlation matrix is zero).
 
-    Notes
-    -----
-    The method uses the formula:
-        R² = 1 - |det(corr(X, Y))| / |det(corr(X)|)
-    where corr(X, Y) is the correlation matrix of predictors and the response,
-    and corr(X) is the correlation matrix of the predictors alone.
-    If corr(X) is singular (det = 0), the function returns R = 0.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from explorica.interactions.correlation_metrics import corr_multiple
+    >>> # Simple usage
+    >>> X = [[1, 2, 3, 4, 5], [2, 3, 5, 6, 8]]
+    >>> y = [2, 4, 5, 7, 9]
+    >>> result = corr_multiple(X, y)
+    >>> np.round(result, 4)
+    np.float64(0.9954)
     """
     factors = convert_dataframe(x)
     y_series = convert_dataframe(y).iloc[:, 0]
-    if x.shape[0] != y.size:
+    if factors.shape[0] != y_series.size:
         raise ValueError(
             f"Length of 'x' DataFrame ({factors.shape[0]}) "
             f"must match length of 'y' series ({y_series.size})."

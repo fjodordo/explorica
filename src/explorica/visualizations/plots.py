@@ -30,54 +30,61 @@ Notes
 
 Examples
 --------
->>> import explorica.visualizations as vis
+>>> import matplotlib.pyplot as plt
+>>> from explorica.visualizations.plots import barchart
 >>> # Basic vertical bar chart (Matplotlib)
 >>> data = [3, 7, 5]
 >>> categories = ['A', 'B', 'C']
->>> result = vis.barchart(data, categories,
+>>> result = barchart(data, categories,
 ...                       plot_kws={'color':'skyblue', 'edgecolor':'black'})
 >>> result.figure.show()  # doctest: +SKIP
 
 >>> # Pie chart with percentages displayed
->>> result = vis.piechart(data, categories, autopct_method='percent')
+>>> from explorica.visualizations.plots import piechart
+>>> result = piechart(data, categories, autopct_method='percent')
 >>> result.figure.show() # doctest: +SKIP
 >>> result.extra_info
 {'autopct_method': 'percent'}
 
 >>> # Mapbox scatter plot with categorical coloring
+>>> from explorica.visualizations.plots import mapbox
 >>> lat = [34.05, 40.71, 37.77]
 >>> lon = [-118.24, -74.00, -122.42]
 >>> categories = ['City1', 'City2', 'City3']
->>> result = vis.mapbox(lat, lon, category=categories)
+>>> result = mapbox(lat, lon, category=categories)
 >>> # Show interactive map with hover labels
 >>> result.figure.show() # doctest: +SKIP
+
+>>> # Close all mpl figures after usage
+>>> plt.close('all')
 """
 
-from typing import Optional, Sequence, Mapping, Any
-import warnings
 import logging
+import warnings
+from typing import Any, Mapping, Optional, Sequence
 
 import matplotlib.pyplot as plt
-import plotly.express as px
 import pandas as pd
+import plotly.express as px
 
-from explorica.types import VisualizationResult
 from explorica._utils import (
     convert_series,
     handle_nan,
     validate_lengths_match,
     validate_string_flag,
 )
+from explorica.types import VisualizationResult
+
 from ._utils import (
-    temp_plot_theme,
-    save_plot,
-    get_empty_plot,
-    resolve_plotly_palette,
     DEFAULT_MPL_PLOT_PARAMS,
-    WRN_MSG_EMPTY_DATA,
     ERR_MSG_ARRAYS_LENS_MISMATCH,
     ERR_MSG_UNSUPPORTED_METHOD,
     WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F,
+    WRN_MSG_EMPTY_DATA,
+    get_empty_plot,
+    resolve_plotly_palette,
+    save_plot,
+    temp_plot_theme,
 )
 
 __all__ = ["barchart", "piechart", "mapbox"]
@@ -178,23 +185,18 @@ def barchart(
     -----
     This function uses matplotlib.axes.Axes.bar and matplotlib.axes.Axes.barh under the
     hood. For complete parameter documentation and advanced customization options, see:
-    `matplotlib bar`_.
-
-    .. _matplotlib bar: https://matplotlib.org/stable/api/
-       _as_gen/matplotlib.axes.Axes.html>`_
-
-    `matplotlib barh`_.
-
-    .. _matplotlib barh: https://matplotlib.org/stable/api/
-       _as_gen/matplotlib.axes.Axes.barh.html>`_
+    `matplotlib bar`_, `matplotlib barh`_.
 
     Examples
     --------
-    >>> import explorica.visualizations as vis
+    >>> import matplotlib.pyplot as plt
+    >>> from explorica.visualizations.plots import barchart
+    >>>
+    >>>
     >>> # Simple vertical Bar Chart
     >>> values = [25, 40, 15, 60, 35]
     >>> labels = ['Apple', 'Banana', 'Cherry', 'Date', 'Elderberry']
-    >>> plot = vis.barchart(values, labels, title="Fruit sales")
+    >>> plot = barchart(values, labels, title="Fruit sales")
     >>> plot.figure.show() # doctest: +SKIP
 
     >>> # Horizontal Bar Chart with descending sort:
@@ -205,6 +207,8 @@ def barchart(
     ...                 ascending=False,
     ...                 palette='viridis')
     >>> plot.figure.show() # doctest: +SKIP
+    >>> # Close all mpl figures after usage
+    >>> plt.close('all')
     """
     params = {**DEFAULT_MPL_PLOT_PARAMS, "palette": None, "opacity": 0.5, **kwargs}
     plot_kws_merged = {"alpha": params["opacity"], **params.get("plot_kws", {})}
@@ -348,16 +352,16 @@ def piechart(
     documentation and advanced customization options, see:
     `matplotlib pie`_.
 
-    .. _matplotlib pie: https://matplotlib.org/stable/api/
-       _as_gen/matplotlib.pyplot.pie.html>`_
-
     Examples
     --------
-    >>> import explorica.visualizations as vis
+    >>> import matplotlib.pyplot as plt
+    >>> from explorica.visualizations.plots import piechart
+    >>>
+    >>>
     >>> # Simple pie chart displaying raw values
     >>> data = [15, 30, 45, 10]
     >>> categories = ["A", "B", "C", "D"]
-    >>> result = vis.piechart(data, categories, autopct_method="value",
+    >>> result = piechart(data, categories, autopct_method="value",
     ...                       title="Simple Pie")
     >>>  # Display the chart
     >>> result.figure.show() # doctest: +SKIP
@@ -367,12 +371,13 @@ def piechart(
     >>> # Pie chart showing percentages on each segment
     >>> data = [50, 25, 25]
     >>> categories = ["Apples", "Bananas", "Cherries"]
-    >>> result = vis.piechart(data, categories,
+    >>> result = piechart(data, categories,
     ...     autopct_method="percent", show_legend=True)
     >>> result.figure.show() # doctest: +SKIP
     >>> result.extra_info["autopct_method"]
     'percent'
-    >>> plt.close(result.figure)
+    >>> # Close all mpl figure after usage
+    >>> plt.close('all')
     """
     params = {
         **DEFAULT_MPL_PLOT_PARAMS,
@@ -568,10 +573,7 @@ def mapbox(
     -----
     - This function uses plotly.express.scatter_map under the hood. For complete
       parameter documentation and advanced customization options, see:
-      `plotly scatter map`_.
-
-      .. _plotly scatter map: https://plotly.com/python-api-reference/
-         generated/plotly.express.scatter_map.html
+      `plotly scatter_map`_.
 
     - The plot is saved as an interactive HTML file when `directory` is set.
     - Color resolution is handled internally using `resolve_plotly_palette`.
@@ -583,24 +585,26 @@ def mapbox(
     Examples
     --------
     >>> from pathlib import Path
-    >>> import explorica.visualizations as vis
+    >>> from explorica.visualizations.plots import barchart
+    >>>
+    >>>
     >>> # Basic Mapbox scatter plot usage
     >>> lat = [34.05, 40.71, 37.77]
     >>> lon = [-118.24, -74.00, -122.42]
-    >>> result = vis.mapbox(lat, lon, title="Major US Cities")
+    >>> result = mapbox(lat, lon, title="Major US Cities")
     >>> result.figure.show() # doctest: +SKIP
 
     >>> # Mapbox scatter plot with categorical coloring usage
     >>> lat = [34.05, 40.71, 37.77, 51.50]
     >>> lon = [-118.24, -74.00, -122.42, -0.12]
     >>> category = ["US", "US", "US", "UK"]
-    >>> result = vis.mapbox(lat, lon, category=category, title="USA vs UK Cities")
+    >>> result = mapbox(lat, lon, category=category, title="USA vs UK Cities")
     >>> result.figure.show() # doctest: +SKIP
 
     >>> # HTML saving example
     >>> lat = [34.05, 40.71]
     >>> lon = [-118.24, -74.00]
-    >>> result = vis.mapbox( # doctest: +SKIP
+    >>> result = mapbox( # doctest: +SKIP
     ...     lat, lon,
     ...     plot_kws={"zoom": 4},
     ...     directory="./plots",

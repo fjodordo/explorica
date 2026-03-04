@@ -1,4 +1,4 @@
-"""
+r"""
 Module for feature engineering on numeric and categorical data.
 
 This module provides utilities for fast and flexible feature
@@ -11,7 +11,7 @@ Functions
 ---------
 freq_encode(data, axis=0, normalize=True, round_digits=None)
     Performs frequency encoding on a categorical feature(s).
-ordinal_encode(data, axis=0, order_method="frequency", order_ascending=False, **kwargs)
+ordinal_encode(data, axis=0, order_method="frequency", order_ascending=False, \**kwargs)
     Encode categorical values with ordinal integers
     based on a specified ordering rule.
 discretize_continuous(data, bins=None, binning_method="uniform", intervals="pandas")
@@ -20,13 +20,13 @@ discretize_continuous(data, bins=None, binning_method="uniform", intervals="pand
 Examples
 --------
 >>> import pandas as pd
->>> import explorica.data_quality as data_quality
-...
+>>> from explorica.data_quality import freq_encode
+>>> # Simple encoder usage
 >>> df = pd.DataFrame({
 ...      "color": ["red", "blue", "red", "green", "blue", "red"],
 ...      "shape": ["circle", "square", "circle", "triangle", "square", "circle"]
 ... })
->>> encoded = data_quality.freq_encode(df, round_digits=4)
+>>> encoded = freq_encode(df, round_digits=4)
 >>> print(encoded)
     color   shape
 0  0.5000  0.5000
@@ -38,7 +38,7 @@ Examples
 """
 
 import warnings
-from typing import Any, Hashable, Mapping, Sequence, Literal
+from typing import Any, Hashable, Literal, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -52,6 +52,12 @@ from explorica._utils import (
     validate_string_flag,
 )
 
+__all__ = [
+    "freq_encode",
+    "ordinal_encode",
+    "discretize_continuous",
+]
+
 _errors = read_config("messages")["errors"]
 
 
@@ -62,21 +68,28 @@ def freq_encode(
     round_digits: int = None,
 ) -> pd.Series | pd.DataFrame:
     """
-    Performs frequency encoding on a categorical feature(s).
+    Perform frequency encoding on a categorical feature(s).
+
+    Frequency encoding replaces each category with its frequency of occurrence
+    in the data. This is particularly useful as a preprocessing step for machine
+    learning models that require numerical input, as it preserves information
+    about the distribution of categorical values without introducing arbitrary
+    ordinal relationships.
 
     Parameters
     ----------
-    data : Sequence[float] | Sequence[Sequence[float]] |
-           Mapping[str, Sequence[Number]]
+    data : Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[Number]]
         Numeric input data. Can be 1D (sequence of numbers),
         2D (sequence of sequences), or a mapping of column names to sequences.
-    axis: int, {0, 1}, default 0
+    axis : int, {0, 1}, default 0
         Applicable only if input is 2D:
+
         - 0: encode each column independently (column-wise), returns pd.DataFrame.
         - 1: encode each row based on the combination of column values (row-wise),
-            returns pd.Series.
+          returns pd.Series.
+
         Ignored if input is 1D.
-    normalize : bool
+    normalize : bool, default=True
         If True, encodes as relative frequency (proportion),
         otherwise as absolute count.
     round_digits : int, optional
@@ -97,6 +110,25 @@ def freq_encode(
         If input contains NaNs.
         If `axis` is not 0 or 1.
         If `round_digits` is negative or not an integer.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from explorica.data_quality import freq_encode
+    >>> # Simple usage
+    >>> dataset = pd.DataFrame({
+    ...     "groups1": ["A", "A", "A", "B", "B", "C"],
+    ...     "groups2": ["D", "D", "D", "E", "F", "G"]
+    ... })
+    >>> dataset = freq_encode(dataset, round_digits=4)
+    >>> dataset
+       groups1  groups2
+    0   0.5000   0.5000
+    1   0.5000   0.5000
+    2   0.5000   0.5000
+    3   0.3333   0.1667
+    4   0.3333   0.1667
+    5   0.1667   0.1667
     """
     df = convert_dataframe(data)
     validate_array_not_contains_nan(df, _errors["array_contains_nans_f"].format("data"))
@@ -134,8 +166,7 @@ def ordinal_encode(
     **kwargs,
 ) -> pd.Series | pd.DataFrame:
     """
-    Encode categorical values with ordinal integers
-    based on a specified ordering rule.
+    Encode categorical values with ordinal integers.
 
     This method converts categorical data into integer-encoded representations
     according to the chosen ordering strategy. Supported strategies include
@@ -144,20 +175,21 @@ def ordinal_encode(
 
     Parameters
     ----------
-    data : Sequence[float] | Sequence[Sequence[float]] |
-           Mapping[str, Sequence[Number]]
+    data : Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[Number]]
         Numeric input data. Can be 1D (sequence of numbers),
         2D (sequence of sequences), or a mapping of column names to sequences.
-    axis: int, {0, 1}, default 0
+    axis : int, {0, 1}, default 0
         Applicable only if input is 2D:
+
         - 0: encode each column independently (column-wise).
              Returns a DataFrame if multiple columns are provided.
         - 1: encode each row based on the combination of column values (row-wise).
              Always returns a Series.
+
         Ignored if input is 1D.
-    order_method : {"frequency", "alphabetical", "mean", "median", "mode"},
-                   default "frequency"
+    order_method : str | Literal, default "frequency"
         Ordering rule to determine integer assignment:
+
         - "frequency" : order by category frequency.
         - "alphabetical" : order alphabetically by category label.
         - "mean" : order by the mean of corresponding `order_by` values per
@@ -183,6 +215,7 @@ def ordinal_encode(
     pandas.Series or pandas.DataFrame
         Encoded data, where each unique category or category combination
         is replaced by an integer reflecting its relative order:
+
         - If ``axis=1``, returns a Series with encoded values per row.
         - If ``axis=0`` and multiple columns were passed, returns a DataFrame
           where each column is encoded independently.
@@ -205,9 +238,10 @@ def ordinal_encode(
     Examples
     --------
     >>> import pandas as pd
-    >>> import explorica.data_quality as data_quality
+    >>> from explorica.data_quality import ordinal_encode
+    >>> # Simple usage
     >>> df = pd.DataFrame({"category_1": ["A", "B", "C", "A", "A", "B", "A"]})
-    >>> data_quality.ordinal_encode(
+    >>> ordinal_encode(
     ...     df, order_method="abc", order_ascending=True, offset=1)
     0    1
     1    2
@@ -216,7 +250,7 @@ def ordinal_encode(
     4    1
     5    2
     6    1
-    Name: category_1, dtype: int64
+    dtype: int64
     """
     params = {"offset": 0, "order_by": None, **kwargs}
     df = convert_dataframe(data)
@@ -315,17 +349,23 @@ def discretize_continuous(
     binning_method: Literal["uniform", "quantile"] = "uniform",
     intervals: str | Sequence = "pandas",
 ) -> pd.Series | pd.DataFrame:
-    """
+    r"""
     Discretize continuous numeric data into categorical intervals.
+
+    Discretization converts continuous numeric features into ordered categorical
+    intervals, which can improve interpretability, reduce the effect of outliers,
+    and serve as a preprocessing step for models that benefit from categorical
+    inputs. The function supports both uniform and quantile-based binning strategies,
+    with flexible control over bin count and interval labeling on a per-column basis.
 
     Parameters
     ----------
-    data : Sequence[float] | Sequence[Sequence[float]] |
-           Mapping[str, Sequence[Number]]
+    data : Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[Number]]
         Numeric input data. Can be 1D (sequence of numbers),
         2D (sequence of sequences), or a mapping of column names to sequences.
     bins : int | Sequence[int] | Mapping[str, int], default=None
         Number of discrete bins (intervals) to split each numeric feature into.
+
         - **int** — applies the same number of bins to all columns.
           Example: ``bins=5`` is equivalent to
           ``bins={'col1': 5, 'col2': 5, ..., 'colN': 5}``.
@@ -336,37 +376,51 @@ def discretize_continuous(
         - **Mapping[str, int]** — explicit per-column specification.
           Keys must exactly match the column names present in ``data``.
           Missing or extra keys will raise ``KeyError``.
+
         The number of bins must be a **positive integer** for every column.
         If not provided, the number of bins is automatically estimated
         using **Sturges' formula**:
-            k = 1 + 3.322log_10(n)
-        where :`n` is the number of samples per column.
+
+        .. math::
+
+            k = 1 + 3.322\log_{10}(n)
+
+        where n is the number of samples per column.
         **Priority of bin determination:**
+
             1. If ``intervals`` is a sequence of custom labels, its length
                defines the number of bins (even if ``bins`` is specified).
             2. Otherwise, ``bins`` is used as provided.
             3. If neither ``bins`` nor ``intervals`` defines the bin count,
                the Sturges' rule is applied.
+
         Example
         -------
+        >>> from explorica.data_quality import discretize_continuous
         >>> data = {'x': [1, 2, 3, 4, 5], 'y': [10, 20, 30, 40, 50]}
-        >>> discretize_continuous(data, bins={'x': 3, 'y': 2})
-                        x              y
-        0  (0.995, 2.333]  (9.959, 30.0]
-        1  (0.995, 2.333]  (9.959, 30.0]
-        2  (2.333, 3.667]  (9.959, 30.0]
-        3    (3.667, 5.0]   (30.0, 50.0]
-        4    (3.667, 5.0]   (30.0, 50.0]
+        >>> discretize_continuous(data, bins={'x': 3, 'y': 2}) # doctest: +SKIP
+                        x                          y
+        0  (0.995, 2.333]  (9.959000000000001, 30.0]
+        1  (0.995, 2.333]  (9.959000000000001, 30.0]
+        2  (2.333, 3.667]  (9.959000000000001, 30.0]
+        3    (3.667, 5.0]               (30.0, 50.0]
+        4    (3.667, 5.0]               (30.0, 50.0]
+
     binning_method : Literal['uniform', 'quantile'], default='uniform'
         Binning method to use. One of:
+
         - 'uniform': Equal-width binning.
         - 'quantile': Quantile-based binning (equal number of observations per bin).
     intervals : str | Sequence, default="pandas"
         Defines how the bins are labeled or represented.
+
         - **str** — predefined string flags:
+
           - `"pandas"`: returns pandas.Interval objects for each bin (default).
           - `"string"`: returns string representations of intervals, e.g., "(a, b]".
+
         - **Sequence** — custom labels:
+
           - 1D sequence: same labels applied to all columns.
             Example: ``intervals=["A", "B", "C"]`` ≡
             ``labels={"col1": ["A","B","C"], "col2": ["A","B","C"], ...}``.
@@ -378,7 +432,9 @@ def discretize_continuous(
             Keys must match column names; values can be any sequence
             (list, tuple, np.array).
             Example: ``intervals={"col1": (1,2,3), "col2": np.array([10,20])}``.
+
         **Behavior**
+
             - When a custom sequence or mapping is provided,
               it **overrides `bins`**:
               the number of labels defines the number of bins for each column.
@@ -386,11 +442,13 @@ def discretize_continuous(
               Duplicate labels in the same column are not allowed.
             - Mismatched column names in nested sequences or mappings will
               raise a ``KeyError``.
+
         Example
         -------
+        >>> from explorica.data_quality import discretize_continuous
         >>> data = {'x': [1, 2, 3, 4, 5], 'y': [10, 20, 30, 40, 50]}
-        >>> data_quality.discretize_continuous(data,
-                intervals={'x': ["A", "B", "C"], 'y': ["A", "B"]})
+        >>> discretize_continuous(data,
+        ...     intervals={'x': ["A", "B", "C"], 'y': ["A", "B"]})
            x  y
         0  A  A
         1  A  A
@@ -403,14 +461,6 @@ def discretize_continuous(
     pd.Series or pd.DataFrame
         Categorical representation of the binned data. Returns a Series for
         a single-column input, or a DataFrame for multi-column input.
-
-    Warns
-    -----
-    UserWarning
-        If the number of bins specified for a feature exceeds the number of its
-        unique values. In this case, the number of bins will be automatically
-        reduced to ``n_unique - 1`` for the corresponding column.
-        A warning message will inform the user of this adjustment.
 
     Raises
     ------
@@ -426,15 +476,24 @@ def discretize_continuous(
         Also raised if `intervals` or `bins` are provided as sequences whose
         lengths do not correspond to the number of input features.
 
+    Warns
+    -----
+    UserWarning
+        If the number of bins specified for a feature exceeds the number of its
+        unique values. In this case, the number of bins will be automatically
+        reduced to ``n_unique - 1`` for the corresponding column.
+        A warning message will inform the user of this adjustment.
+
     Examples
     --------
     >>> import pandas as pd
     >>> import numpy as np
-    >>> import explorica.data_quality as data_quality
+    >>> from explorica.data_quality import discretize_continuous
+    >>> # Simple usage
     >>> df = pd.DataFrame({"f1": np.linspace(0, 1000, 100),
     ...                    "f2": np.linspace(0, 2150, 100)})
-    >>> data_quality.discretize_continuous(df, bins=[10, 15])
-                    f1                  f2
+    >>> discretize_continuous(df, bins=[10, 15])
+                     f1                  f2
     0   (-1.001, 100.0]   (-2.151, 143.333]
     1   (-1.001, 100.0]   (-2.151, 143.333]
     2   (-1.001, 100.0]   (-2.151, 143.333]
@@ -529,6 +588,7 @@ def _discretize_continuous_validate_input_parameters(
     Ensures data integrity and consistency of configuration parameters.
 
     Checks:
+
     1. `data` or `labels` does not contain NaN values.
     2. Each value in `bins` is a positive integer.
     3. `interval_format` is one of the supported formats.
@@ -583,15 +643,21 @@ def _discretize_continuous_transform_input_parameters(
 
     Transforms user input parameters into standardized internal form.
     Performs:
+
     1. **bins**
+
     - Converts `bins` to `{column_name: int}`.
     - If `bins` is None, computes optimal number of bins (Sturges formula).
     - If `labels` are provided, overrides `bins` by their length per column.
+
     2. **intervals**
+
     - If `intervals` is a string → treated as interval format
       (e.g., "pandas", "str").
     - If `intervals` is a list/dict → treated as user-provided labels per column.
+
     3. **interval_format** and **binning_method**
+
     - Normalized via aliases from `supported`.
 
     Returns

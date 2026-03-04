@@ -1,4 +1,4 @@
-"""
+r"""
 Rendering utilities for Explorica reports.
 
 This module provides HTML and PDF rendering functionality for Explorica
@@ -60,27 +60,36 @@ Notes
 
 Examples
 --------
-# Render a single block to HTML:
->>> from explorica.reports.renderers import render_html
+>>> # Render a single block to HTML:
+>>> from explorica.reports.core.block import BlockConfig, Block
+>>> from explorica.reports.core.report import Report
+>>> from explorica.reports.renderers import render_html, render_pdf
+>>> block_cfg = BlockConfig(
+...     title="Example Block",
+...     description="A minimal example of Block usage.",
+...     metrics=[{"name": "Mean", "value": 5.0}],
+... )
+>>> # Initialize Block
+>>> block = Block(block_cfg)
 >>> html = render_html(block)
->>> html[:50]
-'<h2>My Block Title</h2>'
+>>> html.split('\n')[42]
+'<h2>Example Block</h2>'
 
-# Render a report with multiple blocks to HTML:
->>> from explorica.reports.renderers import render_html
+>>> # Render a report with multiple blocks to HTML:
+>>> block1, block2 = Block(block_cfg), Block(block_cfg)
 >>> report = Report(
-...   [block1, block2], title="My Report", description="Report description")
+...     [block1, block2], title="My Report", description="Report description")
 >>> html_report = render_html(
-...   report, font=["Arial", "DejaVu Sans"], report_name="my_report")
->>> html_report[:50]
-'<div class=\'my_report\'><h1>My Report</h1>'
+...     report, font=["Arial", "DejaVu Sans"], report_name="my_report")
+>>> html_report.split('\n')[42]
+'<h1>My Report</h1>'
 
-# Render a block and save it as a PDF:
->>> from explorica.reports import render_pdf
->>> pdf_bytes = render_pdf(block, path="./reports", report_name="example")
+>>> # Render a block and save it as a PDF:
+>>> pdf_bytes = render_pdf( # doctest: +SKIP
+...   block, path="./reports", report_name="example")
 
-# Render a report to PDF:
->>> report_bytes = render_pdf(report, path="./reports")
+>>> # Render a report to PDF:
+>>> report_bytes = render_pdf(report, path="./reports") # doctest: +SKIP
 """
 
 from .html import render_block_html, render_html

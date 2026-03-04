@@ -20,11 +20,9 @@ Notes
 
 Examples
 --------
->>> from explorica._utils import helpers
 >>> import numpy as np
-
 >>> data = [1.0, np.nan, 3.0, np.nan]
->>> helpers.handle_nan(data, is_dataframe=False, nan_policy='drop')
+>>> handle_nan(data, is_dataframe=False, nan_policy='drop')
      0
 0  1.0
 2  3.0
@@ -38,6 +36,11 @@ import pandas as pd
 from .conversion import convert_dataframe, convert_from_alias
 from .readers import read_config
 from .validation import validate_array_not_contains_nan, validate_string_flag
+
+__all__ = [
+    "handle_nan",
+    "temp_log_level",
+]
 
 
 def handle_nan(
@@ -127,20 +130,20 @@ def temp_log_level(logger, level):
     level : int
         The logging level to set (e.g., logging.INFO, logging.DEBUG).
 
-    Usage
-    -----
-    >>> import logging
-    >>> logger = logging.getLogger("my_logger")
-    >>> with temp_log_level(logger, logging.INFO):
-    ...     logger.info("This will be shown if logger level was lower before")
-    ...
-    # After the context, logger level is restored to its original value.
-
     Notes
     -----
     This is a simple utility context manager intended for temporary
     adjustment of logger levels. After exiting the context, the
     original log level is always restored, even if an exception occurs.
+
+    Examples
+    --------
+    >>> import logging
+    >>> # Simple usage
+    >>> logger = logging.getLogger("my_logger")
+    >>> with temp_log_level(logger, logging.INFO):
+    ...     logger.info("This will be shown if logger level was lower before")
+    >>> # After the context, logger level is restored to its original value.
     """
     old_level = logger.level
     logger.setLevel(level)

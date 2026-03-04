@@ -31,7 +31,7 @@ Examples
 ...     get_data_quality_blocks,
 ...     get_data_quality_report
 ... )
->>> df = pd.DataFrame({'a': [1, 2, 3], 'b': [1, 1, 1]})
+>>> df = pd.DataFrame({'a': [1, 2, 3], 'b': [3, 2, 1]})
 >>> blocks = get_data_quality_blocks(df)
 >>> len(blocks) > 0
 True
@@ -40,12 +40,17 @@ True
 'Data quality'
 """
 
-from typing import Sequence, Mapping, Any, Literal
 import warnings
+from typing import Any, Literal, Mapping, Sequence
 
 from ..core.block import Block
 from ..core.report import Report
 from .blocks import get_cardinality_block, get_distributions_block, get_outliers_block
+
+__all__ = [
+    "get_data_quality_blocks",
+    "get_data_quality_report",
+]
 
 
 def get_data_quality_blocks(
@@ -71,6 +76,7 @@ def get_data_quality_blocks(
         Number of decimal digits to use when rounding numerical statistics.
     nan_policy : {'drop_with_split', 'raise', 'include'}, default='drop_with_split'
         Policy for handling missing values in the input data.
+
         - 'drop_with_split' :
           Missing values are handled independently for each feature.
           For every column, NaNs are dropped column-wise before computing
@@ -81,6 +87,7 @@ def get_data_quality_blocks(
           row-wise alignment.
         - 'raise' : an error is raised if missing values are present.
         - 'include' : missing values are preserved where supported.
+
         Note that not all child blocks support nan_policy='include'.
         In such cases, the policy is internally downgraded to 'drop' for
         those blocks.
@@ -99,18 +106,29 @@ def get_data_quality_blocks(
       ignored internally.
     - To free memory after rendering, it is recommended to explicitly close figures:
 
-      >>> report = get_eda_report(df)
-      >>> report.render()
-      >>> report.close_figures()
+      .. code-block:: python
 
-      or for individual blocks:
+          report = get_eda_report(df)
+          report.render()
+          report.close_figures()
 
-      >>> block = some_block
-      >>> block.render()
-      >>> block.close_figures()
+      Or for individual blocks:
+
+      .. code-block:: python
+
+          block.close_figures()
 
     Examples
     --------
+    >>> import pandas as pd
+    >>> from explorica.reports.presets import get_data_quality_blocks
+    >>> # Simple usage
+    >>> df = pd.DataFrame({
+    ...     "x1": [1, 2, 3, 4],
+    ...     "x2": [10, 20, 30, 40],
+    ...     "c1": ["a", "b", "a", "b"],
+    ...     "y": [0, 1, 0, 1],
+    ... })
     >>> blocks = get_data_quality_blocks(df)
     >>> len(blocks)
     3
@@ -171,6 +189,7 @@ def get_data_quality_report(
         Number of decimal digits to use when rounding numerical statistics.
     nan_policy : {'drop_with_split', 'raise', 'include'}, default='drop_with_split'
         Policy for handling missing values in the input data.
+
         - 'drop_with_split' :
           Missing values are handled independently for each feature.
           For every column, NaNs are dropped column-wise before computing
@@ -181,6 +200,7 @@ def get_data_quality_report(
           row-wise alignment.
         - 'raise' : an error is raised if missing values are present.
         - 'include' : missing values are preserved where supported.
+
         Note that not all child blocks support nan_policy='include'.
         In such cases, the policy is internally downgraded to 'drop' for
         those blocks.
@@ -189,6 +209,7 @@ def get_data_quality_report(
     -------
     Report
         An Explorica report containing:
+
         - outlier summary (IQR and Z-score counts, zero/near-zero variance features),
         - distribution characteristics
           (skewness, kurtosis, normality flag, boxplots, histograms),
@@ -207,23 +228,35 @@ def get_data_quality_report(
       ignored internally.
     - To free memory after rendering, it is recommended to explicitly close figures:
 
-      >>> report = get_eda_report(df)
-      >>> report.render()
-      >>> report.close_figures()
+      .. code-block:: python
 
-      or for individual blocks:
+          report = get_eda_report(df)
+          report.render()
+          report.close_figures()
 
-      >>> block = some_block
-      >>> block.render()
-      >>> block.close_figures()
+      Or for individual blocks:
+
+      .. code-block:: python
+
+          block.close_figures()
 
     Examples
     --------
+    >>> import pandas as pd
+    >>> from explorica.reports.presets import get_data_quality_report
+    >>> # Simple usage
+    >>> df = pd.DataFrame({
+    ...     "x1": [1, 2, 3, 4],
+    ...     "x2": [10, 20, 30, 40],
+    ...     "c1": ["a", "b", "a", "b"],
+    ...     "y": [0, 1, 0, 1],
+    ... })
     >>> report = get_data_quality_report(df)
     >>> report.title
     'Data quality'
     >>> len(report.blocks)
     3
+    >>> report.close_figures()
     """
     return Report(
         blocks=get_data_quality_blocks(data, round_digits, nan_policy=nan_policy),

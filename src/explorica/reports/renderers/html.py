@@ -1,4 +1,4 @@
-"""
+r"""
 HTML renderers for Explorica reports and blocks.
 
 This module provides utilities to render `Block` and `Report` objects into
@@ -13,11 +13,11 @@ backend-aware manner.
 
 Functions
 ---------
-render_html(data, path, font, **kwargs)
+render_html(data, path, font, \**kwargs)
     Render a `Block` or `Report` object into an HTML document. Acts as the
     main public entry point for HTML rendering and optionally saves the
     result to disk.
-render_block_html(block, add_css_style, font, **kwargs)
+render_block_html(block, add_css_style, font, \**kwargs)
     Render a single `Block` into an HTML fragment. This function is primarily
     used internally by `render_html`, but may also be useful when embedding
     individual blocks into external HTML layouts.
@@ -36,13 +36,11 @@ Notes
 
 Examples
 --------
-# Render a single block to HTML:
 >>> from explorica.reports import Block, BlockConfig
 >>> from explorica.reports.renderers.html import render_html
 >>> import matplotlib.pyplot as plt
->>>
+>>> # Render a single block to HTML:
 >>> fig, ax = plt.subplots()
->>> ax.plot([1, 2, 3], [4, 5, 6])
 >>>
 >>> block = Block(BlockConfig(
 ...     title="Example Block",
@@ -51,9 +49,8 @@ Examples
 >>>
 >>> html = render_html(block)
 
-# Render a report with multiple blocks:
 >>> from explorica.reports import Report
->>>
+>>> # Render a report with multiple blocks:
 >>> report = Report(
 ...     blocks=[block],
 ...     title="Example Report",
@@ -61,26 +58,33 @@ Examples
 ... )
 >>>
 >>> html = render_html(report)
+
+>>> # Close all mpl figures after usage
+>>> plt.close('all')
 """
 
-from contextlib import nullcontext
-from typing import Sequence
-from pathlib import Path
-from io import BytesIO
 import base64
 import logging
+from contextlib import nullcontext
 from copy import deepcopy
+from io import BytesIO
+from pathlib import Path
+from typing import Sequence
 
 import plotly.io as pio
 
 from explorica._utils import (
-    read_config,
-    enable_io_logs,
-    validate_path,
     convert_filepath,
+    enable_io_logs,
+    read_config,
     temp_log_level,
+    validate_path,
 )
 
+__all__ = [
+    "render_html",
+    "render_block_html",
+]
 logger = logging.getLogger(__name__)
 
 ERR_MSG_UNSUPPORTED_STRING_FLAG_F = read_config("messages")["errors"][
@@ -101,10 +105,10 @@ def render_html(
     or a `Report` containing multiple blocks.
 
     - When rendering a `Block`, the output HTML is fully self-contained and
-    includes a CSS `<style>` block scoped to that block only.
+      includes a CSS `<style>` block scoped to that block only.
     - When rendering a `Report`, all contained blocks are rendered sequentially,
-    wrapped in a single report-level container, and a single shared CSS
-    `<style>` block is applied to the entire report.
+      wrapped in a single report-level container, and a single shared CSS
+      `<style>` block is applied to the entire report.
 
     If a `Report` contains no blocks, a placeholder message is inserted into
     the report body.
@@ -134,7 +138,12 @@ def render_html(
 
         Font availability and final selection are handled entirely by the browser.
 
-    Other parameters
+    Returns
+    -------
+    str
+        HTML content as a string.
+
+    Other Parameters
     ----------------
     overwrite : bool, default=True
         Controls whether an existing file at the target path can be overwritten.
@@ -168,14 +177,10 @@ def render_html(
         rendering functions.
     report_name : str, default='report'
         Base name used:
+
         - as the CSS class for the report container, and
         - as the output file name when `path` is a directory.
         - as an identifier in log messages emitted during rendering.
-
-    Returns
-    -------
-    str
-        HTML content as a string.
 
     Raises
     ------
@@ -192,36 +197,37 @@ def render_html(
       `VisualizationResult` objects, so downstream rendering or processing
       functions can safely rely on a uniform interface.
     - CSS injection behavior depends on the input type:
+
         - For `Block`, CSS is injected and scoped to that block only.
         - For `Report`, a single CSS block is injected and shared by all blocks
           within the report container.
 
     Examples
     --------
-    >>> from explorica import Block, BlockConfig
-    >>> from explorica.reports import render_html
+    >>> from explorica.reports.core.block import Block, BlockConfig
+    >>> from explorica.reports.core.report import Report
+    >>> from explorica.reports.renderers import render_html
     >>> import matplotlib.pyplot as plt
-
-    # Minimal Block with Matplotlib visualization
+    >>> # Minimal Block with Matplotlib visualization
     >>> fig, ax = plt.subplots()
-    >>> ax.plot([1, 2, 3], [4, 5, 6])
     >>> block_config = BlockConfig(
     ...     title="Sample Block",
     ...     description="A minimal example block",
     ...     metrics=[{"name": "Metric 1", "value": 42}],
     ...     visualizations=[fig]
     ... )
-    # Single block
+    >>> # Single block
+    >>> block = Block(block_config)
     >>> html_output = render_html(block)
-    >>> print(html_output[:100])
+    >>> print(html_output[:100]) # doctest: +SKIP
 
-    # Report with multiple blocks
+    >>> # Report with multiple blocks
     >>> report = Report(blocks=[block], title="My Report", description="Example report")
     >>> html_output = render_html(report)
-    >>> print(html_output[:100])
+    >>> print(html_output[:100]) # doctest: +SKIP
 
-    # Optionally save to disk
-    >>> render_html(block, path="./reports", report_name="my_block")
+    >>> # Optionally save to disk
+    >>> render_html(block, path="./reports", report_name="my_block") # doctest: +SKIP
     """
     if not (hasattr(data, "typename") and data.typename in {"Block", "Report"}):
         raise TypeError(f"Expected Block or Report, got {type(data).__name__}")
@@ -352,7 +358,12 @@ def render_block_html(
         fonts are pre-installed on the system where the HTML will be viewed.
         The final CSS `font-family` property is constructed from this argument.
 
-    Other parameters
+    Returns
+    -------
+    str
+        HTML content as a string representing the rendered block.
+
+    Other Parameters
     ----------------
     max_width : int, optional, default=800
         Maximum width of the outer block in pixels. This value is applied
@@ -382,11 +393,6 @@ def render_block_html(
         by this factor **only if both width and height are explicitly defined**.
         Figures with undefined dimensions are included without scaling.
 
-    Returns
-    -------
-    str
-        HTML content as a string representing the rendered block.
-
     Notes
     -----
     - Plotly figures retain interactivity; scaling is applied only if width and
@@ -399,11 +405,11 @@ def render_block_html(
 
     Examples
     --------
-    >>> from explorica.core import Block, BlockConfig
+    >>> from explorica.reports.core import Block, BlockConfig
+    >>> from explorica.reports.renderers import render_block_html
     >>> import matplotlib.pyplot as plt
     >>> import plotly.graph_objects as go
     >>> fig, ax = plt.subplots()
-    >>> ax.plot([1, 2, 3], [4, 5, 6])
     >>> plotly_fig = go.Figure(data=go.Bar(y=[2, 3, 1]))
     >>> block_config = BlockConfig(
     ...     title="Example Block",
@@ -414,7 +420,8 @@ def render_block_html(
     >>> block = Block(block_config)
     >>> html_output = render_block_html(
     ...     block, add_css_style=True, font=["Arial", "sans-serif"])
-    >>> print(html_output[:200])  # Preview first 200 characters
+    >>> # Preview first 200 characters
+    >>> print(html_output[:200]) # doctest: +SKIP
     """
     params = {
         "max_width": 800,
@@ -512,10 +519,14 @@ def _render_block_html_build_tables(
 
     Examples
     --------
+    >>> from explorica.reports import Block, BlockConfig
+    >>> block = Block(BlockConfig(
+    ...     title="Example Block",
+    ... ))
     >>> html_fragments = _render_block_html_build_tables(
     ...     block, container_class="my-tables")
     >>> for frag in html_fragments:
-    ...     print(frag)  # or join fragments into a full HTML string
+    ...     print(frag) # or join fragments to a full HTML string
     """
     tables = block.block_config.tables
     if not tables:
@@ -555,7 +566,7 @@ def _render_block_html_build_visualizations(
     plotly_fig_scale: float,
     name_css: str = "visualizations",
 ) -> list[str]:
-    """
+    r"""
     Generate HTML snippets for all visualizations in a single Block.
 
     This internal helper function converts the visualizations contained
@@ -602,11 +613,10 @@ def _render_block_html_build_visualizations(
 
     Examples
     --------
-    >>> from explorica.core import Block, BlockConfig
+    >>> from explorica.reports.core import Block, BlockConfig
     >>> import matplotlib.pyplot as plt
     >>> import plotly.graph_objects as go
     >>> fig, ax = plt.subplots()
-    >>> ax.plot([1,2,3], [4,5,6])
     >>> block_config = BlockConfig(
     ...     title="Test Block",
     ...     description="Block with figures",
@@ -616,7 +626,9 @@ def _render_block_html_build_visualizations(
     >>> html_snippets = _render_block_html_build_visualizations(
     ...     block, mpl_fig_scale=80.0, plotly_fig_scale=1.0, name_css="visualizations")
     >>> full_html = "\n".join(html_snippets)
-    >>> print(full_html[:100])  # Preview first 100 characters of the full HTML snippet
+    >>> # Preview first 100 characters of the full HTML snippet
+    >>> print(full_html[:100]) # doctest: +SKIP
+    >>> plt.close("all")
     """
     visualization_parts = []
     for vis_result in block.block_config.visualizations:
@@ -798,8 +810,8 @@ def _save_html(
     Examples
     --------
     >>> html_content = "<html><body><h1>Report</h1></body></html>"
-    >>> _save_html(html_content, "output_dir")
-    >>> _save_html(html_content, "output_file.html")
+    >>> _save_html(html_content, "output_dir") # doctest: +SKIP
+    >>> _save_html(html_content, "output_file.html") # doctest: +SKIP
     """
     path = convert_filepath(path, f"{report_name}.html")
     need_overwrite_check = not overwrite

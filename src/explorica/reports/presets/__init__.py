@@ -83,33 +83,32 @@ Examples
 >>> from explorica.reports.presets import (
 ...     get_data_overview_blocks,
 ...     get_data_overview_report,
-...     get_ctm_block,
-...     get_data_shape_block,
-...     get_data_quality_overview_block
 ... )
+>>> # Simple usage
 >>> df = pd.DataFrame({'a': [1,2,3], 'b': ['x','y','z']})
 >>> blocks = get_data_overview_blocks(df)
 >>> report = get_data_overview_report(df)
 >>> [b.block_config.title for b in blocks]
-['Basic statistics for the dataset.', 'Dataset shape', 'Data quality quick summary']
+['Basic statistics for the dataset', 'Dataset shape', 'Data quality quick summary']
 >>> report.title
+'Data overview'
+>>> report.close_figures()
 """
 
 from .blocks import (
+    get_cardinality_block,
     get_ctm_block,
     get_data_quality_overview_block,
     get_data_shape_block,
-    get_outliers_block,
     get_distributions_block,
-    get_cardinality_block,
     get_linear_relations_block,
     get_nonlinear_relations_block,
+    get_outliers_block,
 )
-
 from .data_overview import get_data_overview_blocks, get_data_overview_report
 from .data_quality import get_data_quality_blocks, get_data_quality_report
-from .interactions import get_interactions_blocks, get_interactions_report
 from .eda import get_eda_blocks, get_eda_report
+from .interactions import get_interactions_blocks, get_interactions_report
 
 __all__ = [
     "get_ctm_block",

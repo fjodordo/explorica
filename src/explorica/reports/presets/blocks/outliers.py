@@ -23,7 +23,7 @@ Notes
 Examples
 --------
 >>> import pandas as pd
->>> from explorica.reports.presets.blocks.outliers import get_outliers_block
+>>> from explorica.reports.presets import get_outliers_block
 >>> df = pd.DataFrame({
 ...     'a': [1, 2, 3, 100],
 ...     'b': [10, 11, 12, 13]
@@ -33,18 +33,21 @@ Examples
 'Outliers'
 >>> [table.title for table in block.block_config.tables]
 ['Count of outliers by different detection methods']
+>>> block.close_figures()
 """
 
-from typing import Sequence, Mapping, Any, Literal
 import warnings
+from typing import Any, Literal, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 
-from ...._utils import handle_nan, convert_dataframe
+from ...._utils import convert_dataframe, handle_nan
+from ....data_quality import detect_iqr, detect_zscore
 from ....types import TableResult
 from ...core.block import Block, BlockConfig
-from ....data_quality import detect_iqr, detect_zscore
+
+__all__ = ["get_outliers_block"]
 
 
 def get_outliers_block(
@@ -80,6 +83,7 @@ def get_outliers_block(
         outlier detection.
     nan_policy : {'drop_with_split', 'raise'}, default='drop'
         Policy to handle missing values:
+
         - 'drop_with_split' :
           Missing values are handled independently for each feature.
           For every column, NaNs are dropped column-wise before computing
@@ -94,6 +98,7 @@ def get_outliers_block(
     -------
     Block
         An Explorica `Block` containing a single table:
+
         - "Count of outliers by different detection methods":
           a table indexed by feature name, where each column corresponds
           to an outlier detection method.
@@ -104,9 +109,9 @@ def get_outliers_block(
 
     Notes
     -----
-    The block is intentionally minimal and currently focuses on outlier
-    counts only. It is designed to be extensible, allowing additional
-    detection methods or related summaries to be added in the future.
+    - The block is intentionally minimal and currently focuses on outlier
+      counts only. It is designed to be extensible, allowing additional
+      detection methods or related summaries to be added in the future.
 
     Examples
     --------
@@ -115,8 +120,9 @@ def get_outliers_block(
     >>> df = pd.DataFrame({"x": [1, 2, 3, 100]})
     >>> block = get_outliers_block(df)
     >>> block.block_config.tables[0].table
-          IQR (1.5)  Z-Score (3σ)
-    x              1             1
+       IQR (1.5)  Z-Score (3.0σ)
+    x          1               0
+    >>> block.close_figures()
     """
 
     dict_of_series = handle_nan(

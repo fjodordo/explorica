@@ -1,4 +1,4 @@
-"""
+r"""
 Low-level utilities for Explorica's reports module
 
 Low-level utility functions for standardizing visualization objects
@@ -14,46 +14,50 @@ normalize_visualization(figure)
     `VisualizationResult` dataclass with extracted metadata.
 normalize_table(data)
     Normalize tabular data into a standardized TableResult object.
-normalize_assignment(
-    data, numerical_names = None, categorical_names = None,
-    target_name = None, **kwargs
-)
+
+**normalize_assignment(data, numerical_names = None, categorical_names = None,**
+**target_name = None, \**kwargs)**
+
     Normalize feature and target assignment into a `FeatureAssignment` object.
 
 Examples
 --------
 >>> from explorica.reports.utils import normalize_visualization
-
-# Usage with matplotlib figure
+>>> # Usage with matplotlib figure
 >>> import matplotlib.pyplot as plt
 >>> fig, ax = plt.subplots()
->>> ax.plot([1, 2, 3], [4, 5, 6])
 >>> result = normalize_visualization(fig)
 >>> result.engine
 'matplotlib'
 >>> result.width, result.height
-(6.0, 4.0)
+(np.float64(6.4), np.float64(4.8))
 
-# Usage with plotly figure
+>>> # Usage with plotly figure
 >>> import plotly.graph_objects as go
 >>> fig = go.Figure(data=go.Bar(y=[2, 3, 1]))
 >>> result = normalize_visualization(fig)
 >>> result.engine
 'plotly'
 >>> result.width, result.height
-(800, 600)  # default if not specified in layout
+(None, None)
 """
 
-from typing import Union, Sequence, Any, Mapping, Hashable
 from copy import deepcopy
+from typing import Any, Hashable, Mapping, Sequence, Union
 
-import pandas as pd
 import matplotlib.figure
+import pandas as pd
 import plotly.graph_objects
 
-from ..data_quality import get_categorical_features
 from .._utils import convert_dataframe
-from ..types import VisualizationResult, TableResult, FeatureAssignment
+from ..data_quality import get_categorical_features
+from ..types import FeatureAssignment, TableResult, VisualizationResult
+
+__all__ = [
+    "normalize_visualization",
+    "normalize_table",
+    "normalize_assignment",
+]
 
 
 def normalize_visualization(
@@ -74,6 +78,7 @@ def normalize_visualization(
     ----------
     figure : matplotlib.figure.Figure or plotly.graph_objects.Figure
         The input figure to normalize. Can be:
+
         - A Matplotlib figure
         - A Plotly figure
         - A pre-normalized `VisualizationResult` (in which
@@ -83,6 +88,7 @@ def normalize_visualization(
     -------
     VisualizationResult
         A dataclass containing:
+
         - figure : The original figure object.
         - engine : str, either "matplotlib" or "plotly".
         - axes : List of Matplotlib axes (for Matplotlib) or None (for Plotly).
@@ -107,24 +113,23 @@ def normalize_visualization(
     --------
     >>> from explorica.reports.utils import normalize_visualization
 
-    # Usage with matplotlib figure
+    >>> # Usage with matplotlib figure
     >>> import matplotlib.pyplot as plt
     >>> fig, ax = plt.subplots()
-    >>> ax.plot([1, 2, 3], [4, 5, 6])
     >>> result = normalize_visualization(fig)
     >>> result.engine
     'matplotlib'
     >>> result.width, result.height
-    (6.0, 4.0)
+    (np.float64(6.4), np.float64(4.8))
 
-    # Usage with plotly figure
+    >>> # Usage with plotly figure
     >>> import plotly.graph_objects as go
     >>> fig = go.Figure(data=go.Bar(y=[2, 3, 1]))
     >>> result = normalize_visualization(fig)
     >>> result.engine
     'plotly'
     >>> result.width, result.height
-    (800, 600)  # default if not specified in layout
+    (None, None)
     """
     if isinstance(figure, matplotlib.figure.Figure):
         vis_result = VisualizationResult(figure=figure)
@@ -169,8 +174,10 @@ def normalize_table(
     ----------
     data : Sequence, Mapping or TableResult
         Tabular data to normalize. Supported types include:
+
         - 1D or 2D sequences (e.g., list, tuple of lists)
         - Mapping[str, Sequence] (e.g., dict of column_name -> values)
+
         MultiIndex rows or columns are not supported.
 
     Returns
@@ -185,6 +192,9 @@ def normalize_table(
 
     Examples
     --------
+    >>> from explorica.types import TableResult
+    >>> from explorica.reports.utils import normalize_table
+    >>> # Simple usage
     >>> data = {"col1": [1, 2, 3], "col2": [4, 5, 6]}
     >>> table_result = normalize_table(data)
     >>> isinstance(table_result, TableResult)
@@ -235,6 +245,16 @@ def normalize_assignment(
         names are not specified, its type and cardinality are used to infer
         whether it should be treated as numerical, categorical, or both.
 
+    Returns
+    -------
+    FeatureAssignment
+        A populated `FeatureAssignment` instance containing:
+
+        - numerical_features
+        - categorical_features
+        - optional numerical_target
+        - optional categorical_target
+
     Other Parameters
     ----------------
     target_numerical_name : Hashable, optional
@@ -246,15 +266,6 @@ def normalize_assignment(
     categorical_threshold : int, default=30
         Maximum number of unique values for a column to be considered
         categorical during heuristic inference.
-
-    Returns
-    -------
-    FeatureAssignment
-        A populated `FeatureAssignment` instance containing:
-        - numerical_features
-        - categorical_features
-        - optional numerical_target
-        - optional categorical_target
 
     Notes
     -----
@@ -268,7 +279,6 @@ def normalize_assignment(
     - Absence of a target assignment indicates insufficient information, not
       an error.
 
-
     Examples
     --------
     >>> import pandas as pd
@@ -280,7 +290,7 @@ def normalize_assignment(
     ...     "y": [0, 1, 0, 1]
     ... })
 
-    # Feature-only assignment
+    >>> # Feature-only assignment
     >>> fa = normalize_assignment(
     ...     data=df,
     ...     numerical_names=["x1", "x2"],
@@ -295,7 +305,7 @@ def normalize_assignment(
     >>> fa.categorical_target is None
     True
 
-    # Target inference using heuristics
+    >>> # Target inference using heuristics
     >>> fa = normalize_assignment(
     ...     data=df,
     ...     numerical_names=["x1", "x2"],
@@ -406,7 +416,7 @@ def _split_features_by_assignment(
     ...     numerical_target='target'
     ... )
     >>> df_num, df_cat, target_num, target_cat = (
-    _split_features_by_assignment(df, assignment))
+    ... _split_features_by_assignment(df, assignment))
     >>> df_num.columns
     Index(['x1', 'x2'], dtype='object')
     >>> df_cat.columns

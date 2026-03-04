@@ -40,7 +40,7 @@ Notes
 Examples
 --------
 >>> import pandas as pd
->>> from explorica.reports.presets.blocks import (
+>>> from explorica.reports.presets import (
 ...     get_ctm_block,
 ...     get_data_shape_block,
 ...     get_data_quality_overview_block
@@ -50,15 +50,18 @@ Examples
 >>> block2 = get_data_shape_block(df)
 >>> block3 = get_data_quality_overview_block(df)
 >>> [b.block_config.title for b in [block1, block2, block3]]
-['Basic statistics for the dataset.', 'Dataset shape', 'Data quality quick summary']
+['Basic statistics for the dataset', 'Dataset shape', 'Data quality quick summary']
+>>> block1.close_figures()
+>>> block2.close_figures()
+>>> block3.close_figures()
 """
 
-from .ctm import get_ctm_block
-from .data_shape import get_data_shape_block
-from .data_quality_overview import get_data_quality_overview_block
-from .outliers import get_outliers_block
-from .distributions import get_distributions_block
 from .cardinality import get_cardinality_block
+from .ctm import get_ctm_block
+from .data_quality_overview import get_data_quality_overview_block
+from .data_shape import get_data_shape_block
+from .distributions import get_distributions_block
+from .outliers import get_outliers_block
 from .relations_linear import get_linear_relations_block
 from .relations_nonlinear import get_nonlinear_relations_block
 

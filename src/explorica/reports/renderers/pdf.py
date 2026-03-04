@@ -1,4 +1,4 @@
-"""
+r"""
 PDF renderers for Explorica reports.
 
 This module provides functionality for converting `Block` and `Report`
@@ -8,7 +8,7 @@ utilities for working with individual blocks.
 
 Functions
 ---------
-render_pdf(data, path, font, doc_template_kws, **kwargs)
+render_pdf(data, path, font, doc_template_kws, \**kwargs)
     Render a Block or Report into a PDF byte stream, optionally saving
     to disk and supporting customization of fonts and page layout.
 render_block_pdf(block, mpl_fig_scale, plotly_fig_scale, reportlab_styles, block_name)
@@ -39,13 +39,13 @@ Notes
 
 Examples
 --------
+>>> import matplotlib.pyplot as plt
 >>> from explorica.reports.renderers import render_pdf, render_block_pdf
 >>> from explorica.reports.core import Block, BlockConfig
->>> import matplotlib.pyplot as plt
-
-# Block-level rendering
+>>> from explorica.reports.core import Report
+>>>
+>>> # Block-level rendering
 >>> fig, ax = plt.subplots()
->>> ax.plot([1, 2, 3], [4, 5, 6])
 >>> block_cfg = BlockConfig(
 ...     title="Example Block",
 ...     description="A simple block with one plot",
@@ -57,49 +57,51 @@ Examples
 >>> isinstance(flowables, list)
 True
 
-# End-to-end PDF rendering
+>>> # End-to-end PDF rendering
 >>> pdf_bytes = render_pdf(block)
 >>> len(pdf_bytes) > 0
 True
 
-# Rendering a full report
+>>> # Rendering a full report
 >>> blocks = [block, block, block]
 >>> report = Report(blocks, title="Example Report", description="Report description")
->>> report_bytes = render_pdf(report, path="./reports")
+>>> report_bytes = render_pdf(report, path="./reports") # doctest: +SKIP
+>>> plt.close("all")
 """
 
-from pathlib import Path
+import logging
 from contextlib import nullcontext
 from io import BytesIO
-import logging
+from pathlib import Path
 
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, StyleSheet1, getSampleStyleSheet
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
     Flowable,
+    Image,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
     Table,
     TableStyle,
 )
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle, StyleSheet1
-from reportlab.platypus import Image
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib import colors
-
 
 from explorica._utils import (
-    temp_log_level,
-    read_config,
-    enable_io_logs,
-    validate_path,
     convert_filepath,
+    enable_io_logs,
+    read_config,
+    temp_log_level,
+    validate_path,
 )
 from explorica.visualizations._utils import get_empty_plot
-from ...types import VisualizationResult, TableResult
+
+from ...types import TableResult, VisualizationResult
 from ..utils import normalize_visualization
 
+__all__ = ["render_pdf", "render_block_pdf"]
 logger = logging.getLogger(__name__)
 
 ERR_MSG_UNSUPPORTED_STRING_FLAG_F = read_config("messages")["errors"][
@@ -151,26 +153,33 @@ def render_pdf(
         (sequence of blocks).
     path : str, optional
         Directory path or full file path where the PDF report should be saved.
+
         - If a directory is provided, the report is saved as
-        ``f"{report_name}.pdf"`` inside that directory.
+          ``f"{report_name}.pdf"`` inside that directory.
         - If a full file path ending with ``.pdf`` is provided, the report
-        is saved to that exact location.
-        If None, the rendered PDF is returned as bytes without saving.
+          is saved to that exact location.
+          If None, the rendered PDF is returned as bytes without saving.
     font : str, default="DejaVuSans"
         Font to use for rendering text in the PDF. Supports the following:
+
         - `"DejaVuSans"` (default)
         - `"DejaVuSerif"`
         - path to a custom TTF font file, which will be registered as
           `UserProvidedFont`.
     boldfont : str, default="DejaVuSans-Bold"
         Font to use for rendering bold text in the PDF. Supports the following:
+
         - `"DejaVuSans-Bold"` (default)
         - `"DejaVuSerif-Bold"`
         - path to a custom TTF font file, which will be registered as
           `UserProvidedBoldFont`.
 
+    Returns
+    -------
+    bytes
+        PDF content as bytes.
 
-    Other parameters
+    Other Parameters
     ----------------
     doc_template_kws : dict, optional
         Additional keyword arguments to pass to `SimpleDocTemplate` for
@@ -188,11 +197,6 @@ def render_pdf(
         to PDF. Accounts for figure size being specified in inches.
     plotly_fig_scale : float, default=1.0
         Scaling factor applied to Plotly figure placeholders in the PDF.
-
-    Returns
-    -------
-    bytes
-        PDF content as bytes.
 
     Raises
     ------
@@ -225,13 +229,12 @@ def render_pdf(
 
     Examples
     --------
-    >>> from explorica.reports.renderers import render_pdf
-    >>> from explorica.reports.core import Block, BlockConfig
     >>> import matplotlib.pyplot as plt
-
-    # Block render usage
+    >>> from explorica.reports.renderers import render_pdf
+    >>> from explorica.reports.core import Block, BlockConfig, Report
+    >>>
+    >>> # Block render usage
     >>> fig, ax = plt.subplots()
-    >>> ax.plot([1, 2, 3], [4, 5, 6])
     >>> block_cfg = BlockConfig(
     ...     title="Example Block",
     ...     description="A simple block with one plot",
@@ -244,18 +247,19 @@ def render_pdf(
     >>> pdf_bytes = render_pdf(block)
 
     >>> # Render and save to a directory
-    >>> render_pdf(block, path="./reports", report_name="my_block")
+    >>> render_pdf(block, path="./reports", report_name="my_block") # doctest: +SKIP
+    b'...'
 
-    # Report render usage
-    >>> blocks = [Block(cfg1), Block(cfg2), Block(cfg3)]
+    >>> # Report render usage
+    >>> blocks = [Block(block_cfg), Block(block_cfg), Block(block_cfg)]
     >>> report = Report(blocks, title = "Example Report",
     ...                 description = "Description to example report")
     >>> report_bytes = render_pdf(report)
 
     >>> # Save report to ./reports/report.pdf
-    >>> render_pdf(report, path = "./reports")
+    >>> render_pdf(report, path = "./reports") # doctest: +SKIP
 
-    # Usage with 'doc_template_kws'
+    >>> # Usage with 'doc_template_kws'
     >>> from reportlab.lib.pagesizes import A3
     >>> report_bytes = render_pdf(report,
     ...     doc_template_kws = {
@@ -265,6 +269,10 @@ def render_pdf(
     ...         "topMargin": 40,
     ...         "bottomMargin": 0,
     ...     }
+    ... )
+
+    >>> # Close all mpl figures after usage
+    >>> plt.close('all')
     """
     params = {
         "doc_template_kws": kwargs.get("doc_template_kws"),
@@ -552,7 +560,6 @@ def render_block_pdf(
     >>> import matplotlib.pyplot as plt
 
     >>> fig, ax = plt.subplots()
-    >>> ax.plot([1, 2, 3], [4, 5, 6])
     >>> block_cfg = BlockConfig(
     ...     title="Example Block",
     ...     description="A simple block with one plot",
@@ -655,13 +662,16 @@ def _render_block_pdf_build_tables(
     ...     render_extra={"show_index": True, "show_columns": True},
     ... )
     >>> story = _render_block_pdf_build_tables([tr])
-    >>> doc = SimpleDocTemplate("example.pdf")
-    >>> doc.build(story)
+    >>> doc = SimpleDocTemplate("example.pdf") # doctest: +SKIP
+    >>> doc.build(story)                       # doctest: +SKIP
     """
     story: list[Flowable] = []
 
     if reportlab_styles is None:
         reportlab_styles = getSampleStyleSheet()
+        reportlab_styles.add(
+            ParagraphStyle("Heading4-Bold", parent=reportlab_styles["Heading4"])
+        )
     log_counter = 0
 
     for tr in tables:
@@ -768,10 +778,15 @@ def _render_block_pdf_build_visualizations(
 
     Examples
     --------
+    >>> import matplotlib.pyplot as plt
+    >>> from explorica.types import VisualizationResult
+    >>> # Simple usage
+    >>> fig, ax = plt.subplots()
     >>> vis_results = [VisualizationResult(
     ...     engine="matplotlib", figure=fig, width=6, height=4)]
     >>> flowables = _render_block_pdf_build_visualizations(
     ...     vis_results, 100, 1.0, block_name="TestBlock")
+    >>> plt.close('all')
     """
     story = []
     log_counter = 0
@@ -865,8 +880,10 @@ def _save_pdf(
     --------
     >>> from io import BytesIO
     >>> pdf_bytes = b"%PDF-1.4\\n%..."  # Minimal PDF bytes example
-    >>> _save_pdf(pdf_bytes, "output_dir")  # saves as 'output_dir/report.pdf'
-    >>> _save_pdf(pdf_bytes, "output_file.pdf")  # saves as given path
+    >>> # saves as 'output_dir/report.pdf'
+    >>> _save_pdf(pdf_bytes, "output_dir")      # doctest: +SKIP
+    >>> # saves as given path
+    >>> _save_pdf(pdf_bytes, "output_file.pdf") # doctest: +SKIP
     """
     path = convert_filepath(path, f"{report_name}.pdf")
     need_overwrite_check = not overwrite

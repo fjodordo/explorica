@@ -17,22 +17,26 @@ Notes
 Examples
 --------
 >>> import pandas as pd
->>> from explorica.reports.presets.blocks.ctm import get_ctm_block
+>>> from explorica.reports.presets import get_ctm_block
 >>> df = pd.DataFrame({'a': [1,2,3], 'b': ['x','y','z']})
 >>> block = get_ctm_block(df)
 >>> block.block_config.title
-'Basic statistics for the dataset.'
+'Basic statistics for the dataset'
 >>> [table.title for table in block.block_config.tables]
-['Central tendency measures', 'Includes categorical columns', 'Dispersion measures']
+['Central tendency measures', None, 'Dispersion measures']
+>>> block.close_figures()
 """
 
-from typing import Sequence, Mapping, Any, Literal
+from typing import Any, Literal, Mapping, Sequence
+
 import numpy as np
 import pandas as pd
 
 from ...._utils import convert_dataframe, handle_nan
 from ....types import TableResult
 from ...core.block import Block, BlockConfig
+
+__all__ = ["get_ctm_block"]
 
 
 def get_ctm_block(
@@ -41,8 +45,10 @@ def get_ctm_block(
     round_digits: int = 4,
 ) -> Block:
     """
-    Generate a `Block` containing central tendency and dispersion statistics
-    for a dataset.
+    Generate a `Block` containing central tendency statistics for a dataset.
+
+    This block provides central tendency measures and dispersion measures of a dataset,
+    including mean, mode, median, std, min, max and range.
 
     Parameters
     ----------
@@ -51,6 +57,7 @@ def get_ctm_block(
         to sequences. Will be converted to a pandas DataFrame internally.
     nan_policy : {'drop_with_split', 'raise'}, default='drop'
         Policy to handle missing values:
+
         - 'drop_with_split' :
           Missing values are handled independently for each feature.
           For every column, NaNs are dropped column-wise before computing
@@ -67,6 +74,7 @@ def get_ctm_block(
     -------
     Block
         A `Block` object containing the following tables:
+
         - "Central tendency measures": mean and median for numerical columns.
         - "Mode": mode for all columns, including categorical.
         - "Dispersion measures": standard deviation, minimum, maximum,
@@ -78,10 +86,13 @@ def get_ctm_block(
 
     Examples
     --------
-    >>> from explorica.reports.presets.blocks import get_ctm_block
+    >>> from explorica.reports.presets import get_ctm_block
     >>> data = {'a': [1, 2, 3, 4], 'b': [5, 5, 6, 6]}
     >>> block = get_ctm_block(data)
-    >>> block.tables  # contains central tendency and dispersion tables
+    >>> # Contains central tendency and dispersion tables
+    >>> [table.title for table in block.block_config.tables]
+    ['Central tendency measures', None, 'Dispersion measures']
+    >>> block.close_figures()
     """
     df = convert_dataframe(data)
     feature_dict: dict[pd.Series] = handle_nan(

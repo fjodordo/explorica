@@ -38,8 +38,8 @@ describe_distributions(data, threshold_skewness=0.25, threshold_kurtosis=0.25,
 """
 
 from .detection import detect_iqr, detect_zscore
-from .handling import replace_outliers, remove_outliers
-from .stats import describe_distributions, get_skewness, get_kurtosis
+from .handling import remove_outliers, replace_outliers
+from .stats import describe_distributions, get_kurtosis, get_skewness
 
 __all__ = [
     "replace_outliers",

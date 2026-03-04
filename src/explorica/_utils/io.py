@@ -32,25 +32,28 @@ Notes
 
 Examples
 --------
->>> from explorica._utils.io import convert_filepath, validate_path
-
-# Convert a path to always include a filename
+>>> # Convert a path to always include a filename
 >>> file_path = convert_filepath("reports", "report.pdf")
 >>> print(file_path)
-PosixPath('reports/report.pdf')
+reports/report.pdf
 
-# Validate path before saving
->>> validate_path(file_path, overwrite_check=True)
+>>> # Validate path before saving
+>>> validate_path(file_path, overwrite_check=True) # doctest: +SKIP
 """
 
+import functools
+import logging
 import os
 import re
-import logging
 import warnings
 from pathlib import Path
 from typing import Callable
-import functools
 
+__all__ = [
+    "convert_filepath",
+    "validate_path",
+    "enable_io_logs",
+]
 logger = logging.getLogger(__name__)
 
 
@@ -159,9 +162,12 @@ def validate_path(
 
     Examples
     --------
-    >>> validate_path("output/report.pdf")  # Raises warning if 'output/' does not exist
-    >>> validate_path("output/report.pdf", overwrite_check=False)  # Allows overwriting
-    >>> validate_path("output/")  # Validates a directory path
+    >>> # Raises warning if 'output/' does not exist
+    >>> validate_path("output/report.pdf")                        # doctest: +SKIP
+    >>> # Allows overwriting
+    >>> validate_path("output/report.pdf", overwrite_check=False) # doctest: +SKIP
+    >>> # Validates a directory path
+    >>> validate_path("output/")                                  # doctest: +SKIP
     """
     path_pl = Path(path)
     directory = path_pl.parent if path_pl.suffix else path_pl
@@ -170,7 +176,7 @@ def validate_path(
         raise FileExistsError(f"Path '{path}' already exists.")
     if dir_exists_check and not directory.exists():
         wmsg = (
-            f"Directory '{directory}' does not exist."
+            f"Directory '{directory}' does not exist. "
             "It will be created automatically."
         )
         warnings.warn(wmsg)
@@ -233,7 +239,7 @@ def enable_io_logs(io_logger: logging.Logger = None) -> Callable:
 
     Examples
     --------
-    # Using outer logger
+    >>> # Using outer logger
     >>> import logging
     >>> logger = logging.getLogger("explorica.reports.renderers")
     >>> @enable_io_logs(logger)
@@ -241,7 +247,7 @@ def enable_io_logs(io_logger: logging.Logger = None) -> Callable:
     ...     with open(path, "wb") as f:
     ...         f.write(pdf_bytes)
 
-    # Using default logger from explorica._utils.io
+    >>> # Using default logger from explorica._utils.io
     >>> @enable_io_logs()
     ... def _save_pdf_default(pdf_bytes, path):
     ...     with open(path, "wb") as f:

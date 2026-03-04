@@ -53,94 +53,97 @@ get_entropy(data, method, nan_policy)
 
 Examples
 --------
-Obtaining distribution metrics
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Obtaining distribution metrics
+>>> import numpy as np
 >>> import pandas as pd
->>> import explorica.data_quality as data_quality
 >>> import seaborn as sns
-...
+>>> from explorica.data_quality import (
+...     describe_distributions,
+...     get_constant_features,
+...     get_summary
+... )
+>>>
 >>> df = sns.load_dataset("titanic")
->>> print(data_quality.describe_distributions(df.select_dtypes("number").dropna(),
-                                    threshold_kurtosis=1.0,
-                                    threshold_skewness=1.0))
+>>> result = describe_distributions(df.select_dtypes("number").dropna(),
+...     threshold_kurtosis=1.0, threshold_skewness=1.0)
+>>> np.round(result, 4)
+          skewness  kurtosis  is_normal                        desc
+survived    0.3821   -1.8540          0                 low-pitched
+pclass     -0.4676   -1.4180          0                 low-pitched
+age         0.3883    0.1686          1                      normal
+sibsp       2.5143    6.9873          0  right-skewed, high-pitched
+parch       2.6134    8.7829          0  right-skewed, high-pitched
+fare        4.6438   30.6997          0  right-skewed, high-pitched
 
-          skewness   kurtosis  is_normal                        desc
-survived  0.382140  -1.853969          0                 low-pitched
-pclass   -0.467558  -1.418028          0                 low-pitched
-age       0.388290   0.168637          1                      normal
-sibsp     2.514280   6.987321          0  right-skewed, high-pitched
-parch     2.613409   8.782859          0  right-skewed, high-pitched
-fare      4.643848  30.699725          0  right-skewed, high-pitched
-
-Finding constants, quasi-constants
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-print(data_quality.get_constant_features(df, method="top_value", threshold=0.85))
-
+>>> # Finding constants, quasi-constants
+>>> result = get_constant_features(df, method="top_value", threshold=0.85)
+>>> np.round(result, 4)
              top_value_ratio  is_const
-survived            0.675824       0.0
-pclass              0.862637       1.0
-sex                 0.516484       0.0
-age                 0.060440       0.0
-sibsp               0.598901       0.0
-parch               0.664835       0.0
-fare                0.038462       0.0
-embarked            0.631868       0.0
-class               0.862637       1.0
-who                 0.478022       0.0
-adult_male          0.521978       0.0
-deck                0.280220       0.0
-embark_town         0.631868       0.0
-alive               0.675824       0.0
-alone               0.571429       0.0
+survived              0.6758       0.0
+pclass                0.8626       1.0
+sex                   0.5165       0.0
+age                   0.0604       0.0
+sibsp                 0.5989       0.0
+parch                 0.6648       0.0
+fare                  0.0385       0.0
+embarked              0.6319       0.0
+class                 0.8626       1.0
+who                   0.4780       0.0
+adult_male            0.5220       0.0
+deck                  0.2802       0.0
+embark_town           0.6319       0.0
+alive                 0.6758       0.0
+alone                 0.5714       0.0
 
-Obtaining a comprehensive data quality report
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
->>> print(data_quality.get_summary(df.dropna()))
-                     nans                  duplicates
-            count_of_nans pct_of_nans count_of_unique pct_of_unique
-survived              0.0         0.0             2.0        0.0110
-pclass                0.0         0.0             3.0        0.0165
-sex                   0.0         0.0             2.0        0.0110
-age                   0.0         0.0            63.0        0.3462
-sibsp                 0.0         0.0             4.0        0.0220
-parch                 0.0         0.0             4.0        0.0220
-fare                  0.0         0.0            93.0        0.5110
-embarked              0.0         0.0             3.0        0.0165
-class                 0.0         0.0             3.0        0.0165
-who                   0.0         0.0             3.0        0.0165
-adult_male            0.0         0.0             2.0        0.0110
-deck                  0.0         0.0             7.0        0.0385
-embark_town           0.0         0.0             3.0        0.0165
-alive                 0.0         0.0             2.0        0.0110
-alone                 0.0         0.0             2.0        0.0110
-...
+>>> # Obtaining a comprehensive data quality report
+>>> result = get_summary(df.dropna())
+>>> np.round(result.loc[:, ["nans", "duplicates"]], 4)
+                     nans              ...    duplicates
+            count_of_nans pct_of_nans  ... pct_of_unique quasi_constant_pct
+survived                0         0.0  ...        0.0110             0.6758
+pclass                  0         0.0  ...        0.0165             0.8626
+sex                     0         0.0  ...        0.0110             0.5165
+age                     0         0.0  ...        0.3462             0.0604
+sibsp                   0         0.0  ...        0.0220             0.5989
+parch                   0         0.0  ...        0.0220             0.6648
+fare                    0         0.0  ...        0.5110             0.0385
+embarked                0         0.0  ...        0.0165             0.6319
+class                   0         0.0  ...        0.0165             0.8626
+who                     0         0.0  ...        0.0165             0.4780
+adult_male              0         0.0  ...        0.0110             0.5220
+deck                    0         0.0  ...        0.0385             0.2802
+embark_town             0         0.0  ...        0.0165             0.6319
+alive                   0         0.0  ...        0.0110             0.6758
+alone                   0         0.0  ...        0.0110             0.5714
+<BLANKLINE>
+[15 rows x 5 columns]
 """
 
 from .data_preprocessing import (
-    get_missing,
     drop_missing,
-    get_constant_features,
     get_categorical_features,
+    get_constant_features,
+    get_missing,
     set_categorical,
 )
-from .summary import get_summary
 from .feature_engineering import discretize_continuous, freq_encode, ordinal_encode
 from .information_metrics import get_entropy
 from .outliers import (
-    replace_outliers,
-    remove_outliers,
-    detect_zscore,
-    detect_iqr,
-    get_skewness,
-    get_kurtosis,
     describe_distributions,
+    detect_iqr,
+    detect_zscore,
+    get_kurtosis,
+    get_skewness,
+    remove_outliers,
+    replace_outliers,
 )
+from .summary import get_summary
 
 __all__ = [
-    "get_missing",
-    "drop_missing",
     "get_constant_features",
     "get_categorical_features",
+    "get_missing",
+    "drop_missing",
     "set_categorical",
     "discretize_continuous",
     "freq_encode",

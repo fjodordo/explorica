@@ -34,18 +34,19 @@ Notes
 
 Examples
 --------
-
-# Using `VisualizationResult`
->>> import explorica.visualizations as viz
->>> res = viz.scatterplot(
-...     x=[1, 2, 3], y=[3, 2, 1], title="Example"
+>>> # Using `VisualizationResult`
+>>> from explorica import visualizations
+>>> res = visualizations.scatterplot(
+...     [1, 2, 3], [3, 2, 1], title="Example"
 ... )
 >>> res.figure          # access underlying Matplotlib or Plotly figure
+<Figure ...>
 >>> res.axes            # Matplotlib only
+<Axes: ...>
 >>> res.title
 'Example'
 
-# Using `NaturalNumber`
+>>> # Using `NaturalNumber`
 >>> from explorica.types import NaturalNumber
 >>> isinstance(5, NaturalNumber)
 True
@@ -57,13 +58,20 @@ False
 False
 """
 
-from numbers import Number
 from dataclasses import dataclass, field
+from numbers import Number
 from typing import Optional, Union
 
 import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+
+__all__ = [
+    "VisualizationResult",
+    "TableResult",
+    "NaturalNumber",
+    "FeatureAssignment",
+]
 
 
 class _NaturalNumberMeta(type):
@@ -113,7 +121,6 @@ class NaturalNumber(metaclass=_NaturalNumberMeta):
     Examples
     --------
     >>> from explorica.types import NaturalNumber
-
     >>> isinstance(1, NaturalNumber)
     True
     >>> isinstance(1.0, NaturalNumber)
@@ -132,8 +139,7 @@ class NaturalNumber(metaclass=_NaturalNumberMeta):
 @dataclass
 class VisualizationResult:
     """
-    Standardized container for the output of all Explorica visualization
-    functions.
+    Standardized container for the output of all Explorica visualization functions.
 
     This dataclass provides a unified structure for accessing the generated
     figure, axes, metadata, and rendering backend. All visualization functions
@@ -148,6 +154,7 @@ class VisualizationResult:
     ----------
     figure : matplotlib.figure.Figure or plotly.graph_objects.Figure
         The figure object produced by the visualization function.
+
         - For Matplotlib, this is an instance of ``matplotlib.figure.Figure``.
         - For Plotly, this is an instance of ``plotly.graph_objects.Figure``.
     axes : matplotlib.axes.Axes or None, default=None
@@ -158,10 +165,12 @@ class VisualizationResult:
         Useful for backend-specific post-processing.
     width : int or None
         Width of the figure:
+
         - Measured in inches for Matplotlib.
         - Measured in pixels for Plotly.
     height : int or None
         Height of the figure:
+
         - Measured in inches for Matplotlib.
         - Measured in pixels for Plotly.
     title : str or None
@@ -171,21 +180,12 @@ class VisualizationResult:
         Optional metadata dictionary containing additional details about
         the visualization.
         Typical fields may include:
+
         - `'palette'`: the color palette used,
         - `'trendline'`: trendline model or parameters (for scatterplots),
         - `'layout'`: Plotly layout overrides,
         - `'transform'`: preprocessing steps applied to input data,
         - or any backend-specific information used for reproducibility.
-
-    Notes
-    -----
-    The purpose of this class is to standardize the interface between
-    visualization generators and downstream user code. For example:
-
-    - Saving a plot to disk using ``result.figure`` works uniformly across engines.
-    - Accessing axes-based methods (e.g., ``set_xlim``) is only valid for Matplotlib.
-    - Tools that inspect plot metadata (e.g., model diagnostics, layout exporters)
-      can rely on ``extra_info`` instead of backend-specific properties.
 
     Notes
     -----
@@ -217,24 +217,27 @@ class VisualizationResult:
 
     Examples
     --------
-    Basic usage with a Matplotlib-based visualization:
-    >>> import explorica.visualizations as vis
-    >>> result = vis.scatterplot([1, 2, 3], [2, 4, 6], title="Demo Plot")
+    >>> # Basic usage with a Matplotlib-based visualization:
+    >>> from explorica import visualizations
+    >>> result = visualizations.scatterplot(
+    ...     [1, 2, 3], [2, 4, 6], title="Demo Plot")
     >>> result.figure        # Matplotlib Figure
+    <Figure ...>
     >>> result.axes          # Matplotlib Axes
+    <Axes: ...>
     >>> result.engine
     'matplotlib'
     >>> result.title
     'Demo Plot'
 
-    Basic usage with a Plotly-based visualization:
-    >>> from explorica.visualizations import mapbox
-    >>> result = mapbox(
+    >>> # Basic usage with a Plotly-based visualization:
+    >>> result = visualizations.mapbox(
     ...     lat=[34.05, 40.71],
     ...     lon=[-118.24, -74.00],
     ...     title="Cities Map"
     ... )
     >>> result.figure        # Plotly Figure
+    Figure(...)
     >>> result.axes is None
     True
     >>> result.engine
@@ -242,9 +245,8 @@ class VisualizationResult:
     >>> result.title
     'Cities Map'
 
-    Accessing extended metadata:
+    >>> # Accessing extended metadata:
     >>> result.extra_info
-    {'palette': 'viridis'}
     """
 
     figure: Union[Figure]
@@ -281,6 +283,7 @@ class TableResult:
     render_extra : dict, optional
         Optional dictionary controlling rendering behavior for this table.
         Keys may include:
+
         - ``show_index`` : bool, default True - whether to display the row index
           in rendered output (HTML or PDF).
         - ``show_columns`` : bool, default True - whether to display column names.
@@ -296,14 +299,13 @@ class TableResult:
     Examples
     --------
     >>> import pandas as pd
-    >>> from explorica.reports import TableResult
-
+    >>> from explorica.types import TableResult
+    >>> # Simple usage
     >>> df = pd.DataFrame({
     ...     "feature": ["age", "income"],
     ...     "mean": [35.2, 52000],
     ...     "std": [8.1, 12000],
     ... })
-
     >>> table = TableResult(
     ...     table=df,
     ...     title="Feature Summary Statistics",
@@ -341,6 +343,24 @@ class FeatureAssignment:
     Notes
     -----
     - Either a numerical target or a categorical target can be specified, not both.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> from explorica.types import FeatureAssignment
+    >>>
+    >>> # Simple usage
+    >>> df = pd.DataFrame({
+    ...     "cat_feat": ["A", "A", "B", "B", "A"],
+    ...     "num_feat1": [35.2, 52000, 34, 243, 3.2],
+    ...     "num_feat2": [1.2, 3.2, 3.5, 0.2, 99],
+    ...     "y": [102, 230, 23, 20, 302],
+    ... })
+    >>> table = FeatureAssignment(
+    ...     numerical_features=["num_feat1", "num_feat2"],
+    ...     categorical_features=["cat_feat"],
+    ...     numerical_target="y",
+    ... )
     """
 
     numerical_features: list[str] = field(default_factory=list)

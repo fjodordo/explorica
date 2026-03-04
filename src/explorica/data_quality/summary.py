@@ -1,4 +1,4 @@
-"""
+r"""
 Data-quality summary utilities.
 
 This module provides the `get_summary` function, which computes
@@ -9,7 +9,7 @@ with MultiIndex columns or as a JSON-serializable nested dictionary.
 
 Functions
 ---------
-get_summary(data, return_as='dataframe', auto_round=True, round_digits=4, **kwargs)
+get_summary(data, return_as='dataframe', auto_round=True, round_digits=4, \**kwargs)
     Compute a data-quality summary for a dataset.
     Supports saving the summary to CSV, Excel, or JSON, and can return
     either a pandas DataFrame or a JSON-friendly nested dictionary.
@@ -23,65 +23,64 @@ Notes
 
 Examples
 --------
->>> import explorica.data_quality as dq
-
-# Minimal usage (DataFrame output)
+>>> # Minimal usage (DataFrame output)
 >>> import pandas as pd
-
+>>> from explorica.data_quality import get_summary
 >>> df = pd.DataFrame({
 ...     "x1": [1, 2, 3],
 ...     "x2": [2, 4, 6]
 ... })
->>> summary = dq.get_summary(df, return_as="dataframe")
->>> summary
-section          nans               duplicates  ...
-metric    count_of_nans pct_of_nans count_of_unique ...
-x1                0.0         0.0              3 ...
-x2                0.0         0.0              3 ...
-...
-
-# Saving summary as JSON (nested dict, JSON-friendly)
->>> summary_dict = dq.get_summary(
+>>> summary = get_summary(df, return_as="dataframe")
+>>> summary  # doctest: +SKIP
+            nans              ...    multicollinearity
+   count_of_nans pct_of_nans  ... is_multicollinearity  VIF
+x1             0         0.0  ...                  1.0  inf
+x2             0         0.0  ...                  1.0  inf
+<BLANKLINE>
+[2 rows x 16 columns]
+>>> # Saving summary as JSON (nested dict, JSON-friendly)
+>>> summary_dict = get_summary( # doctest: +SKIP
 ...     df,
 ...     return_as="dict",
 ...     directory="summary.json"
 ... )
 >>> # The JSON file summary.json is saved in the current directory.
->>> summary_dict
-{
-    "nans": {"count_of_nans": {"x1": 0, "x2": 0},
-             "pct_of_nans": {"x1": 0.0, "x2": 0.0}},
-    "duplicates": {"count_of_unique": {...}, ...},
-    ...
-}
+>>> summary_dict["duplicates"] # doctest: +SKIP
+{'count_of_unique': {'x1': 3.0, 'x2': 3.0},
+'pct_of_unique': {'x1': 1.0, 'x2': 1.0},
+'quasi_constant_pct': {'x1': 0.3333, 'x2': 0.3333}
 
-# Verbose logging (optional)
+>>> # Verbose logging (optional)
 >>> summary_verbose = get_summary(df, verbose=True)
-# verbose=True will log computation steps but does not affect returned object
->>> summary_verbose
-...
+>>> # verbose=True will log computation steps but does not affect returned object
+>>> summary_verbose[["nans", "duplicates"]] # doctest: +SKIP
+            nans                  duplicates
+   count_of_nans pct_of_nans count_of_unique pct_of_unique quasi_constant_pct
+x1             0         0.0               3           1.0             0.3333
+x2             0         0.0               3           1.0             0.3333
 """
 
 import json
-from typing import Sequence
-from pathlib import Path
-from contextlib import nullcontext
 import logging
+from contextlib import nullcontext
+from pathlib import Path
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
 
 from .._utils import (
     convert_dataframe,
-    read_config,
-    validate_string_flag,
     handle_nan,
+    read_config,
     temp_log_level,
+    validate_string_flag,
 )
 from ..interactions import detect_multicollinearity
-
-from .data_preprocessing import get_missing, get_constant_features
+from .data_preprocessing import get_constant_features, get_missing
 from .outliers import describe_distributions
+
+__all__ = ["get_summary"]
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +92,7 @@ def get_summary(
     round_digits=4,
     **kwargs,
 ) -> pd.DataFrame | dict:
-    """
+    r"""
     Compute a data-quality summary for a dataset.
 
     The summary includes metrics for missing values, duplicates, distribution,
@@ -102,8 +101,7 @@ def get_summary(
 
     Parameters
     ----------
-    data : Sequence | Sequence[Sequence] |
-               Mapping[str, Sequence]
+    data : Sequence | Sequence[Sequence] | Mapping[str, Sequence]
         Input data. Can be 1D,
         2D (sequence of sequences), or a mapping of column names to sequences.
     return_as : {'dataframe', 'dict'}, optional, default='dataframe'
@@ -116,69 +114,94 @@ def get_summary(
     round_digits : int, optional, default=4
         Number of decimal digits used when auto_round=True.
 
-    Other parameters
-    ----------------
-    nan_policy : {'drop', 'raise', 'include'}, default='drop'
-        How to handle missing values during computations.
-        - 'drop' – missing values are removed before computing metrics.
-        - 'raise' – missing values cause an exception.
-        - 'include' – missing values are kept only for categorical metrics
-        (e.g. quasi_constant_pct, mode), where NaN can be treated as a category.
-        For numerical metrics, NaN values are still dropped,
-        as their interpretation remains undefined.
-    threshold_vif : float, default=10
-        VIF threshold for multicollinearity.
-    directory : str, optional
-        Path to save the summary. Supports:
-        - '.csv': saved as a CSV file with MultiIndex columns (section, metric).
-        Can be reopened via `pd.read_csv(directory, header=[0, 1], index_col=0)`.
-        - '.xlsx': saved as an Excel file with MultiIndex columns,
-        preserving grouping visually.
-        - '.json': saved as a JSON file using nested dict format
-        `{section: {metric: {feature: value}}}`, fully JSON-serializable.
-        If a file already exists, can raise FileExistsError (unless overwrite=True),
-        or PermissionError if access is denied.
-    overwrite: bool, default=True
-        Whether to overwrite an existing file when saving the summary.
-        - True (default): existing files will be overwritten without error.
-        - False: if the target file already exists, a FileExistsError is raised.
-    verbose : bool, optional
-        Enable info-level logging.
-
     Returns
     -------
     pd.DataFrame or dict
-        if `return_as` is 'dataframe' or 'df':
+        If `return_as` is 'dataframe' or 'df':
+
             pd.DataFrame with MultiIndex columns (section, metric),
             index = feature names.
-        if `return_as` is 'dict' or 'mapping':
+
+        If `return_as` is 'dict' or 'mapping':
+
             Nested dict of the form {section: {metric: {feature: value}}},
             JSON-friendly with NaNs converted to None and non-numeric values
             serialized as strings.
+
         Sections and metrics included:
+
         - nans
+
             - count_of_nans: number of missing values per feature
             - pct_of_nans: fraction of missing values per feature (0..1)
+
         - duplicates
+
             - count_of_unique: number of unique values per feature
             - pct_of_unique: fraction of unique values per feature (0..1)
             - quasi_constant_pct: top value ratio (quasi-constant score)
+
         - distribution
+
             - is_normal: 0/1 flag, distribution approximately normal
-              if |skew| ≤ 0.25 and |excess kurtosis| ≤ 0.25
+              if :math:`|\gamma_1| \leq 0.25` and :math:`|\gamma_2| \leq 0.25`
             - desc: qualitative description of distribution shape
               ("normal", "left-skewed", "right-skewed", etc.)
             - skewness: sample skewness
             - kurtosis: sample excess kurtosis
+
         - stats
+
             - mean: mean value per feature
             - std: standard deviation per feature
             - median: median value per feature
             - mode: most frequent value per feature (original type)
             - count_of_modes: number of mode values found per feature
+
         - multicollinearity
+
             - VIF: Variance Inflation Factor (numeric features only)
             - is_multicollinearity: 0/1 flag if VIF ≥ threshold_vif (default=10)
+
+    Other Parameters
+    ----------------
+    nan_policy : {'drop', 'raise', 'include'}, default='drop'
+        How to handle missing values during computations.
+
+        - 'drop' - missing values are removed before computing metrics.
+        - 'raise' - missing values cause an exception.
+        - 'include' - missing values are kept only for categorical metrics
+          (e.g. quasi_constant_pct, mode), where NaN can be treated as a category.
+          For numerical metrics, NaN values are still dropped,
+          as their interpretation remains undefined.
+
+    threshold_vif : float, default=10
+        VIF threshold for multicollinearity.
+    directory : str, optional
+        Path to save the summary. Supports:
+
+        - '.csv': saved as a CSV file with MultiIndex columns (section, metric).
+          Can be reopened via `pd.read_csv(directory, header=[0, 1], index_col=0)`.
+        - '.xlsx': saved as an Excel file with MultiIndex columns,
+          preserving grouping visually.
+        - '.json': saved as a JSON file using nested dict format
+          `{section: {metric: {feature: value}}}`, fully JSON-serializable.
+
+        If a file already exists, can raise FileExistsError (unless overwrite=True),
+        or PermissionError if access is denied.
+    overwrite : bool, default=True
+        Whether to overwrite an existing file when saving the summary.
+
+        - True (default): existing files will be overwritten without error.
+        - False: if the target file already exists, a FileExistsError is raised.
+    verbose : bool, optional
+        Enable info-level logging.
+
+    Raises
+    ------
+    ValueError
+        If invalid `return_as` values.
+        If `data` contains NaNs and nan_policy is 'raise'
 
     Notes
     -----
@@ -196,51 +219,44 @@ def get_summary(
       MultiIndex use: `cols = df.columns.str.split(':', expand=True)` then set
       `df.columns = pd.MultiIndex.from_frame(cols)`.
 
-    Raises
-    ------
-    ValueError
-        If invalid `return_as` values.
-        If `data` contains NaNs and nan_policy is 'raise'
-
     Examples
     --------
-    >>> import explorica.data_quality as dq
-
-    # Minimal usage (DataFrame output)
+    >>> # Minimal usage (DataFrame output)
     >>> import pandas as pd
-
+    >>> from explorica.data_quality import get_summary
     >>> df = pd.DataFrame({
     ...     "x1": [1, 2, 3],
     ...     "x2": [2, 4, 6]
     ... })
-    >>> summary = dq.get_summary(df, return_as="dataframe")
-    >>> summary
-    section          nans               duplicates  ...
-    metric    count_of_nans pct_of_nans count_of_unique ...
-    x1                0.0         0.0              3 ...
-    x2                0.0         0.0              3 ...
-    ...
+    >>> summary = get_summary(df, return_as="dataframe")
+    >>> summary # doctest: +SKIP
+                nans              ...    multicollinearity
+       count_of_nans pct_of_nans  ... is_multicollinearity  VIF
+    x1             0         0.0  ...                  1.0  inf
+    x2             0         0.0  ...                  1.0  inf
+    <BLANKLINE>
+    [2 rows x 16 columns]
 
-    # Saving summary as JSON (nested dict, JSON-friendly)
-    >>> summary_dict = dq.get_summary(
+    >>> # Saving summary as JSON (nested dict, JSON-friendly)
+    >>> summary_dict = get_summary( # doctest: +SKIP
     ...     df,
     ...     return_as="dict",
     ...     directory="summary.json"
     ... )
     >>> # The JSON file summary.json is saved in the current directory.
-    >>> summary_dict
-    {
-        "nans": {"count_of_nans": {"x1": 0, "x2": 0},
-                 "pct_of_nans": {"x1": 0.0, "x2": 0.0}},
-        "duplicates": {"count_of_unique": {...}, ...},
-        ...
-    }
+    >>> summary_dict["duplicates"] # doctest: +SKIP
+    {'count_of_unique': {'x1': 3.0, 'x2': 3.0},
+    'pct_of_unique': {'x1': 1.0, 'x2': 1.0},
+    'quasi_constant_pct': {'x1': 0.3333, 'x2': 0.3333}
 
-    # Verbose logging (optional)
+    >>> # Verbose logging (optional)
     >>> summary_verbose = get_summary(df, verbose=True)
-    # verbose=True will log computation steps but does not affect returned object
-    >>> summary_verbose
-    ...
+    >>> # verbose=True will log computation steps but does not affect returned object
+    >>> summary_verbose[["nans", "duplicates"]] # doctest: +SKIP
+                nans                  duplicates
+       count_of_nans pct_of_nans count_of_unique pct_of_unique quasi_constant_pct
+    x1             0         0.0               3           1.0             0.3333
+    x2             0         0.0               3           1.0             0.3333
     """
     params = {
         "directory": None,

@@ -1,4 +1,4 @@
-"""
+r"""
 Non-linear relations block preset.
 
 Provides a Block summarizing non-linear dependencies between numerical and
@@ -7,10 +7,9 @@ includes heatmaps for both metrics and a table of top dependency pairs.
 
 Functions
 ---------
-get_nonlinear_relations_block(
-    numerical_data, categorical_data, numerical_target=None,
-    categorical_target=None, **kwargs
-)
+**get_nonlinear_relations_block(numerical_data, categorical_data, numerical_target=None,
+categorical_target=None, \**kwargs)**
+
     Build a Block instance summarizing non-linear dependencies between features.
 
 Notes
@@ -24,25 +23,27 @@ Notes
 Examples
 --------
 >>> import pandas as pd
->>> from explorica.reports.presets.blocks.relations_nonlinear import (
-...     get_nonlinear_relations_block)
+>>> from explorica.reports.presets import get_nonlinear_relations_block
 >>> df_num = pd.DataFrame({'x1': [1,2,3], 'x2': [4,5,6]})
 >>> df_cat = pd.DataFrame({'c1': ['a','b','a'], 'c2': ['x','y','x']})
 >>> block = get_nonlinear_relations_block(df_num, df_cat)
 >>> block.block_config.title
 'Non-linear relations'
+>>> block.close_figures()
 """
 
-from typing import Sequence, Mapping, Any
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 
-from ...._utils import handle_nan, convert_series, convert_dataframe
+from ...._utils import convert_dataframe, convert_series, handle_nan
+from ....interactions import corr_matrix_cramer_v, corr_matrix_eta, high_corr_pairs
 from ....types import TableResult, VisualizationResult
-from ...core.block import Block, BlockConfig
-from ....interactions import corr_matrix_eta, corr_matrix_cramer_v, high_corr_pairs
 from ....visualizations import heatmap
+from ...core.block import Block, BlockConfig
+
+__all__ = ["get_nonlinear_relations_block"]
 
 
 def get_nonlinear_relations_block(
@@ -71,15 +72,6 @@ def get_nonlinear_relations_block(
     categorical_target : Sequence or Mapping, optional
         Categorical target variable to include in the analysis.
 
-    Other Parameters
-    ----------------
-    nan_policy : {'drop', 'raise'}, default='drop'
-        Policy for handling missing values:
-        - 'drop' : remove rows with missing values.
-        - 'raise': raise an error if missing values are present.
-    round_digits : int, default=4
-        Number of decimal places to round dependency coefficients in the table.
-
     Returns
     -------
     Block
@@ -87,24 +79,36 @@ def get_nonlinear_relations_block(
         depending on the provided data and targets:
 
         Visualizations:
+
         - η² (eta squared) dependency heatmap
-            Added if both `numerical_data` and `categorical_data` are provided
-            and contain at least one column each. Numerical and categorical
-            targets, if provided, are included in the computation.
+          Added if both `numerical_data` and `categorical_data` are provided
+          and contain at least one column each. Numerical and categorical
+          targets, if provided, are included in the computation.
 
         - Cramer's V dependency heatmap
-            Added if `categorical_data` is provided and contains at least one
-            column. A categorical target, if provided, is included in the
-            computation.
+          Added if `categorical_data` is provided and contains at least one
+          column. A categorical target, if provided, is included in the
+          computation.
 
         Tables:
+
         - Table of highest non-linear dependency pairs
-            Added only if `categorical_target` is provided. The table summarizes
-            the strongest non-linear dependencies between features and the
-            categorical target using η² and Cramer's V where applicable.
+          Added only if `categorical_target` is provided. The table summarizes
+          the strongest non-linear dependencies between features and the
+          categorical target using η² and Cramer's V where applicable.
 
         If none of the above conditions are satisfied, the returned block will
         be empty (`block.empty == True`).
+
+    Other Parameters
+    ----------------
+    nan_policy : {'drop', 'raise'}, default='drop'
+        Policy for handling missing values:
+
+        - 'drop' : remove rows with missing values.
+        - 'raise': raise an error if missing values are present.
+    round_digits : int, default=4
+        Number of decimal places to round dependency coefficients in the table.
 
     Notes
     -----
@@ -122,13 +126,13 @@ def get_nonlinear_relations_block(
     Examples
     --------
     >>> import pandas as pd
-    >>> from explorica.reports.presets.blocks.relations_nonlinear import (
-    ...     get_nonlinear_relations_block)
+    >>> from explorica.reports.presets import get_nonlinear_relations_block
     >>> df_num = pd.DataFrame({'x1': [1,2,3], 'x2': [4,5,6]})
     >>> df_cat = pd.DataFrame({'c1': ['a','b','a'], 'c2': ['x','y','x']})
     >>> block = get_nonlinear_relations_block(df_num, df_cat)
     >>> block.block_config.title
     'Non-linear relations'
+    >>> block.close_figures()
     """
     other_params = {
         "nan_policy": kwargs.get("nan_policy", "drop"),
@@ -209,6 +213,11 @@ def _get_eta_squared_heatmap(
     target_categorical : pandas.Series, optional
         Categorical target variable to include in the dependency matrix.
 
+    Returns
+    -------
+    VisualizationResult
+        Heatmap visualization of the eta-squared dependency matrix.
+
     Other Parameters
     ----------------
     cmap : str, default='magma'
@@ -218,11 +227,6 @@ def _get_eta_squared_heatmap(
     annot_threshold : int, default=11
         Maximum allowed size of the dependency matrix dimension for which
         numeric annotations are displayed on heatmap.
-
-    Returns
-    -------
-    VisualizationResult
-        Heatmap visualization of the eta-squared dependency matrix.
 
     Notes
     -----
@@ -234,9 +238,6 @@ def _get_eta_squared_heatmap(
     Examples
     --------
     >>> import pandas as pd
-    >>> from explorica.reports.presets.blocks.relations_nonlinear import (
-    ...     _get_eta_squared_heatmap
-    ... )
     >>> df_num = pd.DataFrame({'x1': [1,2,3], 'x2': [4,5,6]})
     >>> df_cat = pd.DataFrame({'c1': ['a','b','a'], 'c2': ['x','y','x']})
     >>> heatmap_viz = _get_eta_squared_heatmap(df_num, df_cat)
@@ -312,9 +313,6 @@ def _get_cramer_v_heatmap(
     Examples
     --------
     >>> import pandas as pd
-    >>> from explorica.reports.presets.blocks.relations_nonlinear import (
-    ... _get_cramer_v_heatmap
-    ... )
     >>> df_cat = pd.DataFrame({'c1': ['a','b','a'], 'c2': ['x','y','x']})
     >>> heatmap_viz = _get_cramer_v_heatmap(df_cat)
     >>> type(heatmap_viz)
@@ -392,8 +390,6 @@ def _get_highest_dependency_pairs_table(
     Examples
     --------
     >>> import pandas as pd
-    >>> from explorica.reports.presets.blocks.relations_nonlinear import (
-    ...     _get_highest_dependency_pairs_table)
     >>> df_num = pd.DataFrame({'x1': [1,2,3], 'x2': [4,5,6]})
     >>> df_cat = pd.DataFrame({'c1': ['a','b','a'], 'c2': ['x','y','x']})
     >>> target = pd.Series(['a','b','a'], name='target')

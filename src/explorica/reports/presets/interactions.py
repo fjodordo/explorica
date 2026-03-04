@@ -8,21 +8,14 @@ inference, and composition of lower-level analytical blocks.
 
 Functions
 ---------
-get_interactions_blocks(
-    data,
-    feature_assignment = None,
-    category_threshold = 30,
-    round_digits = 4,
-    nan_policy="drop"
-)
+**get_interactions_blocks(data, feature_assignment=None, category_threshold=30,
+round_digits=4, nan_policy="drop")**
+
     Build linear and non-linear interaction blocks for Explorica reports.
-def get_interactions_report(
-    data,
-    feature_assignment = None,
-    category_threshold = 30,
-    round_digits = 4,
-    nan_policy = "drop"
-)
+
+**get_interactions_report(data, feature_assignment=None, category_threshold=30,
+round_digits=4, nan_policy="drop")**
+
     Generate an interaction analysis report.
 
 Notes
@@ -37,14 +30,23 @@ Notes
 
 Examples
 --------
->>> from explorica.reports.presets.interactions import get_interactions_report
+>>> import pandas as pd
+>>> from explorica.reports.presets import get_interactions_report
+>>> # Simple usage
+>>> df = pd.DataFrame({
+...     "x1": [1, 2, 3, 4],
+...     "x2": [10, 20, 30, 40],
+...     "c1": ["a", "b", "a", "b"],
+...     "y": [0, 1, 0, 1]
+... })
 >>> report = get_interactions_report(df)
 >>> report.title
 'Interaction analysis'
+>>> report.close_figures()
 """
 
-from typing import Sequence, Mapping, Any, Hashable
 import warnings
+from typing import Any, Hashable, Mapping, Sequence
 
 import pandas as pd
 
@@ -53,6 +55,11 @@ from ..core.block import Block
 from ..core.report import Report
 from ..utils import _split_features_by_assignment, normalize_assignment
 from .blocks import get_linear_relations_block, get_nonlinear_relations_block
+
+__all__ = [
+    "get_interactions_blocks",
+    "get_interactions_report",
+]
 
 
 def get_interactions_blocks(
@@ -66,6 +73,7 @@ def get_interactions_blocks(
     Generate linear and non-linear interaction blocks for Explorica reports.
 
     This function orchestrates the creation of two main blocks:
+
     1. Linear relations block,
        summarizing correlations and multicollinearity diagnostics.
     2. Non-linear relations block, summarizing eta² (numerical-categorical)
@@ -86,6 +94,15 @@ def get_interactions_blocks(
         names are not specified, its type and cardinality are used to infer
         whether it should be treated as numerical, categorical, or both.
 
+    Returns
+    -------
+    list[Block]
+        List of generated Explorica `Block` instances:
+
+        - The linear relations block is always included.
+        - The non-linear relations block is included only if it contains
+          metrics, visualizations, or tables (otherwise it is omitted).
+
     Other Parameters
     ----------------
     target_numerical_name : Hashable, optional
@@ -101,16 +118,9 @@ def get_interactions_blocks(
         Number of decimal places to round coefficients in tables.
     nan_policy : {'drop', 'raise'}, default='drop'
         Policy for handling missing values:
+
         - 'drop' : remove rows containing NaNs.
         - 'raise': raise an error if missing values are present.
-
-    Returns
-    -------
-    list[Block]
-        List of generated Explorica `Block` instances:
-        - The linear relations block is always included.
-        - The non-linear relations block is included only if it contains
-          metrics, visualizations, or tables (otherwise it is omitted).
 
     Notes
     -----
@@ -125,27 +135,38 @@ def get_interactions_blocks(
       ignored internally.
     - To free memory after rendering, it is recommended to explicitly close figures:
 
-      >>> report = get_eda_report(df)
-      >>> report.render()
-      >>> report.close_figures()
+      .. code-block:: python
 
-      or for individual blocks:
+          report = get_eda_report(df)
+          report.render()
+          report.close_figures()
 
-      >>> block = some_block
-      >>> block.render()
-      >>> block.close_figures()
+      Or for individual blocks:
+
+      .. code-block:: python
+
+          block.close_figures()
 
     Examples
     --------
-    >>> from explorica.reports.presets.blocks.interactions import (
-    ...     get_interactions_blocks)
-    >>> blocks = get_interactions_blocks(df)
+    >>> import pandas as pd
+    >>> from explorica.reports.presets import get_interactions_blocks
+    >>> df = pd.DataFrame({
+    ...     "x1": [1, 2, 3, 4],
+    ...     "x2": [10, 20, 30, 40],
+    ...     "c1": ["a", "b", "a", "b"],
+    ...     "y": [0, 1, 0, 1]
+    ... })
     >>> blocks = get_interactions_blocks(
     ...     df,
     ...     numerical_names=["x1", "x2"],
     ...     categorical_names=["c1"],
     ...     target_name="y"
     ... )
+    >>> len(blocks)
+    2
+    >>> [i.block_config.title for i in blocks]
+    ['Linear relations', 'Non-linear relations']
     """
     other_params = {
         "target_numerical_name": kwargs.get("target_numerical_name", None),
@@ -236,6 +257,23 @@ def get_interactions_report(
         names are not specified, its type and cardinality are used to infer
         whether it should be treated as numerical, categorical, or both.
 
+    Returns
+    -------
+    Report
+        An Explorica `Report` titled ``"Interaction analysis"`` containing
+        zero or more blocks describing linear and non-linear feature
+        interactions.
+
+        The report may include:
+
+        - A linear relations block (correlations, multicollinearity diagnostics,
+          and feature–target visualizations).
+        - A non-linear relations block (η² and Cramer's V dependency analysis).
+
+        Only non-empty blocks are included in the report. If no interaction
+        blocks can be constructed from the provided data and assignments,
+        the report may be empty.
+
     Other Parameters
     ----------------
     target_numerical_name : Hashable, optional
@@ -251,24 +289,9 @@ def get_interactions_report(
         Number of decimal places to round coefficients in all included blocks.
     nan_policy : {'drop', 'raise'}, default='drop'
         Policy for handling missing values across all blocks:
+
         - 'drop' : remove rows containing NaNs.
         - 'raise': raise an error if missing values are present.
-
-    Returns
-    -------
-    Report
-        An Explorica `Report` titled ``"Interaction analysis"`` containing
-        zero or more blocks describing linear and non-linear feature
-        interactions.
-
-        The report may include:
-        - A linear relations block (correlations, multicollinearity diagnostics,
-          and feature–target visualizations).
-        - A non-linear relations block (η² and Cramer's V dependency analysis).
-
-        Only non-empty blocks are included in the report. If no interaction
-        blocks can be constructed from the provided data and assignments,
-        the report may be empty.
 
     See Also
     --------
@@ -293,34 +316,34 @@ def get_interactions_report(
       ignored internally.
     - To free memory after rendering, it is recommended to explicitly close figures:
 
-      >>> report = get_eda_report(df)
-      >>> report.render()
-      >>> report.close_figures()
+      .. code-block:: python
 
-      or for individual blocks:
+          report = get_eda_report(df)
+          report.render()
+          report.close_figures()
 
-      >>> block = some_block
-      >>> block.render()
-      >>> block.close_figures()
+      Or for individual blocks:
+
+      .. code-block:: python
+
+          block.close_figures()
 
     Examples
     --------
     >>> import pandas as pd
     >>> from explorica.reports.presets import get_interactions_report
-
     >>> df = pd.DataFrame({
     ...     "x1": [1, 2, 3, 4],
     ...     "x2": [10, 20, 30, 40],
     ...     "c1": ["a", "b", "a", "b"],
     ...     "y": [0, 1, 0, 1],
     ... })
-
-    # Automatic feature and target inference
+    >>> # Automatic feature and target inference
     >>> report = get_interactions_report(df, target_name="y")
     >>> len(report.blocks) > 0
     True
 
-    # Explicit feature assignment
+    >>> # Explicit feature assignment
     >>> report = get_interactions_report(
     ...     df,
     ...     numerical_names=["x1", "x2"],
@@ -330,7 +353,7 @@ def get_interactions_report(
     >>> report.title
     'Interaction analysis'
 
-    # Explicit target specification via kwargs
+    >>> # Explicit target specification via kwargs
     >>> report = get_interactions_report(
     ...     df,
     ...     numerical_names=["x1", "x2"],
@@ -339,6 +362,7 @@ def get_interactions_report(
     ... )
     >>> report.blocks
     [...]
+    >>> report.close_figures()
     """
     blocks = get_interactions_blocks(
         data,

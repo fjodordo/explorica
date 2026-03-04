@@ -22,17 +22,16 @@ validate_unique_column_names(dataset, err_msg)
 
 Examples
 --------
->>> import explorica._utils as utils
-
 >>> arg = "invalid_method"
 >>> supported_methods = {"Pearson", "Spearman"}
-
->>> utils.validate_string_flag(arg,
-...                            supported_values=supported_methods,
-...                            err_msg=(f"Unsupported correlation method '{arg}'. "
-...                                     f"Please, choose from {supported_methods}."))
-ValueError: Unsupported correlation method 'invalid_method'.
-            Please, choose from {'Pearson', 'Spearman'}.
+>>> try:
+...     validate_string_flag(arg,
+...         supported_values=supported_methods,
+...         err_msg=(f"Unsupported correlation method '{arg}'. "
+...                  f"Please, choose from {supported_methods}."))
+... except ValueError as err:
+...     err
+ValueError("Unsupported correlation method 'invalid_method'...")
 """
 
 from typing import Iterable, Sequence
@@ -40,6 +39,14 @@ from typing import Iterable, Sequence
 import pandas as pd
 
 from .conversion import convert_dataframe
+
+__all__ = [
+    "validate_string_flag",
+    "validate_at_least_one_exist",
+    "validate_lengths_match",
+    "validate_array_not_contains_nan",
+    "validate_unique_column_names",
+]
 
 
 def validate_string_flag(
@@ -81,12 +88,13 @@ def validate_string_flag(
     Examples
     --------
     >>> validate_string_flag(
-        "A", {"A", "B", "C"}, "Method 'A' not in supported methods")
-    >>> validate_string_flag(
-        "D", {"A", "B", "C"}, "Method 'D' not in supported methods")
-    Traceback (most recent call last):
-        ...
-    ValueError: Method 'D' not in supported methods
+    ...     "A", {"A", "B", "C"}, "Method 'A' not in supported methods")
+    >>> try:
+    ...     validate_string_flag(
+    ...         "D", {"A", "B", "C"}, "Method 'D' not in supported methods")
+    ... except ValueError as err:
+    ...     err
+    ValueError("Method 'D' not in supported methods")
     """
     if arg not in supported_values:
         raise ValueError(err_msg)
@@ -121,12 +129,13 @@ def validate_at_least_one_exist(values: Iterable, err_msg: str) -> None:
     Examples
     --------
     >>> validate_at_least_one_exist(
-            [None, 5, None], "At least one must exist")
-    >>> validate_at_least_one_exist(
-            [None, None], "At least one must exist")
-    Traceback (most recent call last):
-        ...
-    ValueError: At least one must exist
+    ...     [None, 5, None], "At least one must exist")
+    >>> try:
+    ...     validate_at_least_one_exist(
+    ...         [None, None], "At least one must exist")
+    ... except ValueError as err:
+    ...     err
+    ValueError('At least one must exist')
     """
     show_err = True
     for i in values:
@@ -190,10 +199,11 @@ def validate_lengths_match(array1: Sequence, array2: Sequence, err_msg: str) -> 
     ...                        "Row counts must match")
 
     >>> # This will raise an error - 3 observations vs 2 observations
-    >>> validate_lengths_match([1, 2, 3], [4, 5], "Row counts must match")
-    Traceback (most recent call last):
-        ...
-    ValueError: Row counts must match
+    >>> try:
+    ...     validate_lengths_match([1, 2, 3], [4, 5], "Row counts must match")
+    ... except ValueError as err:
+    ...     err
+    ValueError('Row counts must match')
     """
     len1 = convert_dataframe(array1).shape[0]
     len2 = convert_dataframe(array2).shape[0]
@@ -239,19 +249,21 @@ def validate_array_not_contains_nan(array: Sequence, err_msg: str) -> None:
     Examples
     --------
     >>> validate_array_not_contains_nan(
-            [1, 2, 3], "Array must not contain NaN")
-    >>> validate_array_not_contains_nan(
-            [1, float("nan"), 3], "Array must not contain NaN")
-    Traceback (most recent call last):
-        ...
-    ValueError: Array must not contain NaN
+    ...     [1, 2, 3], "Array must not contain NaN")
+    >>> try:
+    ...     validate_array_not_contains_nan(
+    ...         [1, float("nan"), 3], "Array must not contain NaN")
+    ... except ValueError as err:
+    ...     err
+    ValueError('Array must not contain NaN')
 
     >>> import pandas as pd
     >>> df = pd.DataFrame({"a": [1, 2], "b": [3, None]})
-    >>> validate_array_not_contains_nan(df, "NaN found")
-    Traceback (most recent call last):
-        ...
-    ValueError: NaN found
+    >>> try:
+    ...     validate_array_not_contains_nan(df, "NaN found")
+    ... except ValueError as err:
+    ...     err
+    ValueError('NaN found')
     """
     condition = convert_dataframe(array).isna().values.any()
     if condition:
@@ -290,14 +302,15 @@ def validate_unique_column_names(dataset: pd.DataFrame, err_msg: str) -> None:
     >>> import pandas as pd
     >>> df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
     >>> validate_unique_column_names(
-            df, "Duplicate columns not allowed")
-
+    ...     df, "Duplicate columns not allowed")
+    >>>
     >>> df_dup = pd.DataFrame([[1, 2]], columns=["a", "a"])
-    >>> validate_unique_column_names(
-            df_dup, "Duplicate columns not allowed")
-    Traceback (most recent call last):
-        ...
-    ValueError: Duplicate columns not allowed
+    >>> try:
+    ...     validate_unique_column_names(
+    ...         df_dup, "Duplicate columns not allowed")
+    ... except ValueError as err:
+    ...     err
+    ValueError('Duplicate columns not allowed')
     """
     columns = dataset.columns
     if len(columns) != len(set(list(columns))):

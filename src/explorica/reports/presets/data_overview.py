@@ -22,7 +22,7 @@ Notes
 Examples
 --------
 >>> import pandas as pd
->>> from explorica.reports.presets.data_overview import get_data_overview_report
+>>> from explorica.reports.presets import get_data_overview_report
 >>> df = pd.DataFrame({'a': [1, 2, 3], 'b': ['x', 'y', 'z']})
 >>> report = get_data_overview_report(df)
 >>> report.title
@@ -31,12 +31,17 @@ Examples
 3
 """
 
-from typing import Sequence, Mapping, Any, Literal
 import warnings
+from typing import Any, Literal, Mapping, Sequence
 
 from ..core.block import Block
 from ..core.report import Report
 from .blocks import get_ctm_block, get_data_quality_overview_block, get_data_shape_block
+
+__all__ = [
+    "get_data_overview_blocks",
+    "get_data_overview_report",
+]
 
 
 def get_data_overview_blocks(
@@ -52,6 +57,7 @@ def get_data_overview_blocks(
     blocks can be combined with other blocks before rendering.
 
     The overview includes:
+
     - basic descriptive statistics,
     - dataset shape and data types,
     - a brief data quality summary.
@@ -65,10 +71,12 @@ def get_data_overview_blocks(
         Number of decimal digits to use when rounding numerical statistics.
     nan_policy : {'drop', 'raise', 'include'}, default='drop'
         Policy for handling missing values in the input data.
+
         - 'drop' : rows containing missing values are removed before
           analysis.
         - 'raise' : an error is raised if missing values are present.
         - 'include' : missing values are preserved where supported.
+
         Note that not all child blocks support nan_policy='include'.
         In such cases, the policy is internally downgraded to 'drop' for
         those blocks.
@@ -94,23 +102,34 @@ def get_data_overview_blocks(
       ignored internally.
     - To free memory after rendering, it is recommended to explicitly close figures:
 
-      >>> report = get_eda_report(df)
-      >>> report.render()
-      >>> report.close_figures()
+      .. code-block:: python
 
-      or for individual blocks:
+          report = get_eda_report(df)
+          report.render()
+          report.close_figures()
 
-      >>> block = some_block
-      >>> block.render()
-      >>> block.close_figures()
+      Or for individual blocks:
+
+      .. code-block:: python
+
+          block.close_figures()
 
     Examples
     --------
+    >>> import pandas as pd
+    >>> from explorica.reports.presets import get_data_overview_blocks
+    >>> # Simple usage
+    >>> df = pd.DataFrame({
+    ...     "x1": [1, 2, 3, 4],
+    ...     "x2": [10, 20, 30, 40],
+    ...     "c1": ["a", "b", "a", "b"],
+    ...     "y": [0, 1, 0, 1],
+    ... })
     >>> blocks = get_data_overview_blocks(df)
     >>> len(blocks)
     3
     >>> blocks[0].block_config.title
-    'Basic statistics for the dataset.'
+    'Basic statistics for the dataset'
     """
     # We ignore mpl runtime warnings because EDA reports may open many figures.
     # It's assumed, that the user use ``Report.close_figures()``
@@ -164,10 +183,12 @@ def get_data_overview_report(
         Number of decimal digits to use when rounding numerical statistics.
     nan_policy : {'drop', 'raise', 'include'}, default='drop'
         Policy for handling missing values in the input data.
+
         - 'drop' : rows containing missing values are removed before
           analysis.
         - 'raise' : an error is raised if missing values are present.
         - 'include' : missing values are preserved where supported.
+
         Note that not all child blocks support nan_policy='include'.
         In such cases, the policy is internally downgraded to 'drop' for
         those blocks.
@@ -176,6 +197,7 @@ def get_data_overview_report(
     -------
     Report
         An Explorica report containing:
+
         - basic descriptive statistics,
         - dataset shape and data types,
         - a brief data quality summary.
@@ -192,23 +214,35 @@ def get_data_overview_report(
       ignored internally.
     - To free memory after rendering, it is recommended to explicitly close figures:
 
-      >>> report = get_eda_report(df)
-      >>> report.render()
-      >>> report.close_figures()
+      .. code-block:: python
 
-      or for individual blocks:
+          report = get_eda_report(df)
+          report.render()
+          report.close_figures()
 
-      >>> block = some_block
-      >>> block.render()
-      >>> block.close_figures()
+      Or for individual blocks:
+
+      .. code-block:: python
+
+          block.close_figures()
 
     Examples
     --------
+    >>> import pandas as pd
+    >>> from explorica.reports.presets import get_data_overview_report
+    >>> # Simple usage
+    >>> df = pd.DataFrame({
+    ...     "x1": [1, 2, 3, 4],
+    ...     "x2": [10, 20, 30, 40],
+    ...     "c1": ["a", "b", "a", "b"],
+    ...     "y": [0, 1, 0, 1],
+    ... })
     >>> report = get_data_overview_report(df)
     >>> report.title
     'Data overview'
     >>> len(report.blocks)
     3
+    >>> report.close_figures()
     """
     return Report(
         blocks=get_data_overview_blocks(

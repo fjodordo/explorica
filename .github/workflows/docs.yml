@@ -1,4 +1,4 @@
-name: Documentation Check & Deploy
+name: Docs
 
 on:
   push:
@@ -31,16 +31,12 @@ jobs:
         pip install -e ".[docs,dev]"
 
     - name: Verify Sphinx build (includes numpydoc checks)
-      working-directory: ./docs
       run: |
-        echo "Building documentation with Sphinx..."
-        make clean
-        make html SPHINXOPTS="-W"
+        ./scripts/docs_build.sh
 
     - name: Run doctests
       run: |
-        echo "Running doctests with pytest..."
-        pytest --doctest-modules src/explorica/visualizations --maxfail=1
+        ./scripts/docs_doctests.sh
 
     - name: Upload HTML documentation
       uses: actions/upload-pages-artifact@v3

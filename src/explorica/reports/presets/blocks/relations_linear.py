@@ -30,7 +30,7 @@ Notes
 Examples
 --------
 >>> import pandas as pd
->>> from explorica.reports.presets.blocks import get_linear_relations_block
+>>> from explorica.reports.presets import get_linear_relations_block
 >>> df = pd.DataFrame({
 ...     "x1": [1, 2, 3, 4],
 ...     "x2": [2, 4, 6, 8],
@@ -47,24 +47,27 @@ Examples
 2  x3  target  0.4472   pearson
 3  x1  target -0.4472  spearman
 4  x2  target -0.4472  spearman
+>>> block.close_figures()
 """
 
 # pylint: disable=unsupported-assignment-operation,unsubscriptable-object
 
-from typing import Sequence, Mapping, Any, Literal
+from typing import Any, Literal, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 
-from ...._utils import handle_nan, convert_series, convert_dataframe
-from ....types import TableResult, VisualizationResult, NaturalNumber
-from ...core.block import Block, BlockConfig
+from ...._utils import convert_dataframe, convert_series, handle_nan
 from ....interactions import (
     corr_matrix_linear,
-    high_corr_pairs,
     detect_multicollinearity,
+    high_corr_pairs,
 )
-from ....visualizations import heatmap, scatterplot, hexbin
+from ....types import NaturalNumber, TableResult, VisualizationResult
+from ....visualizations import heatmap, hexbin, scatterplot
+from ...core.block import Block, BlockConfig
+
+__all__ = ["get_linear_relations_block"]
 
 
 def get_linear_relations_block(
@@ -99,6 +102,7 @@ def get_linear_relations_block(
         coefficients.
     nan_policy : {'drop', 'raise'}, default='drop'
         Policy for handling missing values:
+
         - 'drop' : remove rows with missing values.
         - 'raise': raise an error if missing values are present.
 
@@ -106,6 +110,7 @@ def get_linear_relations_block(
     -------
     Block
         An Explorica `Block` containing:
+
         - Pearson correlation matrix between numeric features (and target if provided)
         - Spearman correlation matrix between numeric features (and target if provided)
         - Multicollinearity diagnostic table based on Variance Inflation Factor (VIF),
@@ -113,25 +118,15 @@ def get_linear_relations_block(
         - Multicollinearity diagnostic table based on highest pairwise correlation,
           included if number of numeric features >= 2
         - If a target is provided:
+
             - Table of highest correlation pairs (features vs target)
             - Feature-target visualizations (scatterplots if number of
               rows <= sample_size_threshold, hexbin plots otherwise)
 
-    Returns
-    -------
-    Block
-        An Explorica `Block` containing:
-        - Pearson correlation matrix (numeric features + target)
-        - Spearman correlation matrix (numeric features + target)
-        - Table of highest correlation pairs, ranked by absolute coefficient values
-        - Multicollinearity diagnostic table based on Variance Inflation Factor (VIF)
-        - Multicollinearity diagnostic table based on highest pairwise correlation
-        - Feature-target visualizations (scatter or hexbin, depending on sample size)
-
     Examples
     --------
     >>> import pandas as pd
-    >>> from explorica.reports.presets.blocks import get_linear_relations_block
+    >>> from explorica.reports.presets import get_linear_relations_block
     >>> df = pd.DataFrame({
     ...     "x1": [1, 2, 3, 4],
     ...     "x2": [2, 4, 6, 8],
@@ -148,6 +143,7 @@ def get_linear_relations_block(
     2  x3  target  0.4472   pearson
     3  x1  target -0.4472  spearman
     4  x2  target -0.4472  spearman
+    >>> block.close_figures()
     """
     df = convert_dataframe(data).select_dtypes("number")
     y = convert_series(target)

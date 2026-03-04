@@ -16,19 +16,24 @@ Notes
 Examples
 --------
 >>> import pandas as pd
->>> from explorica.reports.presets.blocks.data_shape import get_data_shape_block
+>>> from explorica.reports.presets import get_data_shape_block
+>>> # Simple usage
 >>> df = pd.DataFrame({'a': [1,2,3], 'b': ['x','y','z']})
 >>> block = get_data_shape_block(df)
 >>> block.block_config.title
 'Dataset shape'
+>>> block.close_figures()
 """
 
-from typing import Sequence, Mapping, Any, Literal
+from typing import Any, Literal, Mapping, Sequence
+
 import numpy as np
 
 from ...._utils import convert_dataframe, handle_nan
 from ....types import TableResult
 from ...core.block import Block, BlockConfig
+
+__all__ = ["get_data_shape_block"]
 
 
 def get_data_shape_block(
@@ -49,6 +54,7 @@ def get_data_shape_block(
         or a pandas-compatible structure convertible to a DataFrame.
     nan_policy : {'drop', 'raise', 'include'}, default 'include'
         Policy for handling missing values:
+
         - 'drop' : remove rows with NaN values before computing metrics.
         - 'raise': raise an error if NaN values are present.
         - 'include': keep rows with NaN values; they do not interfere with
@@ -58,20 +64,23 @@ def get_data_shape_block(
     -------
     Block
         An Explorica Block containing:
+
         - Metrics:
+
             - "Rows": number of rows in the dataset.
             - "Columns": number of columns in the dataset.
             - "Index is positional": boolean indicating if the index behaves as
               a non-negative integer positional index (unique, integer, starting at 0).
         - Table:
+
             - "Data types": a table summarizing the count of columns per data type,
               sorted descending by number of features.
 
     Notes
     -----
-    The "Index is positional" metric uses a heuristic to determine if the index
-    can be interpreted as a simple positional index, which is robust to missing
-    rows or non-consecutive integer indices.
+    - The "Index is positional" metric uses a heuristic to determine if the index
+      can be interpreted as a simple positional index, which is robust to missing
+      rows or non-consecutive integer indices.
 
     Examples
     --------
@@ -83,14 +92,12 @@ def get_data_shape_block(
     ... })
     >>> block = get_data_shape_block(df)
     >>> block.block_config.metrics
-    [{'name': 'Rows', 'value': 3, 'description': None},
-     {'name': 'Columns', 'value': 2, 'description': None},
-     ...,
-    ]
+    [{'name': 'Rows', 'value': 3, 'description': None}, ...]
     >>> block.block_config.tables[0].table
-       dtype  n_features
-    0  int64           1
-    1  object          1
+        dtype  n_features
+    0   int64           1
+    1  object           1
+    >>> block.close_figures()
     """
     df = convert_dataframe(data)
     df = handle_nan(

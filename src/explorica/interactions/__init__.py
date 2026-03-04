@@ -50,22 +50,21 @@ corr_matrix_corr_index(dataset, method="linear")
     Compute a correlation index matrix for all features in a dataset.
 """
 
-from explorica.interactions.aggregators import detect_multicollinearity
-from explorica.interactions.aggregators import high_corr_pairs
+from explorica.interactions.aggregators import detect_multicollinearity, high_corr_pairs
 from explorica.interactions.correlation_matrices import (
     corr_matrix,
-    corr_matrix_linear,
+    corr_matrix_corr_index,
     corr_matrix_cramer_v,
     corr_matrix_eta,
-    corr_matrix_corr_index,
-    corr_vector_multiple,
+    corr_matrix_linear,
     corr_matrix_multiple,
+    corr_vector_multiple,
 )
 from explorica.interactions.correlation_metrics import (
-    cramer_v,
-    eta_squared,
     corr_index,
     corr_multiple,
+    cramer_v,
+    eta_squared,
 )
 
 __all__ = [

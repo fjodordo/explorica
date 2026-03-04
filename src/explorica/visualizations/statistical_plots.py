@@ -31,10 +31,13 @@ Examples
 --------
 >>> from pathlib import Path
 >>> import numpy as np
->>> import explorica.visualizations as vis
+>>> import matplotlib.pyplot as plt
+>>> from explorica.visualizations.statistical_plots import distplot
+>>>
+>>>
 >>> # Distribution plot with custom bins, KDE, and figure size
 >>> data = np.random.normal(loc=0, scale=1, size=100)
->>> result = vis.distplot(
+>>> result = distplot(
 ...     data,
 ...     bins=30,
 ...     kde=True,
@@ -44,7 +47,8 @@ Examples
 >>> result.figure.show() # doctest: +SKIP
 
 >>> # Boxplot with figure saving
->>> result = vis.boxplot( # doctest: +SKIP
+>>> from explorica.visualizations.statistical_plots import boxplot
+>>> result = boxplot( # doctest: +SKIP
 ...     data,
 ...     title="Boxplot Example",
 ...     directory="./plots",
@@ -54,9 +58,10 @@ Examples
 True
 
 >>> # Hexbin plot with color map and point sizing via plot_kws
+>>> from explorica.visualizations.statistical_plots import hexbin
 >>> x = np.random.randn(500)
 >>> y = x*0.5 + np.random.randn(500)*0.5
->>> result = vis.hexbin(
+>>> result = hexbin(
 ...     x, y,
 ...     gridsize=25,
 ...     colormap="plasma",
@@ -67,8 +72,9 @@ True
 >>> result.figure.show() # doctest: +SKIP
 
 >>> # Heatmap with annotations, custom colormap, and figure size
+>>> from explorica.visualizations.statistical_plots import heatmap
 >>> matrix = np.random.rand(5, 5)
->>> result = vis.heatmap(
+>>> result = heatmap(
 ...     matrix,
 ...     annot=True,
 ...     cmap="coolwarm",
@@ -81,26 +87,27 @@ True
 
 import warnings
 from numbers import Number
-from typing import Sequence, Mapping, Any
+from typing import Any, Mapping, Sequence
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-from explorica.types import VisualizationResult, NaturalNumber
 from explorica._utils import (
     convert_dataframe,
     convert_series,
     handle_nan,
     validate_lengths_match,
 )
+from explorica.types import NaturalNumber, VisualizationResult
+
 from ._utils import (
-    temp_plot_theme,
-    save_plot,
-    get_empty_plot,
     DEFAULT_MPL_PLOT_PARAMS,
-    WRN_MSG_EMPTY_DATA,
     ERR_MSG_ARRAYS_LENS_MISMATCH,
+    WRN_MSG_EMPTY_DATA,
+    get_empty_plot,
+    save_plot,
+    temp_plot_theme,
 )
 
 __all__ = [
@@ -202,24 +209,22 @@ def distplot(
       documentation and advanced customization options, see:
       `seaborn histplot`_.
 
-      .. _seaborn histplot: https://seaborn.pydata.org/generated/
-         seaborn.histplot.html#seaborn-histplot>`_
-
     - Vectorization support is planned to be added.
     - Empty data returns a placeholder plot with informative message.
 
     Examples
     --------
     >>> from pathlib import Path
-    >>> import explorica.visualizations as vis
+    >>> import matplotlib.pyplot as plt
+    >>> from explorica.visualizations.statistical_plots import distplot
     >>> # Simple distribution plot with KDE
     >>> data = [1, 2, 2, 3, 3, 3, 4]
-    >>> result = vis.distplot(data, kde=True, title="Small Dataset Example")
+    >>> result = distplot(data, kde=True, title="Small Dataset Example")
     >>> result.figure.show() # doctest: +SKIP
 
     >>> # Distribution plot with figure saving
     >>> data = [10, 20, 20, 30, 40, 40, 50]
-    >>> result = vis.distplot( # doctest: +SKIP
+    >>> result = distplot( # doctest: +SKIP
     ...     data,
     ...     bins=5,
     ...     title="Saved Plot Example",
@@ -231,7 +236,7 @@ def distplot(
     >>> # Normal distribution with custom bins and figure size
     >>> import numpy as np
     >>> data = np.random.normal(loc=50, scale=15, size=200)
-    >>> result = vis.distplot(
+    >>> result = distplot(
     ...     data,
     ...     bins=25,
     ...     kde=True,
@@ -355,19 +360,17 @@ def boxplot(
       parameter documentation and advanced customization options, see:
       `matplotlib boxplot`_.
 
-      .. _matplotlib boxplot: https://matplotlib.org/stable/api/
-         _as_gen/matplotlib.axes.Axes.boxplot.html>`_
-
     Examples
     --------
     >>> from pathlib import Path
-    >>> import explorica.visualizations as vis
+    >>> import matplotlib.pyplot as plt
+    >>> from explorica.visualizations.statistical_plots import boxplot
     >>> # Basic boxplot
-    >>> plot = vis.boxplot([5, 7, 8, 5, 6, 9, 12], title="Simple Boxplot")
+    >>> plot = boxplot([5, 7, 8, 5, 6, 9, 12], title="Simple Boxplot")
     >>> plot.figure.show() # doctest: +SKIP
 
     >>> # Saving the plot to disk
-    >>> plot = vis.boxplot( # doctest: +SKIP
+    >>> plot = boxplot( # doctest: +SKIP
     ...     [4, 6, 5, 7, 8],
     ...     directory="./plots",
     ...     title="Saved Boxplot"
@@ -377,7 +380,7 @@ def boxplot(
 
     >>> # Detecting potential outliers
     >>> data_with_outliers = [10, 12, 11, 14, 100, 13, 12, 9, 105]
-    >>> plot = vis.boxplot(data_with_outliers, title="Boxplot with Outliers")
+    >>> plot = boxplot(data_with_outliers, title="Boxplot with Outliers")
     >>> plot.figure.show() # doctest: +SKIP
     >>> plt.close(plot.figure)
     """
@@ -501,9 +504,6 @@ def hexbin(
     - For complete parameter documentation and advanced customization options, see:
       `matplotlib hexbin`_.
 
-      .. _matplotlib hexbin: https://matplotlib.org/stable/api/
-         _as_gen/matplotlib.axes.Axes.hexbin.html>`_
-
     - Hexbin plots are most effective with large datasets (>1000 points)
     - The color intensity represents the count of points in each hexagon
     - For very sparse data, consider using a scatter plot instead
@@ -511,9 +511,12 @@ def hexbin(
     Examples
     --------
     >>> from pathlib import Path
-    >>> import explorica.visualizations as vis
+    >>> import matplotlib.pyplot as plt
+    >>> from explorica.visualizations.statistical_plots import hexbin
+    >>>
+    >>>
     >>> # Simple usage
-    >>> plot = vis.hexbin(
+    >>> plot = hexbin(
     ...     [1, 2, 3, 4, 5],
     ...     [2, 4, 6, 8, 10],
     ...     xlabel="X Variable",
@@ -523,7 +526,7 @@ def hexbin(
     >>> plot.figure.show() # doctest: +SKIP
 
     >>> # Saving the plot to a directory
-    >>> plot = vis.hexbin( # doctest: +SKIP
+    >>> plot = hexbin( # doctest: +SKIP
     ...     [1, 2, 3, 4, 5],
     ...     [2, 4, 6, 8, 10],
     ...     title="Hexbin Example",
@@ -533,7 +536,7 @@ def hexbin(
     >>> # The figure is saved to the 'plots' directory with filename 'hexbin.png'
 
     >>> # Passing additional Matplotlib options via plot_kws
-    >>> plot = vis.hexbin(
+    >>> plot = hexbin(
     ...     [1, 2, 3, 4, 5],
     ...     [2, 4, 6, 8, 10],
     ...     plot_kws={"cmap": "viridis", "mincnt": 1},
@@ -681,9 +684,10 @@ def heatmap(
     Examples
     --------
     >>> from pathlib import Path
-    >>> import explorica.visualizations as vis
+    >>> import matplotlib.pyplot as plt
+    >>> from explorica.visualizations.statistical_plots import heatmap
     >>> # Simple usage
-    >>> plot = vis.heatmap(
+    >>> plot = heatmap(
     ...     [[1, 2, 3, 4, 5],
     ...     [5, 4, 3, 2, 1],
     ...     [2, 4, 6, 8, 10]],
@@ -694,7 +698,7 @@ def heatmap(
     >>> plot.figure.show() # doctest: +SKIP
 
     >>> # Saving the plot to a directory
-    >>> plot = vis.heatmap( # doctest: +SKIP
+    >>> plot = heatmap( # doctest: +SKIP
     ...     [[1, 2, 3, 4, 5],
     ...     [5, 4, 3, 2, 1],
     ...     [2, 4, 6, 8, 10]],
@@ -705,7 +709,7 @@ def heatmap(
     >>> # The figure is saved to the 'plots' directory with filename 'heatmap.png'
 
     >>> # Passing additional Matplotlib options via plot_kws
-    >>> plot = vis.heatmap(
+    >>> plot = heatmap(
     ...     [[1, 2, 3, 4, 5],
     ...     [5, 4, 3, 2, 1],
     ...     [2, 4, 6, 8, 10]],

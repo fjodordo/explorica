@@ -9,8 +9,8 @@ distribution visualizations.
 Functions
 ---------
 get_distributions_block(data, threshold_skewness=0.25, threshold_kurtosis=0.25,
-    round_digits=4, nan_policy="drop"
-)
+round_digits=4, nan_policy="drop")
+
     Build a Block instance summarizing feature distributions in a dataset.
 
 Notes
@@ -26,9 +26,7 @@ Notes
 Examples
 --------
 >>> import pandas as pd
->>> from explorica.reports.presets.blocks.distributions import (
-...     get_distributions_block
-... )
+>>> from explorica.reports.presets import get_distributions_block
 >>> df = pd.DataFrame({
 ...     'a': [1, 2, 3, 4, 5],
 ...     'b': [10, 10, 10, 10, 10]
@@ -38,19 +36,22 @@ Examples
 'Distributions'
 >>> [table.title for table in block.block_config.tables]
 ['Skewness and excess kurtosis']
+>>> block.close_figures()
 """
 
-from typing import Sequence, Mapping, Any, Literal
 import warnings
+from typing import Any, Literal, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 
 from ...._utils import convert_dataframe, handle_nan
-from ....types import TableResult
-from ...core.block import Block, BlockConfig
 from ....data_quality import describe_distributions
-from ....visualizations import distplot, boxplot
+from ....types import TableResult
+from ....visualizations import boxplot, distplot
+from ...core.block import Block, BlockConfig
+
+__all__ = ["get_distributions_block"]
 
 
 def get_distributions_block(
@@ -64,6 +65,7 @@ def get_distributions_block(
     Generate a `Block` summarizing feature distributions in a dataset.
 
     This block provides an overview of numeric features, including:
+
     - Skewness and excess kurtosis metrics in a table,
       with an `is_normal` flag according to provided thresholds.
     - Boxplots for all numeric features, plus individual boxplots per feature.
@@ -87,6 +89,7 @@ def get_distributions_block(
         Number of decimal digits for skewness and kurtosis values in the table.
     nan_policy : {'drop_with_split', 'raise'}, default 'drop'
         Policy to handle missing values:
+
         - 'drop_with_split' :
           Missing values are handled independently for each feature.
           For every column, NaNs are dropped column-wise before computing
@@ -101,6 +104,7 @@ def get_distributions_block(
     -------
     Block
         An Explorica `Block` containing:
+
         - A table with skewness, excess kurtosis, and `is_normal`
           flags for numeric features.
         - Boxplots for all numeric features and individual boxplots per feature.
@@ -109,7 +113,8 @@ def get_distributions_block(
     Examples
     --------
     >>> import pandas as pd
-    >>> from explorica.reports.presets.blocks import get_distributions_block
+    >>> from explorica.reports.presets import get_distributions_block
+    >>> # Simple usage
     >>> df = pd.DataFrame({
     ...     "a": [1, 2, 3, 4, 5],
     ...     "b": [2, 2, 3, 4, 5]
@@ -119,6 +124,7 @@ def get_distributions_block(
        skewness  kurtosis  is_normal                       desc
     a    0.0000    -1.300      False                low-pitched
     b    0.3632    -1.372      False  right-skewed, low-pitched
+    >>> block.close_figures()
     """
     dict_of_series = handle_nan(
         convert_dataframe(data).select_dtypes("number"),

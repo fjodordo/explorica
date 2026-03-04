@@ -23,24 +23,27 @@ Notes
 
 Examples
 --------
->>> import explorica.visualizations as vis
+>>> import matplotlib.pyplot as plt
+>>> from explorica.visualizations.scatterplot import scatterplot
+>>>
+>>>
 >>> data = [1, 2, 3, 4, 5, 6, 7]
 >>> target = [2.5, 3.2, 4.8, 5.1, 7.5, 9.0, 10.5]
 >>> category = ['A', 'A', 'B', 'B', 'A', 'B', 'A']
 >>> # Basic scatterplot with linear trendline
->>> plot = vis.scatterplot(data, target, trendline='linear', show_legend=False,
+>>> plot = scatterplot(data, target, trendline='linear', show_legend=False,
 ...                       title='Basic Scatterplot')
 >>> plot.figure.show() # doctest: +SKIP
 
 >>> # Scatterplot with categories and saving
->>> plot = vis.scatterplot( # doctest: +SKIP
+>>> plot = scatterplot( # doctest: +SKIP
 ...     data, target, category=category, show_legend=True,
 ...     title='Scatterplot with Categories', directory='plots',
 ...     figsize=(8, 5))
 >>> # The figure is saved to the 'plots' directory with filename 'scatterplot.png'
 
 >>> # Scatterplot with polynomial trendline and custom plot_kws
->>> plot = vis.scatterplot(data, target, trendline='polynomial',
+>>> plot = scatterplot(data, target, trendline='polynomial',
 ...                       plot_kws={'s': 100, 'marker': 'o', 'c': 'orange',
 ...                                 'edgecolor': 'black'},
 ...                       title='Scatterplot with Polynomial Trendline')
@@ -49,33 +52,34 @@ Examples
 """
 
 import warnings
-from typing import Any, Callable, Sequence
 from numbers import Number
+from typing import Any, Callable, Sequence
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 from explorica._utils import (
-    validate_lengths_match,
-    validate_string_flag,
     convert_from_alias,
     convert_series,
     handle_nan,
+    validate_lengths_match,
+    validate_string_flag,
 )
+from explorica.types import NaturalNumber, VisualizationResult
 from explorica.visualizations._utils import (
-    temp_plot_theme,
-    save_plot,
-    get_empty_plot,
     DEFAULT_MPL_PLOT_PARAMS,
+    get_empty_plot,
+    save_plot,
+    temp_plot_theme,
 )
-from explorica.types import VisualizationResult, NaturalNumber
+
 from ._utils import (
-    WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F,
-    WRN_MSG_EMPTY_DATA,
+    ERR_MSG_ARRAYS_LENS_MISMATCH,
     ERR_MSG_ARRAYS_LENS_MISMATCH_F,
     ERR_MSG_UNSUPPORTED_METHOD_F,
-    ERR_MSG_ARRAYS_LENS_MISMATCH,
+    WRN_MSG_CATEGORIES_EXCEEDS_PALETTE_F,
+    WRN_MSG_EMPTY_DATA,
 )
 
 __all__ = [
@@ -209,20 +213,20 @@ def scatterplot(
     -----
     This function uses matplotlib.axes.Axes.scatter under the hood. For complete
     parameter documentation and advanced customization options, see:
-    `matplotlib scatterplot`_.
-
-    .. _matplotlib scatterplot: https://matplotlib.org/stable/api/
-       _as_gen/matplotlib.axes.Axes.scatter.html>`_
+    `matplotlib scatter`_
 
     Examples
     --------
-    >>> import explorica.visualizations as vis
+    >>> import matplotlib.pyplot as plt
+    >>> from explorica.visualizations.scatterplot import scatterplot
+    >>>
+    >>>
     >>> data = [1, 2, 3, 4, 5, 6, 7]
     >>> target = [2.5, 3.2, 4.8, 5.1, 7.5, 9.0, 10.5]
     >>> category = ['A', 'A', 'B', 'B', 'A', 'B', 'A']
     >>>
     >>> # Basic scatterplot with linear trendline
-    >>> plot = vis.scatterplot(
+    >>> plot = scatterplot(
     ...     data,
     ...     target,
     ...     trendline='linear',
@@ -232,7 +236,7 @@ def scatterplot(
     >>> plot.figure.show() # doctest: +SKIP
 
     >>> # Scatterplot with categories and saving the plot
-    >>> plot = vis.scatterplot( # doctest: +SKIP
+    >>> plot = scatterplot( # doctest: +SKIP
     ...     data,
     ...     target,
     ...     category=category,
@@ -244,7 +248,7 @@ def scatterplot(
     >>> # The figure is saved to the 'plots' directory with filename 'scatterplot.png'
 
     >>> # Passing additional Matplotlib options via plot_kws and a polynomial trendline
-    >>> plot = vis.scatterplot(
+    >>> plot = scatterplot(
     ...     data,
     ...     target,
     ...     trendline="polynomial",

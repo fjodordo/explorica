@@ -27,15 +27,18 @@ Examples
 >>> from explorica.reports.core import Report
 >>> import matplotlib.pyplot as plt
 >>> import plotly.graph_objects as go
-
-# Create some figures
+>>>
+>>>
+>>> # Create some figures
 >>> fig1, ax1 = plt.subplots()
 >>> ax1.plot([1, 2, 3], [4, 5, 6])
+[...]
 >>> fig2, ax2 = plt.subplots()
 >>> ax2.plot([10, 20, 30], [3, 6, 9])
+[...]
 >>> figly = go.Figure(data=go.Bar(y=[2, 3, 1]))
-
-# Initialize blocks with metrics and visualizations
+>>>
+>>> # Initialize blocks with metrics and visualizations
 >>> block1_cfg = BlockConfig(
 ...     title="Block 1",
 ...     description="First block",
@@ -51,32 +54,32 @@ Examples
 >>> block1 = Block(block1_cfg)
 >>> block2 = Block(block2_cfg)
 
-# Create a report with initial block
+>>> # Create a report with initial block
 >>> report = Report(blocks=[block1], title="My Report", description="Example report")
 >>> len(report)
 1
 
-# Add another block in-place
+>>> # Add another block in-place
 >>> report += block2
 >>> len(report)
 2
 
-# Insert a new metric into block1
+>>> # Insert a new metric into block1
 >>> block1.add_metric("Max", 10.0)
 
-# Iterate through blocks
+>>> # Iterate through blocks
 >>> for blk in report:
-...     print(blk.typename)
-Block
-Block
+...     blk.typename
+'Block'
+'Block'
 
-# Render report (HTML/PDF)
+>>> # Render report (HTML/PDF)
 >>> report.render_html(path=None)
+'...'
 >>> report.render_pdf(path=None)
+b'...'
 
-# Close Matplotlib figures safely
->>> report.close_figures()
->>> plt.close(fig)
+>>> plt.close('all')
 >>> plt.get_fignums()  # all report figures are closed
 []
 """
@@ -84,12 +87,14 @@ Block
 from copy import deepcopy
 from typing import Sequence
 
-import matplotlib.pyplot as plt
 import matplotlib.figure
+import matplotlib.pyplot as plt
 
+from ..renderers import render_html, render_pdf
 from ..utils import normalize_visualization
-from ..renderers import render_pdf, render_html
 from .block import Block
+
+__all__ = ["Report"]
 
 
 class Report:
@@ -120,6 +125,8 @@ class Report:
         The title of the report.
     description : str or None
         Description of the report.
+    typename
+        Property returning the class name as a string.
 
     Methods
     -------
@@ -133,8 +140,6 @@ class Report:
         Insert a block at the specified index in the report.
     remove_block(index)
         Remove a block at the specified index.
-    typename
-        Property returning the class name as a string.
     __iadd__(other)
         Add a Block or list of Blocks to the report in-place using `+=`.
     __add__(other)
@@ -147,13 +152,13 @@ class Report:
     Notes
     -----
     - All blocks passed to the constructor are deep-copied, ensuring that
-    modifications to blocks within the report do not affect external
-    references.
+      modifications to blocks within the report do not affect external
+      references.
     - Visualizations in each block are automatically normalized into
-    `VisualizationResult` objects.
+      `VisualizationResult` objects.
     - Matplotlib figures are not automatically closed. To free memory,
-    use `Report.close_figures()` or ensure that `Block` provides a method
-    to close its visualizations.
+      use `Report.close_figures()` or ensure that `Block` provides a method
+      to close its visualizations.
 
     Examples
     --------
@@ -161,17 +166,18 @@ class Report:
     >>> from explorica.reports.core import Report
     >>> import matplotlib.pyplot as plt
     >>> import plotly.graph_objects as go
-
-    # Create some figures
+    >>>
+    >>>
+    >>> # Create some figures
     >>> fig1, ax1 = plt.subplots()
     >>> ax1.plot([1, 2, 3], [4, 5, 6])
-
+    [...]
     >>> fig2, ax2 = plt.subplots()
     >>> ax2.plot([10, 20, 30], [3, 6, 9])
-
+    [...]
     >>> figly = go.Figure(data=go.Bar(y=[2, 3, 1]))
 
-    # Initialize blocks with metrics and visualizations
+    >>> # Initialize blocks with metrics and visualizations
     >>> block1_cfg = BlockConfig(
     ...     title="Block 1",
     ...     description="First block",
@@ -188,33 +194,33 @@ class Report:
     >>> block1 = Block(block1_cfg)
     >>> block2 = Block(block2_cfg)
 
-    # Create a report with initial block
+    >>> # Create a report with initial block
     >>> report = Report(
     ...     blocks=[block1], title="My Report", description="Example report")
     >>> len(report)
     1
 
-    # Add another block in-place
+    >>> # Add another block in-place
     >>> report += block2
     >>> len(report)
     2
 
-    # Insert a new metric into block1
+    >>> # Insert a new metric into block1
     >>> block1.add_metric("Max", 10.0)
 
-    # Iterate through blocks
+    >>> # Iterate through blocks
     >>> for blk in report:
     ...     print(blk.typename)
     Block
     Block
 
-    # Render report (HTML/PDF)
+    >>> # Render report (HTML/PDF)
     >>> report.render_html(path=None)
+    '...'
     >>> report.render_pdf(path=None)
+    b'...'
 
-    # Close Matplotlib figures safely
-    >>> report.close_figures()
-    >>> plt.close(fig)
+    >>> plt.close('all')
     >>> plt.get_fignums()  # all report figures are closed
     []
     """
@@ -273,20 +279,19 @@ class Report:
 
         Examples
         --------
-        # Add a single block:
+        >>> from explorica.reports.core import Block, Report
+        >>> # Add a single block:
+        >>> block1, block2, block3 = Block(), Block(), Block()
         >>> report = Report(blocks = [block1])
         >>> report += block2
-        >>> report.blocks
-        [<explorica.reports.core.Block,
-         <explorica.reports.core.Block]
+        >>> len(report.blocks)
+        2
 
-        # Add multiple blocks:
+        >>> # Add multiple blocks:
         >>> report = Report(blocks = [block1])
         >>> report += [block2, block3]
-        >>> report.blocks
-        [<explorica.reports.core.Block,
-         <explorica.reports.core.Block,
-         <explorica.reports.core.Block]
+        >>> len(report.blocks)
+        3
         """
         if isinstance(other, Block):
             self.blocks.append(other)
@@ -325,6 +330,8 @@ class Report:
 
         Examples
         --------
+        >>> from explorica.reports.core import Block, Report
+        >>> block1, block2, block3 = Block(), Block(), Block()
         >>> report1 = Report([block1])
         >>> report2 = report1 + block2
         >>> len(report2)
@@ -358,6 +365,9 @@ class Report:
 
         Examples
         --------
+        >>> from .block import Block
+        >>> # Add a single block:
+        >>> block1, block2 = Block(), Block()
         >>> report = Report(blocks=[block1, block2])
         >>> len(report)
         2
@@ -377,11 +387,14 @@ class Report:
 
         Examples
         --------
+        >>> from explorica.reports.core import Block, Report
+        >>> # Add a single block:
+        >>> block1, block2 = Block(), Block()
         >>> report = Report(blocks=[block1, block2])
         >>> for block in report:
-        ...     print(block.typename)
-        Block
-        Block
+        ...     block.typename
+        'Block'
+        'Block'
         """
         return iter(self.blocks)
 
@@ -390,6 +403,8 @@ class Report:
         """
         Return the class name.
 
+        Useful for type-checking and logging purposes.
+
         Returns
         -------
         str
@@ -397,6 +412,7 @@ class Report:
 
         Examples
         --------
+        >>> from explorica.reports.core import Report
         >>> report = Report()
         >>> report.typename
         'Report'
@@ -419,16 +435,23 @@ class Report:
 
         Examples
         --------
-        # Insert a block at the beginning:
+        >>> from explorica.reports.core import Block, Report, BlockConfig
+        >>> # Add a single block:
+        >>> block1, block2, block3 = (
+        ...     Block(BlockConfig(title="My first block")),
+        ...     Block(BlockConfig(title="My second block")),
+        ...     Block(BlockConfig(title="My third block"))
+        ... )
+        >>> # Insert a block at the beginning:
         >>> report = Report(blocks=[block1])
         >>> report.insert_block(block2, index=0)
-        >>> report.blocks[0] is block2
-        True
+        >>> report.blocks[0].block_config.title
+        'My second block'
 
-        # Insert a block at the end (using len(report.blocks) as index):
+        >>> # Insert a block at the end (using len(report.blocks) as index):
         >>> report.insert_block(block3, index=len(report.blocks))
-        >>> report.blocks[-1] is block3
-        True
+        >>> report.blocks[-1].block_config.title
+        'My third block'
         """
         self.blocks.insert(index, block)
 
@@ -457,14 +480,18 @@ class Report:
 
         Examples
         --------
-        # Remove the first block:
+        >>> from explorica.reports.core import Block, Report
+        >>> block1, block2 = Block(), Block()
+        >>> # Remove the first block:
         >>> report = Report(blocks=[block1, block2])
         >>> report.remove_block(0)
+        <...>
         >>> len(report.blocks)
         1
 
-        # Remove the last block using negative indexing:
+        >>> # Remove the last block using negative indexing:
         >>> report.remove_block(-1)
+        <...>
         >>> len(report.blocks)
         0
         """
@@ -516,7 +543,7 @@ class Report:
         str
             HTML content as a string.
 
-        See also
+        See Also
         --------
         explorica.reports.renderers.html.render_html
             Entrypoint to render a `Block` or `Report`
@@ -526,22 +553,26 @@ class Report:
         -----
         - CSS is automatically applied for the report container and its blocks.
         - Font-family is determined from the `font` argument and propagated to all
-        textual elements.
+          textual elements.
         - Visualizations (Matplotlib and Plotly) are rendered according to the
-        scaling factors provided via `kwargs`.
+          scaling factors provided via `kwargs`.
         - This method does not modify the underlying Report instance.
 
         Examples
         --------
-        # Render HTML without saving
-        >>> report = Report(blocks=[block1, block2], title="My Report")
+        >>> from explorica.reports.core import Block, BlockConfig, Report
+        >>> # Simple usage
+        >>> block = Block(BlockConfig(title="My block"))
+        >>> report = Report(blocks=[block, block], title="My Report")
+        >>> # Render HTML without saving
         >>> html_content = report.render_html()
 
-        # Render and save to a directory (file name derived from `report_name`)
-        >>> report.render_html(path="./output", report_name="customer_report")
+        >>> # Render and save to a directory (file name derived from `report_name`)
+        >>> report.render_html(
+        ...     path="./output", report_name="customer_report") # doctest: +SKIP
 
-        # Render and save to a full file path
-        >>> report.render_html(path="./output/my_report.html")
+        >>> # Render and save to a full file path
+        >>> report.render_html(path="./output/my_report.html")  # doctest: +SKIP
         """
         params = {
             "path": path,
@@ -589,7 +620,7 @@ class Report:
         bytes
             Rendered PDF content as bytes.
 
-        See also
+        See Also
         --------
         explorica.reports.renderers.pdf.render_pdf
             Entrypoint to render a `Block` or `Report`
@@ -603,9 +634,13 @@ class Report:
 
         Examples
         --------
+        >>> from explorica.reports.core import Block, BlockConfig, Report
+        >>> # Simple usage
+        >>> block = Block(BlockConfig(title="My block"))
+        >>> report = Report(blocks=[block, block], title="My Report")
         >>> pdf_bytes = report.render_pdf()
-        >>> report.render_pdf(path="output/")
-        >>> report.render_pdf(
+        >>> report.render_pdf(path="output/") # doctest: +SKIP
+        >>> report.render_pdf(                # doctest: +SKIP
         ...     path="output/my_report.pdf",
         ...     doc_template_kws={"pagesize": A3}
         ... )
@@ -629,14 +664,17 @@ class Report:
         Notes
         -----
         - Only Matplotlib figures are affected; Plotly figures or other visualization
-        objects are ignored.
+          objects are ignored.
         - It is recommended to call this method once all processing or rendering
-        with the `Report` instance is finished, to avoid memory leaks from
-        lingering figure objects.
+          with the `Report` instance is finished, to avoid memory leaks from
+          lingering figure objects.
 
         Examples
         --------
-        >>> report = Report(blocks=[block1, block2])
+        >>> from explorica.reports.core import Block, BlockConfig, Report
+        >>> # Simple usage
+        >>> block = Block(BlockConfig(title="My block"))
+        >>> report = Report(blocks=[block, block], title="My Report")
         >>> # ... generate visualizations and render report ...
         >>> report.close_figures()  # safely close all Matplotlib figures
         """

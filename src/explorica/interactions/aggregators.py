@@ -1,4 +1,4 @@
-"""
+r"""
 Module provides utilities for aggregating interactions between features
 in a dataset. It contains functions to identify and return significant
 feature pairs based on various correlation and association measures.
@@ -11,12 +11,13 @@ correlation modes.
 
 Functions
 ---------
-detect_multicollinearity(numeric_features=None, category_features=None, method="VIF",
-    return_as="dataframe", **kwargs
-)
+**detect_multicollinearity(numeric_features=None, category_features=None,**
+**method="VIF", return_as="dataframe", \**kwargs)**
+
     Detect multicollinearity among features using either Variance Inflation Factor (VIF)
     or correlation-based methods.
-high_corr_pairs(numeric_features=None, category_features=None, threshold=0.7, **kwargs)
+
+high_corr_pairs(numeric_features=None, category_features=None, threshold=0.7, \**kwargs)
     Finds and returns all significant pairs of
     correlated features from the input datasets.
 """
@@ -41,6 +42,10 @@ from .._utils import (
 )
 from .correlation_matrices import corr_matrix, corr_vector_multiple
 
+__all__ = [
+    "detect_multicollinearity",
+    "high_corr_pairs",
+]
 _errors = read_config("messages")["errors"]
 
 
@@ -52,8 +57,14 @@ def detect_multicollinearity(
     **kwargs,
 ) -> dict | pd.DataFrame:
     """
-    Detect multicollinearity among features using either Variance Inflation Factor (VIF)
-    or correlation-based methods.
+    Detect multicollinearity using either VIF or correlation-based methods.
+
+    Multicollinearity occurs when features are highly correlated with each other,
+    which can destabilize model coefficients and reduce interpretability.
+    This function provides two approaches: VIF quantifies how much the variance
+    of a regression coefficient is inflated due to collinearity with other features,
+    while the correlation-based method offers a broader assessment covering
+    numeric-numeric, numeric-categorical, and categorical-categorical feature pairs.
 
     Parameters
     ----------
@@ -66,6 +77,7 @@ def detect_multicollinearity(
         Only used with ``method='corr'``. Not evaluated under VIF.
     method : {"VIF", "corr"}, default="VIF"
         Method to detect multicollinearity:
+
         - "VIF" : Compute Variance Inflation Factor for numerical features.
         - "corr" : Detect multicollinearity based on the highest pairwise absolute
           correlation between features (numeric–numeric, numeric–categorical,
@@ -74,6 +86,7 @@ def detect_multicollinearity(
           ``pearson``, ``spearman``.
     return_as : {"dataframe", "dict"}, default="dataframe"
         Output format of the result:
+
         - "dataframe" : Pandas DataFrame with features as index and metrics as columns.
         - "dict" : Nested dictionary of the form
           ``{metric: {feature: value, ...}, ...}``.
@@ -87,6 +100,7 @@ def detect_multicollinearity(
     -------
     dict or pd.DataFrame
         Multicollinearity assessment, depending on ``return_as``:
+
         - If "dataframe": DataFrame with columns for metrics (e.g., "VIF",
           "multicollinearity") and rows corresponding to features.
         - If "dict": Mapping of metrics to per-feature values.
@@ -107,13 +121,14 @@ def detect_multicollinearity(
     Examples
     --------
     >>> import pandas as pd
-    >>> from explorica.interactions import detect_multicollinearity
+    >>> from explorica.interactions.aggregators import detect_multicollinearity
+    >>> # Simple usage
     >>> X_num = pd.DataFrame({"x1": [1, 2, 3], "x2": [2, 4, 6], "x3": [1, 0, 1]})
     >>> detect_multicollinearity(X_num, method="VIF", return_as="dataframe")
-            VIF  multicollinearity
-    x1     inf                  1
-    x2     inf                  1
-    x3     1.5                  0
+        VIF  multicollinearity
+    x1  inf                1.0
+    x2  inf                1.0
+    x3  1.0                0.0
     """
     params = {
         "variance_inflation_threshold": 10,
@@ -210,8 +225,7 @@ def high_corr_pairs(
     **kwargs,
 ) -> pd.DataFrame | None:
     """
-    Finds and returns all significant pairs of
-    correlated features from the input datasets.
+    Find and return all significant pairs of correlated features from the dataset.
 
     This method evaluates feature-to-feature relationships using a set of
     correlation measures, including linear (Pearson, Spearman), non-linear
@@ -263,6 +277,34 @@ def high_corr_pairs(
     - The method skips self-comparisons.
     - Targeted correlation (`y`) will produce only
       pairs involving the specified target.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> from explorica.interactions.aggregators import high_corr_pairs
+    >>> # Simple usage
+    >>> data = pd.DataFrame({
+    ...     "X1": [1, 2, 3, 4, 5, 6],
+    ...     "X2": [12, 10, 8, 6, 4, 2],
+    ...     "X3": [9, 3, 5, 2, 6, 1],
+    ...     "X4": [3, 2, 1, 3, 2, 1],
+    ...     "target": [2, 3, 4, 6, 8, 10],
+    ... })
+    >>> y = pd.Series([2, 3, 4, 6, 8, 10], name="y")
+    >>> result_df = high_corr_pairs(data, y="target", threshold=0.0)
+    >>> # Round coefficients for doctests reproducibility
+    >>> result_df["coef"] = np.round(result_df["coef"], 4)
+    >>> result_df
+        X       Y    coef    method
+    0  X2  target -1.0000  spearman
+    1  X1  target  1.0000  spearman
+    2  X1  target  0.9885   pearson
+    3  X2  target -0.9885   pearson
+    4  X3  target -0.6000  spearman
+    5  X3  target -0.5731   pearson
+    6  X4  target -0.4781  spearman
+    7  X4  target -0.4353   pearson
     """
 
     def validation():

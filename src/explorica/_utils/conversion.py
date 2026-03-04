@@ -27,8 +27,6 @@ Notes
 
 Examples
 --------
->>> from explorica._utils import convert_dataframe
-
 >>> data = [[1, 2, 3, 4, 6, 7],
 ...         ["A", "A", "B", "A", "B", "C"],
 ...         [0.1, 2.2, 1.2, 0.4, 2.3, 2.0]]
@@ -50,6 +48,14 @@ import numpy as np
 import pandas as pd
 
 from .readers import read_config
+
+__all__ = [
+    "convert_numpy",
+    "convert_dataframe",
+    "convert_series",
+    "convert_from_alias",
+    "convert_params_for_keys",
+]
 
 ERR_MSG_MULTIDIMENSIONAL_DATA = read_config("messages")["errors"][
     "multidimensional_data_f"
@@ -109,28 +115,14 @@ def convert_params_for_keys(
     --------
     >>> import pandas as pd
     >>> import seaborn as sns
-    >>> from explorica._utils import convert_params_for_keys
-    ...
+    >>>
+    >>>
+    >>> # Simple usage
     >>> threshold = 0.7
     >>> df = sns.load_dataset("titanic")
     >>> columns = df.columns
-    ...
-    >>> print(convert_params_for_keys(threshold, columns))
-    {'survived': 0.7,
-    'pclass': 0.7,
-    'sex': 0.7,
-    'age': 0.7,
-    'sibsp': 0.7,
-    'parch': 0.7,
-    'fare': 0.7,
-    'embarked': 0.7,
-    'class': 0.7,
-    'who': 0.7,
-    'adult_male': 0.7,
-    'deck': 0.7,
-    'embark_town': 0.7,
-    'alive': 0.7,
-    'alone': 0.7}
+    >>> convert_params_for_keys(threshold, columns)
+    {'survived': 0.7, 'pclass': 0.7, ...}
     """
     if len(keys) != len(set(keys)):
         raise ValueError("`keys` must be unique.")
@@ -285,15 +277,17 @@ def convert_series(data: Union[Sequence[Any] | Mapping]) -> pd.Series:
 
     Examples
     --------
+    >>> # Simple usage
     >>> result = convert_series({"0": [1, 2, 3]})
-    >>> print(result.name)
-    0
+    >>> result.name
+    '0'
 
     >>> # Example of unacceptable input violating the dimensionality constraint:
-    >>> convert_series({'a': [1, 2], 'b': [3, 4]})
-    Traceback (most recent call last):
-        ...
-    ValueError: Input data is multidimensional and has 2 columns.
+    >>> try:
+    ...     convert_series({'a': [1, 2], 'b': [3, 4]})
+    ... except ValueError as err:
+    ...     err
+    ValueError('Input data must be 1-dimensional, ...')
     """
     dictionary = convert_dict(data)
     if len(dictionary) > 1:
@@ -335,16 +329,13 @@ def convert_dict(
 
     Examples
     --------
-    >>> from explorica._utils import convert_dict
+    >>> # Simple usage
     >>> convert_dict(None)
     {}
-
     >>> convert_dict([1, 2, 3])
     {0: [1, 2, 3]}
-
     >>> convert_dict([[1, 2], [3, 4]])
     {0: [1, 2], 1: [3, 4]}
-
     >>> convert_dict({'a': [1, 2], 'b': [3, 4]})
     {'a': [1, 2], 'b': [3, 4]}
 
@@ -443,15 +434,12 @@ def convert_from_alias(arg: str, default_values: Iterable = None, path: str = "g
 
     Examples
     --------
-    >>> from explorica._utils import convert_from_alias
-    ...
+    >>> # Simple usage
     >>> shortname = "freq"
-    >>> print(convert_from_alias(shortname))
+    >>> convert_from_alias(shortname)
     'frequency'
-    ...
     >>> dtype_shortname = "num"
-    >>> print(convert_from_alias(dtype_shortname, path="get_categorical_features
-    ... "))
+    >>> convert_from_alias(dtype_shortname, path="get_categorical_features")
     'number'
     """
     alias_dict = read_config("aliases")
@@ -504,17 +492,16 @@ def _validate_dict_values_dtype(
 
     Examples
     --------
-    >>> from explorica._utils.conversion import _validate_dict_values_dtype
     >>> try:
-    >>>     _validate_dict_values_dtype({"A": 1, "B": 2}, int)
-    >>> except ValueError as e:
-    >>>     print(e)
-    None
+    ...     _validate_dict_values_dtype({"A": 1, "B": 2}, int)
+    ... except ValueError as e:
+    ...     e
+    >>> # The dict has been successully validated
     >>> try:
-    >>>     _validate_dict_values_dtype({"A": 1, "B": 2.0}, int)
-    >>> except ValueError as e:
-    >>>     print(e)
-    Invalid data type 'float' in input 'data'. Please provide 'int' data type
+    ...     _validate_dict_values_dtype({"A": 1, "B": 2.0}, int)
+    ... except ValueError as e:
+    ...     e
+    ValueError("Invalid data type 'float' in input 'data'...")
 
     Notes
     -----

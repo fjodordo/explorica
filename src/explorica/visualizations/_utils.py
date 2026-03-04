@@ -33,24 +33,24 @@ Examples
 --------
 >>> import matplotlib.pyplot as plt
 >>> fig, ax = get_empty_plot(message="Data validation failed")
->>> # fig and ax are now Matplotlib objects that can be displayed or saved.
+>>> # Fig and ax are now Matplotlib objects that can be displayed or saved.
 >>> type(fig).__name__
 'Figure'
 >>> plt.close(fig)
 """
 
-import logging
 import contextlib
-from typing import Sequence
-from contextlib import contextmanager, ExitStack
+import logging
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
+from typing import Sequence
 
 import matplotlib.pyplot as plt
-import seaborn as sns
 import plotly.express as px
+import seaborn as sns
 from plotly.graph_objs import Figure as PxFigure
 
-from explorica._utils import temp_log_level, read_config
+from explorica._utils import read_config, temp_log_level
 
 logger = logging.getLogger(__name__)
 
@@ -443,6 +443,7 @@ def get_empty_plot(
 
     Examples
     --------
+    >>> import matplotlib.pyplot as plt
     >>> fig, ax = get_empty_plot(message="No data", engine="matplotlib")
     >>> type(fig).__name__
     'Figure'

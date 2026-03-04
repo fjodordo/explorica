@@ -23,18 +23,16 @@ Notes
 
 Examples
 --------
-# Simple usage
->>> from explorica.reports import Block, BlockConfig
 >>> import matplotlib.pyplot as plt
 >>> import plotly.graph_objects as go
-
+>>> from explorica.reports.core import Block, BlockConfig
+>>>
+>>>
+>>> # Simple usage
 >>> # Create a matplotlib figure
 >>> fig, ax = plt.subplots()
->>> ax.plot([1, 2, 3], [4, 5, 6])
-
 >>> # Create a plotly figure
 >>> figly = go.Figure(data=go.Bar(y=[2, 3, 1]))
-
 >>> # Initialize BlockConfig
 >>> block_cfg = BlockConfig(
 ...     title="Example Block",
@@ -42,11 +40,10 @@ Examples
 ...     metrics=[{"name": "Mean", "value": 5.0}],
 ...     visualizations=[fig, figly]
 ... )
-
 >>> # Initialize Block
 >>> block = Block(block_cfg)
 
-# Usage of management methods
+>>> # Usage of management methods
 >>> # Add a new metric
 >>> block.add_metric("Std", 1.2, description="Standard deviation")
 
@@ -55,34 +52,43 @@ Examples
 
 >>> # Add a new visualization
 >>> fig2, ax2 = plt.subplots()
->>> ax2.plot([10, 20, 30], [3, 6, 9])
 >>> block.add_visualization(fig2)
 
 >>> # Insert a visualization at index 1
 >>> fig3 = go.Figure(data=go.Scatter(y=[1, 4, 9]))
 >>> block.insert_visualization(fig3, 1)
 
-# Render to HTML
+>>> # Render to HTML
 >>> html_output = block.render_html(path=None)
 >>> print(type(html_output))
 <class 'str'>
 
-# Render to PDF
+>>> # Render to PDF
 >>> pdf_bytes = block.render_pdf(path=None)
 >>> print(type(pdf_bytes))
 <class 'bytes'>
+
+>>> # Close all mpl figure after usage
+>>> plt.close('all')
 """
 
-from typing import Any, Sequence, Hashable, Mapping
 from dataclasses import dataclass, field
+from typing import Any, Hashable, Mapping, Sequence
 
-import plotly.graph_objects
-import matplotlib.pyplot as plt
 import matplotlib.figure
+import matplotlib.pyplot as plt
+import plotly.graph_objects
 
-from ...types import VisualizationResult, TableResult
-from ..utils import normalize_visualization, normalize_table
-from ..renderers import render_pdf, render_html
+from ...types import TableResult, VisualizationResult
+from ..renderers import render_html, render_pdf
+from ..utils import normalize_table, normalize_visualization
+
+# pylint: disable=C0302
+
+__all__ = [
+    "Block",
+    "BlockConfig",
+]
 
 
 @dataclass
@@ -143,9 +149,10 @@ class BlockConfig:
     --------
     >>> from matplotlib import pyplot as plt
     >>> from plotly import graph_objects as go
-    >>> from explorica.reports import BlockConfig
+    >>> from explorica.reports.core import BlockConfig
+    >>>
+    >>>
     >>> fig_mpl, ax = plt.subplots()
-    >>> fig_mpl.plot([1, 2, 3], [4, 5, 6])
     >>> fig_plotly = go.Figure(data=go.Bar(y=[1, 2, 3]))
     >>> config = BlockConfig(
     ...     title="Example Block",
@@ -153,6 +160,9 @@ class BlockConfig:
     ...     metrics=[{"name": "Mean", "value": 5.0}],
     ...     visualizations=[fig_mpl, fig_plotly]
     ... )
+
+    >>> # Close all mpl figure after usage
+    >>> plt.close('all')
     """
 
     title: str = ""
@@ -167,7 +177,7 @@ class BlockConfig:
 
 
 class Block:
-    """
+    r"""
     A container for a report block in Explorica.
 
     This class wraps a `BlockConfig` dataclass and provides utilities
@@ -179,6 +189,7 @@ class Block:
     ----------
     block_config : dict or BlockConfig, optional
         Configuration for the block.
+
         - If `dict` -> converted to `BlockConfig`.
         - If `BlockConfig` -> used as-is.
         - If `None` -> a new empty `BlockConfig` is created.
@@ -188,6 +199,11 @@ class Block:
     block_config : BlockConfig
         The configuration of the block including title, description,
         metrics, and visualizations (normalized to `VisualizationResult`).
+    typename
+        The name of the class, always 'Block'. Useful for type-checking
+        without direct imports.
+    empty
+        Check whether the block contains any content.
 
     Methods
     -------
@@ -213,43 +229,33 @@ class Block:
         Remove and return a table from the block by index.
     render_pdf(path = None, font = "DejaVuSans", doc_template_kws = None, **kwargs)
         Render the block to PDF format.
-    render_html(
-        path=None,
-        font=("Arial", "DejaVu Serif", "DejaVu Sans", "sans-serif"),
-        **kwargs
-    )
+    render_html(path=None,font=("Arial", "DejaVu Serif", "DejaVu Sans", "sans-serif"),
+    \**kwargs)
         Render the block to HTML format.
-    typename
-        The name of the class, always 'Block'. Useful for type-checking
-        without direct imports.
-    empty
-        Check whether the block contains any content.
 
     Notes
     -----
     - During initialization, all figures in `block_config.visualizations`
-    are normalized into `VisualizationResult` objects via `normalize_visualization`.
+      are normalized into `VisualizationResult` objects via `normalize_visualization`.
     - All tables in `block_config.tables` are normalized into `TableResult`
-    objects via `normalize_table`.
+      objects via `normalize_table`.
     - This ensures consistent handling for rendering in HTML or PDF and
-    standardized table representation.
+      standardized table representation.
     - `block_config.visualizations` and `block_config.tables` can be empty or None;
-    in that case, they are initialized as empty lists.
+      in that case, they are initialized as empty lists.
 
     Examples
     --------
-    # Simple usage
+    >>> # Simple usage
     >>> from explorica.reports import Block, BlockConfig
     >>> import matplotlib.pyplot as plt
     >>> import plotly.graph_objects as go
-
+    >>>
+    >>>
     >>> # Create a matplotlib figure
     >>> fig, ax = plt.subplots()
-    >>> ax.plot([1, 2, 3], [4, 5, 6])
-
     >>> # Create a plotly figure
     >>> figly = go.Figure(data=go.Bar(y=[2, 3, 1]))
-
     >>> # Initialize BlockConfig
     >>> block_cfg = BlockConfig(
     ...     title="Example Block",
@@ -257,11 +263,10 @@ class Block:
     ...     metrics=[{"name": "Mean", "value": 5.0}],
     ...     visualizations=[fig, figly]
     ... )
-
     >>> # Initialize Block
     >>> block = Block(block_cfg)
 
-    # Usage of management methods
+    >>> # Usage of management methods
     >>> # Add a new metric
     >>> block.add_metric("Std", 1.2, description="Standard deviation")
 
@@ -270,22 +275,24 @@ class Block:
 
     >>> # Add a new visualization
     >>> fig2, ax2 = plt.subplots()
-    >>> ax2.plot([10, 20, 30], [3, 6, 9])
     >>> block.add_visualization(fig2)
 
     >>> # Insert a visualization at index 1
     >>> fig3 = go.Figure(data=go.Scatter(y=[1, 4, 9]))
     >>> block.insert_visualization(fig3, 1)
 
-    # Render to HTML
+    >>> # Render to HTML
     >>> html_output = block.render_html(path=None)
     >>> print(type(html_output))
     <class 'str'>
 
-    # Render to PDF
+    >>> # Render to PDF
     >>> pdf_bytes = block.render_pdf(path=None)
     >>> print(type(pdf_bytes))
     <class 'bytes'>
+
+    >>> # Close all mpl figure after usage
+    >>> plt.close('all')
     """
 
     def __init__(self, block_config=None):
@@ -317,6 +324,8 @@ class Block:
         """
         Return the class name.
 
+        Useful for type-checking and logging purposes.
+
         Returns
         -------
         str
@@ -324,6 +333,7 @@ class Block:
 
         Examples
         --------
+        >>> from explorica.reports.core import Block
         >>> block = Block()
         >>> block.typename
         'Block'
@@ -343,6 +353,9 @@ class Block:
 
         Examples
         --------
+        >>> import pandas as pd
+        >>> from explorica.reports.core import Block, BlockConfig
+        >>> # Simple usage
         >>> block = Block(BlockConfig(title="Empty block"))
         >>> block.empty
         True
@@ -376,24 +389,26 @@ class Block:
 
         Parameters
         ----------
-        visualization : matplotlib.figure.Figure, plotly.graph_objects.Figure,
-                        or VisualizationResult
+        visualization : mpl.figure.Figure, plotly.go.Figure, or VisualizationResult
             The figure or visualization object to add to the block.
 
         Notes
         -----
         - `normalize_visualization` is applied automatically to ensure
-        a uniform internal representation.
+          a uniform internal representation.
         - This method does not render the visualization; it only stores it
-        for future rendering via `render_html` or `render_pdf`.
+          for future rendering via `render_html` or `render_pdf`.
 
         Examples
         --------
         >>> import matplotlib.pyplot as plt
-        >>> from explorica.reports import Block
+        >>> from explorica.reports.core import Block
         >>> fig, ax = plt.subplots()
         >>> block = Block()
         >>> block.add_visualization(fig)
+
+        >>> # Close all mpl figure after usage
+        >>> plt.close('all')
         """
         self.block_config.visualizations.append(normalize_visualization(visualization))
 
@@ -412,8 +427,7 @@ class Block:
 
         Parameters
         ----------
-        visualization : matplotlib.figure.Figure, plotly.graph_objects.Figure,
-                        or VisualizationResult
+        visualization : mpl.figure.Figure, plotly.go.Figure or VisualizationResult
             The figure or visualization object to insert.
         index : int
             Position at which the visualization is inserted.
@@ -427,10 +441,13 @@ class Block:
         Examples
         --------
         >>> import matplotlib.pyplot as plt
-        >>> from explorica.reports import Block
+        >>> from explorica.reports.core import Block
         >>> fig, ax = plt.subplots()
         >>> block = Block()
         >>> block.insert_visualization(fig, index=0)
+
+        >>> # Close all mpl figure after usage
+        >>> plt.close('all')
         """
         self.block_config.visualizations.insert(
             index, normalize_visualization(visualization)
@@ -439,6 +456,9 @@ class Block:
     def remove_visualization(self, index: int) -> VisualizationResult:
         """
         Remove a visualization from the block by index.
+
+        This method updates the internal BlockConfig by deleting the visualization at
+        the specified position. Supports negative indexing (like Python lists).
 
         Parameters
         ----------
@@ -459,12 +479,16 @@ class Block:
         Examples
         --------
         >>> import matplotlib.pyplot as plt
-        >>> from explorica.reports import Block, BlockConfig
+        >>> from explorica.reports.core import Block, BlockConfig
         >>> fig, ax = plt.subplots()
         >>> block = Block(BlockConfig(visualizations=[fig]))
         >>> block.remove_visualization(index=0)
+        VisualizationResult(...)
         >>> block.block_config.visualizations
         []
+
+        >>> # Close all mpl figure after usage
+        >>> plt.close('all')
         """
         try:
             return self.block_config.visualizations.pop(index)
@@ -477,10 +501,6 @@ class Block:
 
         This method clears the list of visualizations associated with the block.
 
-        Returns
-        -------
-        None
-
         Examples
         --------
         >>> import matplotlib.pyplot as plt
@@ -490,6 +510,9 @@ class Block:
         >>> block.clear_visualizations()
         >>> block.block_config.visualizations
         []
+
+        >>> # Close all mpl figure after usage
+        >>> plt.close('all')
         """
         self.block_config.visualizations = []
 
@@ -580,12 +603,16 @@ class Block:
         Notes
         -----
         - Metrics are stored internally as dictionaries with keys
-        ``name``, ``value`` and ``description``.
+          ``name``, ``value`` and ``description``.
 
         Examples
         --------
+        >>> from explorica.reports.core import Block, BlockConfig
+        >>> block = Block(BlockConfig(title="My Block"))
         >>> block.add_metric("mean", 5.2)
         >>> block.add_metric("std", 1.3, description="Standard deviation")
+        >>> block.block_config.metrics
+        [{'name': 'mean', ...}, {'name': 'std', ...}]
         """
         metric = {"name": name, "value": value, "description": description}
         self._validate_metric(metric)
@@ -628,15 +655,19 @@ class Block:
         Notes
         -----
         - This method follows standard Python ``list.insert`` behavior for
-        index handling.
+          index handling.
         - Negative indices are supported and follow standard Python semantics.
         - Metric validation is performed via the internal
-        :meth:`_validate_metric` helper.
+          :meth:`_validate_metric` helper.
 
         Examples
         --------
+        >>> from explorica.reports.core import Block, BlockConfig
+        >>> block = Block(BlockConfig(title="My Block"))
         >>> block.insert_metric(0, "mean", 5.2)
-        >>> block.insert_metric(1, "std", 1.3, description="Standard deviation")
+        >>> block.insert_metric(0, "std", 1.3, description="Standard deviation")
+        >>> block.block_config.metrics
+        [{'name': 'std', ...}, {'name': 'mean', ...}]
         """
         metric = {"name": name, "value": value, "description": description}
         self._validate_metric(metric)
@@ -645,6 +676,9 @@ class Block:
     def remove_metric(self, index: int) -> dict:
         """
         Remove a metric from the block at a given index.
+
+        This method updates the internal BlockConfig by deleting the metric at
+        the specified position. Supports negative indexing (like Python lists).
 
         Parameters
         ----------
@@ -666,12 +700,16 @@ class Block:
         Notes
         -----
         - This is a direct wrapper around Python's list ``pop`` method
-        for the internal ``metrics`` list.
+          for the internal ``metrics`` list.
         - The returned metric is the exact dictionary stored internally.
 
         Examples
         --------
-        >>> block.add_metric("mean", 5.0)
+        >>> from explorica.reports.core import Block, BlockConfig
+        >>> block = Block(BlockConfig(metrics=[
+        ...     {'name': 'mean', 'value': 5.0, 'description': None},
+        ...     {'name': 'median', 'value': 5.2, 'description': 'Simple desc'},
+        ... ]))
         >>> removed = block.remove_metric(0)
         >>> print(removed)
         {'name': 'mean', 'value': 5.0, 'description': None}
@@ -710,16 +748,21 @@ class Block:
         Notes
         -----
         - The input data is normalized and wrapped
-        into a :class:`TableResult`.
+          into a :class:`TableResult`.
         - MultiIndex or multi-column DataFrames are not supported and may
-        raise an error during normalization.
+          raise an error during normalization.
 
         Examples
         --------
+        >>> from explorica.reports.core import Block, BlockConfig
+        >>> # Simple usage
+        >>> block = Block(BlockConfig(title='My Block'))
         >>> block.add_table(
         ...     {"mean": [1.2], "std": [0.3]},
         ...     title="Summary statistics"
         ... )
+        >>> block.block_config.tables
+        [TableResult(...)]
         """
         tr = normalize_table(table)
         if title is not None:
@@ -765,11 +808,21 @@ class Block:
 
         Examples
         --------
+        >>> # Simple usage
+        >>> from explorica.reports.core import Block, BlockConfig
+        >>> block = Block(BlockConfig(title="My Block"))
         >>> block.insert_table(
         ...     0,
         ...     [[1, 2], [3, 4]],
-        ...     title="Raw values"
+        ...     title="Table 1"
         ... )
+        >>> block.insert_table(
+        ...     0,
+        ...     [[1, 2], [3, 4]],
+        ...     title="Table 2"
+        ... )
+        >>> block.block_config.tables
+        [TableResult(..., title='Table 2', ...), TableResult(..., title='Table 1', ...)]
         """
         tr = normalize_table(table)
         if title is not None:
@@ -781,6 +834,9 @@ class Block:
     def remove_table(self, index: int) -> TableResult:
         """
         Remove and return a table from the block by index.
+
+        This method updates the internal BlockConfig by deleting the table at
+        the specified position. Supports negative indexing (like Python lists).
 
         Parameters
         ----------
@@ -799,9 +855,18 @@ class Block:
 
         Examples
         --------
+        >>> import pandas as pd
+        >>> from explorica.reports.core import Block, BlockConfig
+        >>> # Simple usage
+        >>> df = pd.DataFrame([1, 2], [3, 4])
+        >>> block = Block(
+        ...     BlockConfig(
+        ...         title="My Block",
+        ...         tables=[TableResult(table=df, title="My table")]
+        ... ))
         >>> removed = block.remove_table(0)
         >>> removed.title
-        'Summary statistics'
+        'My table'
         """
         try:
             return self.block_config.tables.pop(index)
@@ -819,7 +884,7 @@ class Block:
         ),
         **kwargs,
     ) -> str:
-        """
+        r"""
         Render the block to HTML format.
 
         This method is a thin convenience wrapper around
@@ -859,15 +924,18 @@ class Block:
         Notes
         -----
         - This method does not introduce any new rendering logic.
-        It exists purely for ergonomic reasons, allowing HTML rendering
-        directly from a ``Block`` instance.
+          It exists purely for ergonomic reasons, allowing HTML rendering
+          directly from a ``Block`` instance.
         - CSS styles are applied at the block level when rendering a single block.
 
         Examples
         --------
+        >>> from explorica.reports.core import Block, BlockConfig
+        >>> # Simple usage
+        >>> block = Block(BlockConfig(title="My Block"))
         >>> html = block.render_html()
-        >>> block.render_html(path="./reports")
-        >>> block.render_html(path="./reports/my_block.html")
+        >>> block.render_html(path="./reports")               # doctest: +SKIP
+        >>> block.render_html(path="./reports/my_block.html") # doctest: +SKIP
         """
         params = {"path": path, "font": font, **kwargs}
         return render_html(self, **params)
@@ -879,7 +947,7 @@ class Block:
         doc_template_kws: dict = None,
         **kwargs,
     ) -> bytes:
-        """
+        r"""
         Render the block to PDF format.
 
         This method is a thin convenience wrapper around
@@ -911,7 +979,7 @@ class Block:
         bytes
             Rendered PDF content as bytes.
 
-        See also
+        See Also
         --------
         explorica.reports.renderers.pdf.render_pdf
             Entrypoint to render a `Block` or `Report` object into an PDF
@@ -920,15 +988,18 @@ class Block:
         Notes
         -----
         - This method provides a convenient, object-oriented interface for PDF
-        rendering but does not alter rendering behavior.
+          rendering but does not alter rendering behavior.
         - Plotly visualizations are rendered as placeholders due to the static
-        nature of the PDF format.
+          nature of the PDF format.
 
         Examples
         --------
+        >>> from explorica.reports.core import Block, BlockConfig
+        >>> # Simple usage
+        >>> block = Block(BlockConfig(title="My Block"))
         >>> pdf_bytes = block.render_pdf()
-        >>> block.render_pdf(path="./reports")
-        >>> block.render_pdf(path="./reports/my_block.pdf")
+        >>> block.render_pdf(path="./reports")              # doctest: +SKIP
+        >>> block.render_pdf(path="./reports/my_block.pdf") # doctest: +SKIP
         """
         params = {
             "path": path,
@@ -947,20 +1018,21 @@ class Block:
         method is intended to free graphical resources and prevent accumulation
         of open figures in long-running processes or batch report generation.
 
-        Notes
-        -----
-        - Only visualizations backed by Matplotlib figures are affected.
-        - Visualizations using other backends are ignored.
-        - Calling this method does not remove visualizations from the block;
-        it only closes their associated figures.
-
         See Also
         --------
         matplotlib.pyplot.close
             Close a Matplotlib figure and release its resources.
 
+        Notes
+        -----
+        - Only visualizations backed by Matplotlib figures are affected.
+        - Visualizations using other backends are ignored.
+        - Calling this method does not remove visualizations from the block;
+          it only closes their associated figures.
+
         Examples
         --------
+        >>> from explorica.reports.core import Block, BlockConfig
         >>> block = Block(BlockConfig())
         >>> # ... generate visualizations and render block ...
         >>> block.close_figures()

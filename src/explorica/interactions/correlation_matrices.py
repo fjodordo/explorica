@@ -46,11 +46,21 @@ from explorica._utils import (
     validate_unique_column_names,
 )
 from explorica.interactions.correlation_metrics import (
-    cramer_v,
-    eta_squared,
     corr_index,
     corr_multiple,
+    cramer_v,
+    eta_squared,
 )
+
+__all__ = [
+    "corr_matrix",
+    "corr_matrix_linear",
+    "corr_matrix_cramer_v",
+    "corr_matrix_eta",
+    "corr_vector_multiple",
+    "corr_matrix_multiple",
+    "corr_matrix_corr_index",
+]
 
 _errors = read_config("messages")["errors"]
 _warns = read_config("messages")["warns"]
@@ -81,6 +91,7 @@ def corr_matrix(
         compared to categorical features in `groups`.
     method : str, optional
         Method used to compute correlation or association:
+
         - 'pearson' : Pearson correlation (linear, continuous features).
         - 'spearman' : Spearman rank correlation (monotonic, non-parametric).
         - 'cramer_v' : Cramér's V (categorical-categorical association).
@@ -100,6 +111,7 @@ def corr_matrix(
     Returns
     -------
     pd.DataFrame
+
         - For 'pearson' and 'spearman':
           symmetric correlation matrix of shape
           (n_numeric_features, n_numeric_features).
@@ -132,6 +144,27 @@ def corr_matrix(
     - Pearson, Spearman, and other numerical correlation methods internally select
       only features of numeric type (`Number`) from the provided DataFrame.
       Non-numeric columns (e.g., categorical strings or object types) are ignored.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> from explorica.interactions.correlation_matrices import corr_matrix
+    >>> # Simple usage
+    >>> data = pd.DataFrame({
+    ...     "X1": [1, 2, 3, 4, 5, 6],
+    ...     "X2": [12, 10, 8, 6, 4, 2],
+    ...     "X3": [9, 3, 5, 2, 6, 1],
+    ...     "X4": [3, 2, 1, 3, 2, 1],
+    ... })
+    >>> result_df = corr_matrix(data, method="spearman")
+    >>> # Round coefficients for doctests reproducibility
+    >>> np.round(result_df, 4)
+            X1      X2      X3      X4
+    X1  1.0000 -1.0000 -0.6000 -0.4781
+    X2 -1.0000  1.0000  0.6000  0.4781
+    X3 -0.6000  0.6000  1.0000  0.3586
+    X4 -0.4781  0.4781  0.3586  1.0000
     """
     supported_methods = {
         "pearson",
@@ -194,8 +227,9 @@ def corr_matrix_linear(
     dataset: Sequence[Sequence[Number]], method: str = "pearson"
 ) -> pd.DataFrame:
     """
-    Compute a correlation matrix for numeric
-    features using Pearson or Spearman correlation.
+    Compute a correlation matrix for numeric features.
+
+    Computes using Pearson or Spearman correlation.
 
     Parameters
     ----------
@@ -220,6 +254,37 @@ def corr_matrix_linear(
     -----
     - Only numeric columns are considered; non-numeric columns are ignored.
     - The dataset is automatically converted to a pandas DataFrame if it isn't one.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> from explorica.interactions.correlation_matrices import corr_matrix_linear
+    >>> # Pearson method usage
+    >>>
+    >>> X = pd.DataFrame({
+    ...     "X1": [1, 3, 5, 6, 1],
+    ...     "X2": [2, 3, 4, 1, 9],
+    ...     "X3": [7, 4, 2, 5, 1],
+    ...     "X4": [1, 2, 3, 4, 5],
+    ... })
+    >>> result_df = corr_matrix_linear(X, method="pearson")
+    >>> # Round coefficients for doctests reproducibility
+    >>> np.round(result_df, 4)
+            X1      X2      X3      X4
+    X1  1.0000 -0.5210 -0.0367  0.2080
+    X2 -0.5210  1.0000 -0.8136  0.6092
+    X3 -0.0367 -0.8136  1.0000 -0.7285
+    X4  0.2080  0.6092 -0.7285  1.0000
+
+    >>> # Spearman method usage
+    >>> result_df = corr_matrix_linear(X, method="spearman")
+    >>> np.round(result_df, 4)
+            X1      X2      X3      X4
+    X1  1.0000 -0.4617  0.1026  0.2052
+    X2 -0.4617  1.0000 -0.9000  0.4000
+    X3  0.1026 -0.9000  1.0000 -0.7000
+    X4  0.2052  0.4000 -0.7000  1.0000
     """
     validate_string_flag(
         method,
@@ -237,7 +302,11 @@ def corr_matrix_cramer_v(
     dataset: Sequence[Sequence], bias_correction: bool = True
 ) -> pd.DataFrame:
     """
-    Compute the Cramér's V correlation matrix for categorical variables.
+    Compute the Cramér's V dependency matrix for categorical variables.
+
+    Useful for exploratory analysis of datasets with multiple categorical
+    variables, providing a pairwise overview of their associations. Bias correction
+    option is available.
 
     Parameters
     ----------
@@ -259,15 +328,39 @@ def corr_matrix_cramer_v(
     ValueError
         If 'dataset' contains NaN values.
 
+    See Also
+    --------
+    explorica.interactions.correlation_metrics.cramer_v
+        The underlying computation function.
+
     Notes
     -----
     - Cramér's V is a measure of association between two nominal
-    (categorical) variables, ranging from 0 (no association) to 1
-    (perfect association).
+      (categorical) variables, ranging from 0 (no association) to 1
+      (perfect association).
     - This implementation ensures the matrix is symmetric and always has
-    ones on the diagonal.
+      ones on the diagonal.
     - The underlying `cramer_v` function may currently produce biased
-    results in some cases due to known issues with bias correction.
+      results in some cases due to known issues with bias correction.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> from explorica.interactions.correlation_matrices import corr_matrix_cramer_v
+    >>> # Simple usage
+    >>> groups_table = pd.DataFrame({
+    ...     "Group_A": ["A", "A", "A", "B", "B", "B"],
+    ...     "Group_B": [1, 2, 3, 1, 2, 3],
+    ...     "Group_C": ["C", "C", "C", "D", "D", "D"],
+    ... })
+    >>> result_df = corr_matrix_cramer_v(groups_table, bias_correction=False)
+    >>> # Round coefficients for doctests reproducibility
+    >>> np.round(result_df, 4)
+             Group_A  Group_B  Group_C
+    Group_A      1.0      0.0      1.0
+    Group_B      0.0      1.0      0.0
+    Group_C      1.0      0.0      1.0
     """
     df = convert_dataframe(dataset)
     validate_array_not_contains_nan(df, _errors["array_contains_nans"])
@@ -291,8 +384,7 @@ def corr_matrix_eta(
     dataset: Sequence[Sequence[Number]], categories: Sequence[Sequence]
 ) -> pd.DataFrame:
     """
-    Compute a correlation matrix between numerical features and categorical features
-    using the square root of eta-squared (η²).
+    Compute a dependency matrix based on square root of eta-squared (η²).
 
     This function measures the strength of association between continuous
     (numeric) variables and categorical variables. The result is a matrix
@@ -321,10 +413,41 @@ def corr_matrix_eta(
         If 'dataset' or 'category' contains NaN values.
         If input sequences lengths mismatch
 
+    See Also
+    --------
+    explorica.interactions.correlation_metrics.eta_squared
+        The underlying computation function.
+
     Notes
     -----
     - Eta coefficient values are in [0, 1], with higher values indicating
-    stronger association.
+      stronger association.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> from explorica.interactions.correlation_matrices import corr_matrix_eta
+    >>> # Simple usage
+    >>> data = pd.DataFrame({
+    ...     "X1": [1, 3, 5, 6, 1, 8],
+    ...     "X2": [0, 0, 0, 1, 1, 1],
+    ...     "X3": [7, 4, 2, 5, 1, 1],
+    ...     "X4": [3, 2, 1, 3, 2, 1],
+    ... })
+    >>> groups_table = pd.DataFrame({
+    ...     "Group_A": ["A", "A", "A", "B", "B", "B"],
+    ...     "Group_B": [1, 2, 3, 1, 2, 3],
+    ...     "Group_C": ["C", "C", "C", "D", "D", "D"],
+    ... })
+    >>> result_df = corr_matrix_eta(data, groups_table)
+    >>> # Round coefficients for doctests reproducibility
+    >>> np.round(result_df, 4)
+        Group_A  Group_B  Group_C
+    X1   0.3873   0.7246   0.3873
+    X2   1.0000   0.0000   1.0000
+    X3   0.4523   0.8726   0.4523
+    X4   0.0000   1.0000   0.0000
     """
     err_msg = _errors["array_contains_nans_f"]
     validate_array_not_contains_nan(dataset, err_msg.format("dataset"))
@@ -349,27 +472,30 @@ def corr_matrix_eta(
 
 def corr_vector_multiple(x: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
     """
+    Compute multiple correlation between `y` and predictor combinations from `x`.
+
     Calculates multiple correlation coefficients between the target variable `y`
     and all possible combinations of 2 or more features from `x`.
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     x : pd.DataFrame
         Feature matrix (only numeric features should be used).
     y : pd.Series
         Target vector. The function computes correlation
         between this target and feature combinations.
 
-    Returns:
-    --------
+    Returns
+    -------
     pd.DataFrame
         A DataFrame with columns:
+
         - 'corr_coef': multiple correlation coefficient for a given combination
         - 'feature_combination': tuple of feature names used in the combination
         - 'target': name of the target variable
 
-    Raises:
-    -------
+    Raises
+    ------
     ValueError:
         - If `x` or `y` contains NaN values.
         - If the number of samples in `x` and `y` do not match.
@@ -380,6 +506,11 @@ def corr_vector_multiple(x: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
         If the predictors in x are found to be multicollinear
         (i.e., the determinant of their correlation matrix is zero).
 
+    See Also
+    --------
+    explorica.interactions.correlation_metrics.corr_multiple
+        The underlying computation function.
+
     Notes
     -----
     - The method renames columns as 'X1', 'X2', etc., to handling duplicate names
@@ -387,6 +518,29 @@ def corr_vector_multiple(x: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
       combinationsof features of size 2 and larger.
     - This method can be computationally expensive for large datasets,
       as it evaluates all possible combinations of features.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> from explorica.interactions.correlation_matrices import corr_vector_multiple
+    >>>
+    >>>
+    >>> X = pd.DataFrame({
+    ...     "X1": [1, 3, 5, 6, 1],
+    ...     "X2": [2, 3, 4, 1, 9],
+    ...     "X3": [7, 4, 2, 5, 1],
+    ... })
+    >>> y = pd.Series([1, 2, 3, 4, 5], name="y")
+    >>> result_df = corr_vector_multiple(X, y)
+    >>> # Round coefficients for doctests reproducibility
+    >>> result_df["corr_coef"] = np.round(result_df["corr_coef"], 4)
+    >>> result_df
+       corr_coef feature_combination target
+    0     0.8660            (X1, X2)      y
+    1     0.7507            (X1, X3)      y
+    2     0.7290            (X2, X3)      y
+    3     0.9803        (X1, X2, X3)      y
     """
     if x.isna().sum().sum() + y.isna().sum() != 0:
         raise ValueError(
@@ -450,6 +604,7 @@ def corr_matrix_multiple(dataset: Sequence[Sequence[Number]]) -> pd.DataFrame:
     -------
     pd.DataFrame
         DataFrame with the following columns:
+
         - `corr_coef`: correlation coefficient
            for the target-predictor combination.
         - `feature_combination`: tuple or list of predictor feature names.
@@ -468,9 +623,51 @@ def corr_matrix_multiple(dataset: Sequence[Sequence[Number]]) -> pd.DataFrame:
         a UserWarning is issued. This warning appears only once, regardless of how
         many targets trigger it.
 
+    See Also
+    --------
+    explorica.interactions.correlation_matrices.corr_vector_multiple
+        The underlying computation function.
+    explorica.interactions.correlation_metrics.corr_multiple
+        The underlying computation function.
+
     Notes
     -----
     - The function handles datasets with any number of features >= 3.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> from explorica.interactions.correlation_matrices import corr_matrix_multiple
+    >>> # Simple usage
+    >>> X = pd.DataFrame({
+    ...     "X1": [1, 3, 5, 6, 1],
+    ...     "X2": [2, 3, 4, 1, 9],
+    ...     "X3": [7, 4, 2, 5, 1],
+    ...     "X4": [1, 2, 3, 4, 5],
+    ... })
+    >>> result_df = corr_matrix_multiple(X)
+    >>> # Round coefficients for doctests reproducibility
+    >>> result_df["corr_coef"] = np.round(result_df["corr_coef"], 4)
+    >>> result_df = result_df.sort_values(by="corr_coef", ascending=False)
+    >>> result_df
+        corr_coef feature_combination target
+    7      0.9985        (X1, X3, X4)     X2
+    11     0.9963        (X1, X2, X4)     X3
+    3      0.9958        (X2, X3, X4)     X1
+    4      0.9828            (X1, X3)     X2
+    15     0.9803        (X1, X2, X3)     X4
+    8      0.9763            (X1, X2)     X3
+    0      0.9482            (X2, X3)     X1
+    5      0.8998            (X1, X4)     X2
+    12     0.8660            (X1, X2)     X4
+    10     0.8650            (X2, X4)     X3
+    1      0.8428            (X2, X4)     X1
+    6      0.8140            (X3, X4)     X2
+    13     0.7507            (X1, X3)     X4
+    9      0.7379            (X1, X4)     X3
+    14     0.7290            (X2, X3)     X4
+    2      0.2671            (X3, X4)     X1
     """
     warned_once = False
     matrix = pd.DataFrame()
@@ -512,7 +709,7 @@ def corr_matrix_multiple(dataset: Sequence[Sequence[Number]]) -> pd.DataFrame:
 def corr_matrix_corr_index(
     dataset: Sequence[Sequence[Number]], method: str = "linear"
 ) -> pd.DataFrame:
-    """
+    r"""
     Compute a correlation index matrix for all features in a dataset.
 
     This method computes a pairwise correlation index (√R²) between features using
@@ -533,7 +730,7 @@ def corr_matrix_corr_index(
     -------
     pd.DataFrame
         DataFrame of size (n_features x n_features) containing the correlation
-        index (√R²) values for each pair of features.
+        index (:math:`\sqrt{R^2}`) values for each pair of features.
 
     Raises
     ------
@@ -542,10 +739,36 @@ def corr_matrix_corr_index(
         If column names are duplicated.
         If the selected method is not supported.
 
+    See Also
+    --------
+    explorica.interactions.correlation_metrics.corr_index
+        The underlying computation function.
+
     Notes
     -----
     - Any invalid pair according to these method constraints
       will have NaN as a result.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import numpy as np
+    >>> from explorica.interactions.correlation_matrices import corr_matrix_corr_index
+    >>>
+    >>> data = pd.DataFrame({
+    ...     "X1": [1, 2, 3, 4, 5, 6],
+    ...     "X2": [2, 4, 6, 8, 10, 12],
+    ...     "X3": [1, 4, 9, 16, 25, 36],
+    ...     "X4": [3, 2, 1, 3, 2, 1],
+    ... })
+    >>> result_df = corr_matrix_corr_index(data, method="binomial")
+    >>> # Round coefficients for doctests reproducibility
+    >>> np.round(result_df, 4)
+            X1      X2      X3      X4
+    X1  1.0000  1.0000  1.0000  0.4781
+    X2  1.0000  1.0000  1.0000  0.4781
+    X3  0.9969  0.9969  1.0000  0.4964
+    X4  0.4781  0.4781  0.4696  1.0000
     """
     supported_methods = {"linear", "exp", "binomial", "ln", "hyperbolic", "power"}
     df = convert_dataframe(dataset)

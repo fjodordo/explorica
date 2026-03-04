@@ -1,4 +1,4 @@
-"""
+r"""
 Module for statistical metrics and distribution analysis.
 
 This module defines tools for computing standardized statistical moments
@@ -12,24 +12,25 @@ get_skewness(data, method="general")
 get_kurtosis(data, method="general")
     Compute the **excess kurtosis** (fourth standardized moment minus 3)
     of a numeric sequence.
-describe_distributions(data, threshold_skewness=0.25, threshold_kurtosis=0.25,
-    return_as="dataframe", **kwargs
-)
+
+**describe_distributions(data, threshold_skewness=0.25, threshold_kurtosis=0.25,**
+**return_as="dataframe", \**kwargs)**
+
     Describe shape (skewness / kurtosis) of one or multiple numeric distributions.
 
 Examples
 --------
+>>> import numpy as np
 >>> import pandas as pd
->>> from explorica.data_quality.outliers import DistributionMetrics
+>>> from explorica.data_quality.outliers import get_skewness
 >>> df = pd.DataFrame({
 ...     "x": [1, 2, 3, 4, 5],
-...     "y": [2, 2, 2, 2, 2]
+...     "y": [1, 4, 8, 16, 32]
 ... })
->>> print(DistributionMetrics.get_skewness(df, method="general"))
-UserWarning: Columns with near-zero variance: ['y']. Their skewness will be set to 0.0.
-
-x    0.0
-y    0.0
+>>> skewness = get_skewness(df, method="general")
+>>> np.round(skewness, 4)
+x    0.0000
+y    0.8447
 dtype: float64
 """
 
@@ -46,6 +47,12 @@ from explorica._utils import (
     validate_string_flag,
 )
 
+__all__ = [
+    "get_skewness",
+    "get_kurtosis",
+    "describe_distributions",
+]
+
 _errors = read_config("messages")["errors"]
 
 
@@ -53,19 +60,32 @@ def get_skewness(
     data: Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[float]],
     method: str = "general",
 ) -> float | pd.Series:
-    """
-    Compute the skewness (third standardized moment) of a numeric sequence.
+    r"""
+    Compute the skewness of a numeric sequence.
+
+    Computed as:
+
+    .. math::
+
+        \gamma_1 = \frac{m_3}{\sigma^3} - 3
+
+    Where :math:`m_3` is:
+
+    .. math::
+
+        m_3 = \frac{\sum{(x_i - \overline{x})^3}}{n}
 
     Parameters
     ----------
-    data : Sequence[float] | Sequence[Sequence[float]] |
-           Mapping[str, Sequence[Number]]
+    data : Sequence | Mapping[str, Sequence[Number]]
         Numeric input data. Can be 1D (sequence of numbers),
         2D (sequence of sequences), or a mapping of column names to sequences.
     method : str, {"general", "sample"}, default "general"
         Method to compute skewness:
-        - "general": standard formula skew = m3 / σ**3
-        - "sample": corrected for sample size, skew = m3 / (var * n/(n-1))**1.5
+
+        - "general": standard formula :math:`\gamma_1 = \frac{m_3}{\sigma^3}`
+        - "sample": corrected for sample size,
+          :math:`\gamma_1 = \frac{m3}{(S^2*\frac{n}{n-1})^{3/2}}`
 
     Returns
     -------
@@ -90,8 +110,8 @@ def get_skewness(
 
     Examples
     --------
-    >>> from explorica.data_quality import get_skewness
-    ...
+    >>> from explorica.data_quality.outliers import get_skewness
+    >>> # Simple usage
     >>> print(get_skewness({"a": [1,2,3], "b": [2,3,4]}, method="sample"))
     a    0.0
     b    0.0
@@ -135,21 +155,34 @@ def get_kurtosis(
     data: Sequence[float] | Sequence[Sequence[float]] | Mapping[str, Sequence[float]],
     method: str = "general",
 ) -> float:
-    """
-    Compute the **excess kurtosis** (fourth standardized moment minus 3)
-    of a numeric sequence.
+    r"""
+    Compute the excess kurtosis of a numeric sequence.
+
+    Computed as:
+
+    .. math::
+
+        \gamma_2 = \frac{m_4}{\sigma^4} - 3
+
+    Where :math:`m_4` is:
+
+    .. math::
+
+        m_4 = \frac{\sum{(x_i - \overline{x})^4}}{n}
 
     Parameters
     ----------
-    data : Sequence[float] | Sequence[Sequence[float]] |
-           Mapping[str, Sequence[Number]]
+    data : Sequence | Mapping[str, Sequence[Number]]
         Numeric input data. Can be 1D (sequence of numbers),
         2D (sequence of sequences), or a mapping of column names to sequences.
     method : {"general", "sample"}, default "general"
         Method to compute excess kurtosis:
-        - "general": population excess kurtosis, computed as m4 / σ**4 - 3
+
+        - "general": population excess kurtosis, computed as
+                     :math:`\frac{m_4}{\sigma^4} - 3`
         - "sample": biased sample excess kurtosis,
-                    computed as m4 / (var * n/(n-1))**2 - 3
+                    computed as :math:`\frac{m_4}{(S^2 * \frac{n}{n-1})^2} - 3`
+
         Note that this function does not yet implement the unbiased
         Fisher correction for sample kurtosis.
 
@@ -160,7 +193,7 @@ def get_kurtosis(
         0.0 for normal distribution, positive values indicate
         heavier tails, negative values indicate lighter tails.
         If the sample variance is close to zero, the excess
-        kurtosis value will be replaced by np.nan
+        kurtosis value will be replaced by np.nan.
 
     Raises
     ------
@@ -172,6 +205,17 @@ def get_kurtosis(
     -----
     UserWarning
         If any features have variance < 1e-8.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from explorica.data_quality.outliers import get_kurtosis
+    >>> # Simple usage
+    >>> data_series = [2, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 12]
+    >>> result = get_kurtosis(data_series)
+    >>> # Round coefficients for doctests reproducibility
+    >>> np.round(result, 4)
+    np.float64(-0.4778)
     """
     if method.lower() in {"sigma", "population", "general"}:
         method = "general"
@@ -215,7 +259,7 @@ def describe_distributions(
     return_as: Optional[str] = "dataframe",
     **kwargs,
 ) -> Union[pd.DataFrame | dict]:
-    """
+    r"""
     Describe shape (skewness / kurtosis) of one or multiple numeric distributions.
 
     The function computes skewness and excess kurtosis for each 1-D sequence
@@ -226,16 +270,17 @@ def describe_distributions(
 
     Parameters
     ----------
-    data : {Sequence[Sequence[Number]],
-               pandas.DataFrame, Mapping[str, Sequence[Number]]}
+    data : Sequence, Mapping[str, Sequence[Number]]
         Input container with one or more numeric sequences (distributions).
         Supported forms:
+
         - 2D sequence (e.g. list of lists, list/array of 1D arrays): each inner
           sequence represents one distribution;
         - ``pandas.DataFrame``: each column is treated as a separate
           distribution;
         - ``Mapping`` (e.g. dict, OrderedDict): mapping keys are used as feature
           names and mapping values should be 1D numeric sequences.
+
         In the Mapping and DataFrame cases the order of returned metrics follows
         the order of mapping keys or DataFrame columns respectively.
         For plain sequences the order follows the sequence order and the resulting
@@ -252,39 +297,51 @@ def describe_distributions(
         distribution is approximately 0.
     return_as : {'dataframe', 'dict'}, optional, default='dataframe'
         Output format:
+
         - ``'dataframe'`` — return a ``pandas.DataFrame`` with columns:
           ``['is_normal', 'desc', 'skewness', 'kurtosis']``. If input was a
           DataFrame or Mapping the index will reflect column names / mapping keys.
         - ``'dict'`` — return a dict with keys ``'is_normal'``, ``'desc'``,
           ``'skewness'``, ``'kurtosis'`` and list-like values in the same order
           as the features.
-    method_skewness: {general, sample}, default "general"
-        Method to compute skewness. It is used in `data_quality.get_skewness`,
-        See `data_quality.get_skewness` for full details.
-    method_kurtosis: {general, sample}, default "general"
-        Method to compute kurtosis. It is used in `data_quality.get_kurtosis`,
-        See `data_quality.get_kurtosis` for full details.
 
     Returns
     -------
     pandas.DataFrame or dict
         Either a DataFrame (if return_as='dataframe`) or a dict (if
         return_as='dict') containing the following entries per feature:
-        - ``is_normal`` (int) - 1 if both |skewness| and |kurtosis| are
+
+        - ``is_normal`` (int) - 1 if both :math:`|\gamma_1|` and :math:`|\gamma_2|` are
           within thresholds.
         - ``desc`` (str) - human-friendly description, one of:
           ``'normal'``, ``'left-skewed'``, ``'right-skewed'``,
           ``'low-pitched'`` (platykurtic) and/or ``'high-pitched'`` (leptokurtic).
           Multiple descriptors are joined by a comma (e.g. ``'right-skewed,
           high-pitched'``).
-        - skewness (float) - skewness (third standardized moment).
-        - kurtosis (float) - excess kurtosis (fourth standardized moment
-          minus 3).
+        - skewness :math:`\gamma_1` (float) - skewness (third standardized moment).
+        - kurtosis :math:`\gamma_2` (float) - excess kurtosis (fourth standardized
+          moment minus 3).
+
+    Other Parameters
+    ----------------
+    method_skewness : {"general", "sample"}, default="general"
+        Method to compute skewness. It is used in `data_quality.get_skewness`,
+        See `data_quality.get_skewness` for full details.
+    method_kurtosis : {"general", "sample"}, default="general"
+        Method to compute kurtosis. It is used in `data_quality.get_kurtosis`,
+        See `data_quality.get_kurtosis` for full details.
 
     Raises
     ------
     ValueError
         If ``return_as`` is not in ``{'dataframe', 'dict'}``.
+
+    See Also
+    --------
+    explorica.data_quality.outliers.stats.get_skewness
+        The underlying computation function.
+    explorica.data_quality.outliers.stats.get_kurtosis
+        The underlying computation function.
 
     Notes
     -----
@@ -301,19 +358,23 @@ def describe_distributions(
 
     Examples
     --------
+    >>> import numpy as np
     >>> import pandas as pd
+    >>> from explorica.data_quality.outliers import describe_distributions
+    >>> # Simple usage
+    >>> np.random.seed(42) # Set seed for reproducibility
     >>> df = pd.DataFrame({
     ...     "x": np.random.normal(size=1000),
     ...     "y": np.random.exponential(size=1000)
     ... })
-    >>> DataPreprocessor.describe_distributions(df, threshold_skewness=0.3)
-                    is_normal                         desc  skewness  kurtosis
-    feature
-    x                   1                         normal  0.012345  0.023456
-    y                   0           right-skewed, high-pitched  1.234567  3.456789
-    >>> d = DataPreprocessor.describe_distributions(df, return_as='dict')
-    >>> list(d.keys())
-    ['is_normal', 'desc', 'skewness', 'kurtosis']
+    >>> result = describe_distributions(df, threshold_skewness=0.3)
+    >>> np.round(result, 4)
+       skewness  kurtosis  is_normal                        desc
+    x    0.1168    0.0662          1                      normal
+    y    1.9808    5.3794          0  right-skewed, high-pitched
+    >>> result = describe_distributions(df, return_as='dict')
+    >>> list(result.keys())
+    ['skewness', 'kurtosis', 'is_normal', 'desc']
     """
     params = {
         "method_skewness": "general",

@@ -19,8 +19,7 @@ Notes
 Examples
 --------
 >>> import pandas as pd
->>> from explorica.reports.presets.blocks.data_quality_overview import (
-...     get_data_quality_overview_block,)
+>>> from explorica.reports.presets import get_data_quality_overview_block
 >>> df = pd.DataFrame({'a': [1, None, 2], 'b': ['x', 'y', None]})
 >>> block = get_data_quality_overview_block(df)
 >>> block.block_config.title
@@ -29,15 +28,19 @@ Examples
 ['Duplicates rows', 'Duplicates ratio']
 >>> block.block_config.tables[0].title
 "NaN's count & ratio"
+>>> block.close_figures()
 """
 
-from typing import Sequence, Mapping, Any
+from typing import Any, Mapping, Sequence
+
 import numpy as np
 
-from ....data_quality import get_missing
 from ...._utils import convert_dataframe
+from ....data_quality import get_missing
 from ....types import TableResult
 from ...core.block import Block, BlockConfig
+
+__all__ = ["get_data_quality_overview_block"]
 
 
 def get_data_quality_overview_block(
@@ -63,10 +66,13 @@ def get_data_quality_overview_block(
     -------
     Block
         An Explorica Block containing:
+
         - Metrics:
+
             - "Duplicates rows": number of duplicated rows in the dataset.
             - "Duplicates ratio": ratio of duplicated rows to total rows.
         - Table:
+
             - "NaN's count & ratio": table summarizing count and ratio of missing
               values per column.
 
@@ -80,7 +86,7 @@ def get_data_quality_overview_block(
     Examples
     --------
     >>> import pandas as pd
-    >>> from explorica.reports.presets.blocks import get_data_quality_overview_block
+    >>> from explorica.reports.presets import get_data_quality_overview_block
     >>> df = pd.DataFrame({
     ...     "a": [1, 2, 2, None],
     ...     "b": ["x", "y", "y", "z"]
@@ -90,11 +96,12 @@ def get_data_quality_overview_block(
     >>> metrics["Duplicates rows"]
     1
     >>> metrics["Duplicates ratio"]
-    0.25
+    np.float64(0.25)
     >>> block.block_config.tables[0].table
-       count_of_nans  nan_ratio
-    a              1       0.25
-    b              0       0.00
+       nan_count  nan_ratio
+    a          1       0.25
+    b          0       0.00
+    >>> block.close_figures()
     """
     df = convert_dataframe(data)
 
