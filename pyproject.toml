@@ -4,23 +4,23 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "explorica"
-version = "0.11.5"
+version = "1.0.0"
 description = "A Python framework for streamlined Exploratory Data Analysis (EDA)."
 authors = [
     { name="LaplaceDevil", email="LaplaceDevil@proton.me" }
 ]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "pandas>=1.5.0,<3.0.0",
-    "numpy<3.0.0",
-    "matplotlib",
-    "seaborn",
-    "plotly",
-    "scipy",
-    "statsmodels",
-    "openpyxl",
+    "numpy>=1.24.0,<3.0.0",
+    "matplotlib>=3.5",
+    "seaborn>=0.12",
+    "plotly>=5.15",
+    "scipy>=1.10",
+    "statsmodels>=0.13",
+    "openpyxl>=0.14",
     "reportlab>=3.6,<5"
 ]
 keywords = ["eda", "data-analysis", "statistics", "visualization", "data-science"]
@@ -30,8 +30,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Topic :: Scientific/Engineering :: Information Analysis",
@@ -61,9 +59,10 @@ docs = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-explorica = ["*.csv", "*.json", "*.yml"]
+explorica = ["**/*"]
 
 [project.urls]
 "Homepage" = "https://github.com/LaplaceDevil/explorica"
+"Documentation" = "https://laplacedevil.github.io/explorica/"
 "Bug Tracker" = "https://github.com/LaplaceDevil/explorica/issues"
 "Source Code" = "https://github.com/LaplaceDevil/explorica"

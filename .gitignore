@@ -2,7 +2,8 @@
 config.json
 test_template.py
 .venv/
-.venv3_11
+.venv3_11/
+dist/
 
 # Debug files
 debug*.ipynb
@@ -27,3 +28,10 @@ explorica.egg-info/
 # Sphinx build artifacts
 docs/build/
 docs/_build/
+
+# Pytest artifacts
+coverage.xml
+
+# Deployment artifacts
+venv_test/
+build/

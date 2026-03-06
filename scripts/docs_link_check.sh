@@ -38,4 +38,4 @@ cd "$SCRIPT_DIR/../docs"
 
 make linkcheck SPHINXOPTS="-qW"
 
-echo "✅ Link checks sucessfully passed! /ᐠ > ˕ <マ ₊˚⊹♡"
+echo "✅ Link checks successfully passed! /ᐠ > ˕ <マ ₊˚⊹♡"

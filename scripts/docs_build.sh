@@ -38,5 +38,4 @@ cd "$SCRIPT_DIR/../docs"
 
 make clean
 make html SPHINXOPTS="-W"
-
-echo "✅ Sphinx checks sucessfully passed! /ᐠ > ˕ <マ ₊˚⊹♡"
+echo "✅ Sphinx checks successfully passed! /ᐠ > ˕ <マ ₊˚⊹♡"

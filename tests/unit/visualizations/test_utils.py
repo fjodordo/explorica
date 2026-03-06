@@ -1,6 +1,6 @@
 from pathlib import Path
 import logging
-import os
+import os, sys
 
 import pytest
 from pytest_mock import mocker
@@ -98,6 +98,7 @@ def test_save_plot_case_insensitive_formats(filename, tmp_path: Path):
     _utils.save_plot(PLOT[0], directory=str(plot_path))
     assert plot_path.exists()
 
+@pytest.mark.skipif(sys.platform == "win32", reason="chmod not supported on Windows")
 def test_save_plot_permission_denied(tmp_path: Path):
     """Checks for PermissionError raise if save_plot does not have write permissions"""
     read_only_dir = tmp_path / "readonly"

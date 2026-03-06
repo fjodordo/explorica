@@ -38,4 +38,4 @@ cd "$SCRIPT_DIR/../docs"
 
 make doctest SPHINXOPTS="-W"
 
-echo "✅ Doctests sucessfully passed! /ᐠ > ˕ <マ ₊˚⊹♡"
+echo "✅ Doctests successfully passed! /ᐠ > ˕ <マ ₊˚⊹♡"

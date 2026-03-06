@@ -1,4 +1,4 @@
-import os
+import os, sys
 import warnings
 import pytest
 from pathlib import Path
@@ -37,6 +37,7 @@ def test_validate_path_warns_if_dir_missing(tmp_path):
     with pytest.warns(UserWarning):
         validate_path(non_existing_dir, dir_exists_check=True)
 
+@pytest.mark.skipif(sys.platform == "win32", reason="chmod not supported on Windows")
 def test_validate_path_permission_error(tmp_path):
     # make dir without write perms
     protected_dir = tmp_path / "protected"
