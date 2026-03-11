@@ -1,14 +1,14 @@
 <p align="center">
-  <img src="assets/logo.png" width="180">
+  <img src="https://raw.githubusercontent.com/LaplaceDevil/explorica/main/assets/logo.png" width="180">
 </p>
 
 # Explorica - A Flexible Framework for Exploratory Data Analysis🌱
 
 |         |                                                                                                                                                                                                                                                                                                                            |
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CI      | ![Tests](https://github.com/laplacedevil/explorica/actions/workflows/ci_tests.yml/badge.svg)![Docs](https://github.com/laplacedevil/explorica/actions/workflows/docs.yml/badge.svg)[![codecov](https://codecov.io/gh/LaplaceDevil/explorica/graph/badge.svg)](https://codecov.io/gh/LaplaceDevil/explorica) |
-| Package | ![Python version](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue?logo=python&logoColor=white)![PyPI Version](https://img.shields.io/badge/pypi-v1.0.0-blue?logo=pypi&logoColor=white)![CondaForge Version](https://img.shields.io/badge/conda--forge-coming%20soon-blue?logo=anaconda&logoColor=green)                                                                                                                                                                          |
-| Meta    | [![Documentation](https://img.shields.io/badge/docs-github%20pages-9959d5?logo=githubpages&color=9959d5)](https://laplacedevil.github.io/explorica)[![Documentation](https://img.shields.io/badge/license-MIT-9959d5)](https://github.com/LaplaceDevil/explorica/blob/main/LICENSE.md)                                                                                                                                                                                                                                                               |
+| CI      | [![Tests](https://github.com/laplacedevil/explorica/actions/workflows/ci_tests.yml/badge.svg)](https://github.com/laplacedevil/explorica/actions/workflows/ci_tests.yml)[![Docs](https://github.com/laplacedevil/explorica/actions/workflows/docs.yml/badge.svg)](https://github.com/laplacedevil/explorica/actions/workflows/docs.yml)[![codecov](https://codecov.io/gh/LaplaceDevil/explorica/graph/badge.svg)](https://codecov.io/gh/LaplaceDevil/explorica) |
+| Package | ![Python version](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue?logo=python&logoColor=white)[![PyPI version](https://img.shields.io/pypi/v/explorica?logo=pypi&logoColor=white)](https://pypi.org/project/explorica/)![CondaForge Version](https://img.shields.io/badge/conda--forge-coming%20soon-blue?logo=anaconda&logoColor=green)                                                                                                                                                                          |
+| Meta    | [![Documentation](https://img.shields.io/badge/docs-github%20pages-9959d5?logo=githubpages&color=9959d5)](https://laplacedevil.github.io/explorica)[![License](https://img.shields.io/badge/license-MIT-9959d5)](https://github.com/LaplaceDevil/explorica/blob/main/LICENSE.md)                                                                                                                                                                                                                                                               |
 
 
 **Explorica** is a modular and extensible Python framework for **exploratory data analysis (EDA)**.  
@@ -92,4 +92,4 @@ We welcome contributions of all kinds, including:
 ---
 
 ## License
-[MIT License](LICENSE.md)
+[MIT License](https://github.com/LaplaceDevil/explorica/blob/main/LICENSE.md)
